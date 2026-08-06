@@ -1,0 +1,95 @@
+{
+  "app": {
+    "title": "My Room",
+    "description": "A collector community where you display what you own in a virtual room, look inside other people's rooms, and turn any piece into a listing as it is."
+  },
+  "nav": {
+    "new": "New",
+    "myRoom": "My Room",
+    "search": "Search",
+    "market": "Market"
+  },
+  "myRoom": {
+    "tab": {
+      "profile": "Profile",
+      "items": "Items",
+      "records": "Records"
+    },
+    "leftItems": "Items that left",
+    "itemCount": "{count, plural, =1 {# item} other {# items}}",
+    "level": "Lv.{level}"
+  },
+  "category": {
+    "watch": "Watches",
+    "shoes": "Shoes",
+    "bicycle": "Bicycles",
+    "apparel": "Apparel",
+    "camping": "Camping",
+    "deskterior": "Deskterior"
+  },
+  "item": {
+    "status": {
+      "displayed": "On display",
+      "onSale": "For sale",
+      "sold": "Sold"
+    },
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    },
+    "ownedFor": "{years, plural, =0 {} =1 {# year } other {# years }}{months, plural, =0 {} =1 {# month} other {# months}}"
+  },
+  "diary": {
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    }
+  },
+  "filter": {
+    "all": "All",
+    "category": "Category",
+    "language": "Language",
+    "currency": "Currency"
+  },
+  "sanction": {
+    "warning": "Warning",
+    "suspended": "Suspended",
+    "banned": "Permanently banned"
+  },
+  "auth": {
+    "login": "Log in",
+    "loginWithGoogle": "Continue with Google",
+    "loginWithApple": "Continue with Apple",
+    "loginRequired": "Log in to continue"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close",
+    "retry": "Try again",
+    "loading": "Loading",
+    "back": "Back"
+  },
+  "empty": {
+    "feed": "No items on display yet",
+    "search": "No results found",
+    "market": "Nothing for sale right now",
+    "items": "Add your first item",
+    "records": "No records yet"
+  },
+  "error": {
+    "generic": "Something went wrong",
+    "network": "Check your network connection",
+    "notFound": "Not found",
+    "forbidden": "You don't have access",
+    "privateRoom": "This room is private"
+  },
+  "externalLink": {
+    "title": "You're leaving this service",
+    "body": "This page isn't managed by us. Any transaction is at your own risk.",
+    "continue": "Continue"
+  }
+}

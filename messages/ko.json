@@ -1,0 +1,95 @@
+{
+  "app": {
+    "title": "나의 방",
+    "description": "취미 수집품을 가상의 방에 전시하고, 남의 방을 들여다보고, 그 물건을 그대로 매물로 전환할 수 있는 컬렉터 커뮤니티."
+  },
+  "nav": {
+    "new": "새 아이템",
+    "myRoom": "마이룸",
+    "search": "검색",
+    "market": "마켓"
+  },
+  "myRoom": {
+    "tab": {
+      "profile": "프로필",
+      "items": "아이템",
+      "records": "기록"
+    },
+    "leftItems": "떠난 아이템",
+    "itemCount": "{count, plural, other {아이템 #개}}",
+    "level": "Lv.{level}"
+  },
+  "category": {
+    "watch": "시계",
+    "shoes": "신발",
+    "bicycle": "자전거",
+    "apparel": "옷",
+    "camping": "캠핑",
+    "deskterior": "데스크테리어"
+  },
+  "item": {
+    "status": {
+      "displayed": "전시중",
+      "onSale": "판매중",
+      "sold": "판매완료"
+    },
+    "visibility": {
+      "public": "공개",
+      "private": "비공개"
+    },
+    "ownedFor": "{years, plural, =0 {} other {#년 }}{months, plural, =0 {} other {#개월}}"
+  },
+  "diary": {
+    "visibility": {
+      "public": "공개",
+      "private": "비공개"
+    }
+  },
+  "filter": {
+    "all": "전체",
+    "category": "카테고리",
+    "language": "언어권",
+    "currency": "통화"
+  },
+  "sanction": {
+    "warning": "경고",
+    "suspended": "일시 정지",
+    "banned": "영구 정지"
+  },
+  "auth": {
+    "login": "로그인",
+    "loginWithGoogle": "Google로 계속하기",
+    "loginWithApple": "Apple로 계속하기",
+    "loginRequired": "로그인이 필요합니다"
+  },
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "confirm": "확인",
+    "edit": "수정",
+    "delete": "삭제",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "loading": "불러오는 중",
+    "back": "뒤로"
+  },
+  "empty": {
+    "feed": "아직 전시된 아이템이 없습니다",
+    "search": "검색 결과가 없습니다",
+    "market": "판매중인 아이템이 없습니다",
+    "items": "첫 아이템을 등록해보세요",
+    "records": "아직 기록이 없습니다"
+  },
+  "error": {
+    "generic": "문제가 발생했습니다",
+    "network": "네트워크 연결을 확인해주세요",
+    "notFound": "찾을 수 없습니다",
+    "forbidden": "접근 권한이 없습니다",
+    "privateRoom": "비공개 방입니다"
+  },
+  "externalLink": {
+    "title": "외부 사이트로 이동합니다",
+    "body": "이 서비스가 관리하지 않는 페이지입니다. 거래는 본인 책임입니다.",
+    "continue": "이동"
+  }
+}
