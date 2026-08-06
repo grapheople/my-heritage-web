@@ -1,0 +1,9 @@
+# pnpm은 의존성의 build/postinstall 스크립트를 기본 차단한다. 여기 명시한 것만 실행된다.
+allowBuilds:
+  '@parcel/watcher': true
+  '@prisma/engines': true
+  '@swc/core': true
+  esbuild: true
+  prisma: true
+  sharp: false
+  unrs-resolver: false

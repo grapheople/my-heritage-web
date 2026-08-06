@@ -1,0 +1,95 @@
+{
+  "app": {
+    "title": "マイルーム",
+    "description": "趣味のコレクションを仮想の部屋に展示し、他の人の部屋を覗き、その品をそのまま出品できるコレクターコミュニティ。"
+  },
+  "nav": {
+    "new": "新着",
+    "myRoom": "マイルーム",
+    "search": "検索",
+    "market": "マーケット"
+  },
+  "myRoom": {
+    "tab": {
+      "profile": "プロフィール",
+      "items": "アイテム",
+      "records": "記録"
+    },
+    "leftItems": "旅立ったアイテム",
+    "itemCount": "{count, plural, other {アイテム#点}}",
+    "level": "Lv.{level}"
+  },
+  "category": {
+    "watch": "時計",
+    "shoes": "シューズ",
+    "bicycle": "自転車",
+    "apparel": "ウェア",
+    "camping": "キャンプ",
+    "deskterior": "デスク周り"
+  },
+  "item": {
+    "status": {
+      "displayed": "展示中",
+      "onSale": "販売中",
+      "sold": "売却済み"
+    },
+    "visibility": {
+      "public": "公開",
+      "private": "非公開"
+    },
+    "ownedFor": "{years, plural, =0 {} other {#年}}{months, plural, =0 {} other {#ヶ月}}"
+  },
+  "diary": {
+    "visibility": {
+      "public": "公開",
+      "private": "非公開"
+    }
+  },
+  "filter": {
+    "all": "すべて",
+    "category": "カテゴリ",
+    "language": "言語圏",
+    "currency": "通貨"
+  },
+  "sanction": {
+    "warning": "警告",
+    "suspended": "一時停止",
+    "banned": "永久停止"
+  },
+  "auth": {
+    "login": "ログイン",
+    "loginWithGoogle": "Googleで続ける",
+    "loginWithApple": "Appleで続ける",
+    "loginRequired": "ログインが必要です"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "edit": "編集",
+    "delete": "削除",
+    "close": "閉じる",
+    "retry": "再試行",
+    "loading": "読み込み中",
+    "back": "戻る"
+  },
+  "empty": {
+    "feed": "まだ展示されたアイテムがありません",
+    "search": "検索結果がありません",
+    "market": "販売中のアイテムがありません",
+    "items": "最初のアイテムを登録しましょう",
+    "records": "まだ記録がありません"
+  },
+  "error": {
+    "generic": "問題が発生しました",
+    "network": "ネットワーク接続を確認してください",
+    "notFound": "見つかりませんでした",
+    "forbidden": "アクセス権限がありません",
+    "privateRoom": "非公開のルームです"
+  },
+  "externalLink": {
+    "title": "外部サイトに移動します",
+    "body": "当サービスが管理していないページです。取引はご自身の責任で行ってください。",
+    "continue": "移動する"
+  }
+}

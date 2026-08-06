@@ -1,0 +1,585 @@
+// 나의 방 (my-heritage) — 데이터 모델
+//
+// SoT: my-heritage-planning
+//   골격(엔티티·관계·M-01~M-14) → projects/myroom-service/drafts/02-planning-spec.md §5
+//   필드 상세                   → 각 하위 프로젝트 PRD / Planning Spec
+//
+// ⚠️ 이 스키마는 확정된 결정(D-xxx)만 반영한다. 문서에 근거가 없는 필드를 추측으로
+//    추가하지 않는다 (planning CLAUDE.md 에이전트 공통 규칙 9).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// ko/ja/en 3개 모두 1급 언어 (D-003)
+enum Locale {
+  ko
+  ja
+  en
+}
+
+/// 판매자 지정 통화 그대로 표시. 환산하지 않는다 (D-011)
+enum Currency {
+  KRW
+  JPY
+  USD
+}
+
+/// D-021 — Google / Apple 소셜만. 이메일·비밀번호 가입 없음
+enum AuthProvider {
+  GOOGLE
+  APPLE
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+/// myroom-service §3-3 / market §1
+enum ItemSaleStatus {
+  DISPLAYED /// 전시중 — 마켓 미노출
+  ON_SALE /// 판매중 — 마켓 노출. 가격·통화·외부 링크 필수 (D-050)
+  SOLD /// 판매완료 — "떠난 아이템". 도감 소유자 목록에서 제외 (D-023)
+}
+
+/// myroom-service §3-5 (D-064)
+enum SanctionLevel {
+  WARNING /// 경고 — 기능 제한 없음 (FR-07-A-07)
+  SUSPENDED /// 일시 정지 — 기간 지정. 만료 시 자동 해제
+  BANNED /// 영구 정지 — 어드민 수동 해제
+}
+
+/// D-038 — 8종. 매칭 키로 쓸 수 있는 것은 text/number/select/date 4종만 (D-041)
+enum AttributeType {
+  text
+  textarea
+  number
+  select
+  multiselect
+  date
+  boolean
+  url
+}
+
+/// codex — 어드민 검증 배지
+enum CodexVerification {
+  UNVERIFIED
+  VERIFIED
+}
+
+/// D-029, D-035 — 신고 대상
+enum ReportTargetType {
+  ITEM
+  DIARY
+  ROOM
+  CODEX
+  EXTERNAL_LINK
+}
+
+enum ReportStatus {
+  PENDING /// 어드민 큐에 적재. 대상 콘텐츠는 그대로 노출됨
+  RESOLVED /// 비공개 처리 등 조치 완료
+  REJECTED /// 반려
+}
+
+/// D-046 — 유저 브랜드 추가 요청 승인 큐
+enum BrandRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// D-026 — 1일 최대 60exp (로그인 10 + 아이템 30 + 일기 20)
+enum ExperienceReason {
+  LOGIN
+  ITEM_CREATE
+  DIARY_CREATE
+}
+
+// ---------------------------------------------------------------------------
+// User / Room / 제재
+// ---------------------------------------------------------------------------
+
+model User {
+  id       String       @id @default(cuid())
+  provider AuthProvider
+  /// 소셜 provider의 subject
+  subject  String
+  /// Apple 릴레이 이메일일 수 있다 (FR-05-A-04)
+  email    String?
+
+  /// 유저 설정 언어. NEW 피드 언어권 필터의 기준값이다 (D-027, FR-03-B-02)
+  language Locale @default(en)
+  /// 경험치 1일 1회 판정 기준 (M-10, D-056). IANA tz name
+  timezone String @default("UTC")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  /// 탈퇴 시각. 방·아이템·일기는 삭제하고 도감은 유지한다 (NFR-User)
+  deletedAt DateTime?
+
+  room           Room?
+  sanctions      Sanction[]
+  experienceLogs ExperienceLog[]
+  blocksMade     Block[]         @relation("blocker")
+  blocksReceived Block[]         @relation("blocked")
+  reportsMade    Report[]        @relation("reporter")
+  brandRequests  BrandRequest[]
+  createdCodex   CodexItem[]     @relation("codexCreator")
+
+  @@unique([provider, subject])
+  @@index([language])
+}
+
+model Room {
+  id     String @id @default(cuid())
+  /// M-05 — User당 1개
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// FR-05-A-06 — 유일값이 아니다
+  name       String
+  bio        String?
+  imageUrl   String?
+  /// 기본 공개. 방 상태가 아이템 설정을 무시한다 (M-06, FR-02-A-01/04)
+  visibility Visibility @default(PUBLIC)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items   Item[]
+  diaries Diary[]
+
+  @@index([visibility])
+}
+
+/// D-064, D-065 — 제재 이전 방 공개 상태를 함께 보존한다 (M-12)
+model Sanction {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  level     SanctionLevel
+  /// FR-07-A-04 — 필수
+  reason    String
+  /// 일시 정지에만 존재. 만료 시 자동 해제 (FR-07-A-09)
+  expiresAt DateTime?
+
+  /// M-12 — 해제 시 이 값으로 복원한다. 강제 전환값으로 덮어쓰지 않는다
+  previousRoomVisibility Visibility?
+
+  /// 조치자(어드민) 식별자. 어드민 계정 모델은 미확정이므로 문자열로 둔다
+  issuedBy String
+  issuedAt DateTime  @default(now())
+  liftedBy String?
+  liftedAt DateTime?
+
+  @@index([userId, liftedAt])
+  @@index([expiresAt])
+}
+
+/// D-051 — A→B 차단 1건이 양쪽 가시성을 차단한다 (M-11, 상호 비가시)
+model Block {
+  id        String @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker   User   @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User   @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// ---------------------------------------------------------------------------
+// Category / 동적 속성 (item-catalog)
+// ---------------------------------------------------------------------------
+
+/// D-007 — 6개 고정. 어드민이 신규 생성·삭제하지 않는다 (FR-01-A-02)
+/// 카테고리명은 i18n 리소스에서 가져온다 — DB 다국어 컬럼 없음 (policies/i18n §1-1)
+model Category {
+  id  String @id @default(cuid())
+  /// i18n key. messages/*.json의 `category.*`와 일치해야 한다
+  key String @unique
+
+  displayOrder Int     @default(0)
+  active       Boolean @default(true)
+
+  attributes  CategoryAttribute[]
+  codexItems  CodexItem[]
+  items       Item[]
+  brands      Brand[]
+  matchingKey MatchingKeyDefinition?
+}
+
+/// D-010 — 공통 속성 라이브러리. 여러 카테고리가 참조한다 (A-01 규칙)
+model AttributeDefinition {
+  id   String        @id @default(cuid())
+  key  String        @unique
+  type AttributeType
+
+  /// 커스텀 속성은 ko/ja/en 3개 필수 (D-010, policies/i18n Case 8)
+  labelKo String
+  labelJa String
+  labelEn String
+
+  /// `number` 타입의 단위. 기호가 같아도 3개 필드를 갖는다 (D-038, FR-02-A-08)
+  unitKo String?
+  unitJa String?
+  unitEn String?
+
+  /// true = 서비스가 사전 번역을 보유한 공통 속성. false = 카테고리 전용 커스텀
+  isCommon Boolean @default(false)
+
+  /// 타입별 검증 규칙 (최대 길이 / 소수점 자릿수 / 최소·최대 / 미래 날짜 허용 등)
+  /// item-catalog "속성 타입별 검증 규칙" 표 참조
+  validation Json?
+
+  categoryAttributes CategoryAttribute[]
+  options            AttributeOption[]
+}
+
+/// A-02 규칙 — `required`·`active`·`displayOrder`는 카테고리별로 관리한다
+model CategoryAttribute {
+  id                    String              @id @default(cuid())
+  categoryId            String
+  attributeDefinitionId String
+  category              Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributeDefinition   AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Restrict)
+
+  required     Boolean @default(false)
+  /// D-036 — 비활성화만. 값은 보존되고 표시에서 제외된다 (M-09)
+  active       Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  values ItemAttributeValue[]
+
+  @@unique([categoryId, attributeDefinitionId])
+  @@index([categoryId, active, displayOrder])
+}
+
+/// select / multiselect 선택지. key는 불변이고 라벨만 변경된다 (A-05 규칙)
+model AttributeOption {
+  id                    String              @id @default(cuid())
+  attributeDefinitionId String
+  attributeDefinition   AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Cascade)
+
+  key     String
+  /// enum 값도 3개 언어 관리 대상 (policies/i18n §3 — 가장 흔한 누락 지점)
+  labelKo String
+  labelJa String
+  labelEn String
+
+  active       Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  @@unique([attributeDefinitionId, key])
+}
+
+/// D-043 — 원문 1개 + 언어별 alias. 번역 컬럼을 두지 않는다 (A-04 규칙)
+/// 출시 전 시드 290건 + alias 약 900건 필요 (D-044, D-047)
+model Brand {
+  id      String  @id @default(cuid())
+  /// 원문 1개. CSV import는 이 값 기준 upsert — 멱등해야 한다 (FR-04-B-10)
+  name    String  @unique
+  /// { ko: string[], ja: string[], en: string[] } — 검색 인덱스 전용, 화면 미표시
+  aliases Json    @default("{}")
+  active  Boolean @default(true)
+
+  /// D-043 — Category와 N:M
+  categories Category[]
+  items      Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// D-046 — 유저 요청 + 어드민 승인 큐 (A-12). 즉시 반영하지 않는다
+model BrandRequest {
+  id          String @id @default(cuid())
+  requesterId String
+  requester   User   @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  requestedName String
+  /// 어떤 카테고리에서 요청됐는지. 승인 시 브랜드-카테고리 연결에 쓴다
+  categoryKey   String
+
+  status     BrandRequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  /// 거부 사유 또는 기존 브랜드 alias로 흡수한 경우의 메모
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// 도감 (codex)
+// ---------------------------------------------------------------------------
+
+/// D-013 — 카테고리마다 매칭 키가 다르다 (단일 / 복합). A-03
+model MatchingKeyDefinition {
+  id         String   @id @default(cuid())
+  categoryId String   @unique
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// AttributeDefinition.key 배열. 순서가 정규화 키 생성 순서다 (FR-01-A-05)
+  /// 최소 1개 (FR-01-A-03). text/number/select/date 타입만 (FR-01-A-06)
+  attributeKeys String[]
+
+  updatedAt  DateTime               @updatedAt
+  /// 변경 이력 (FR-01-B-04)
+  changeLogs MatchingKeyChangeLog[]
+}
+
+model MatchingKeyChangeLog {
+  id                      String                @id @default(cuid())
+  matchingKeyDefinitionId String
+  matchingKeyDefinition   MatchingKeyDefinition @relation(fields: [matchingKeyDefinitionId], references: [id], onDelete: Cascade)
+
+  before    String[]
+  after     String[]
+  changedBy String
+  changedAt DateTime @default(now())
+}
+
+model CodexItem {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  /// D-009 — 전 언어 공통 표시 명칭. 번역하지 않는다
+  displayName   String
+  /// 매칭 키가 단일 키인 카테고리의 고유값 (레퍼런스넘버·스타일코드 등)
+  uniqueId      String?
+  /// D-014 — 매칭 키를 정규화해 만든 키. Category 단위 유일
+  normalizedKey String
+
+  /// { ko: string[], ja: string[], en: string[] } — 검색 전용 (D-009)
+  aliases Json @default("{}")
+
+  /// 미검증 설명은 유저 입력 유래 → 원문 그대로 (policies/i18n §1-3)
+  description  String?
+  /// 검증된 도감의 어드민 작성 설명. { ko?, ja?, en? } — 미입력 언어는 fallback
+  descriptions Json?
+
+  verification CodexVerification @default(UNVERIFIED)
+  verifiedBy   String?
+  verifiedAt   DateTime?
+
+  /// M-02 — 연결된 Item이 0건이어도 존재한다 (어드민 직접 등록)
+  createdByUserId String?
+  createdByUser   User?   @relation("codexCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  /// D-016 — 병합으로 흡수된 경우 살아남은 도감을 가리킨다. 되돌리기 가능해야 한다
+  mergedIntoId String?
+  mergedInto   CodexItem?  @relation("codexMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom   CodexItem[] @relation("codexMerge")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Item[]
+
+  /// D-014 — normalizedKey는 Category 단위 유일
+  @@unique([categoryId, normalizedKey])
+  @@index([verification])
+  @@index([uniqueId])
+}
+
+// ---------------------------------------------------------------------------
+// Item (item-catalog) / 판매 (market)
+// ---------------------------------------------------------------------------
+
+/// M-14 — 아이템 명칭은 저장하지 않는 파생값이다.
+///   도감 연결 시 CodexItem.displayName, 미연결 시 brand.name + model (D-073)
+model Item {
+  id     String @id @default(cuid())
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  /// M-08 — 자유 텍스트가 아니다 (D-043). 브랜드 요청 대기 중이면 null (D-046)
+  brandId String?
+  brand   Brand?  @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  /// 자유 텍스트. 도감이 갈라지는 잔여 리스크는 item-catalog R3로 수용됨
+  model   String?
+
+  /// M-01 — CodexItem 없이도 존재할 수 있다 (도감 미연결 등록, D-032)
+  codexItemId String?
+  codexItem   CodexItem? @relation(fields: [codexItemId], references: [id], onDelete: SetNull)
+
+  visibility Visibility     @default(PUBLIC)
+  saleStatus ItemSaleStatus @default(DISPLAYED)
+
+  /// 판매 전환 시 가격·통화·외부 링크 3개 필수 (D-050).
+  /// 판매 취소 후에도 값은 보존된다 (market §2) — 방 공개 복귀 시 재입력 요구 금지 (FR-02-A-08)
+  price       Decimal?  @db.Decimal(14, 2)
+  currency    Currency?
+  externalUrl String?
+  soldAt      DateTime?
+
+  /// FR-03-A-01/09 — NEW 피드 정렬 기준. 비공개→공개 전환으로 갱신하지 않는다 (D-070)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos          ItemPhoto[]
+  attributeValues ItemAttributeValue[]
+  diaries         DiaryItem[]
+
+  @@index([visibility, saleStatus, createdAt])
+  @@index([roomId, categoryId])
+  @@index([codexItemId])
+}
+
+/// D-037 — 최대 10장, 1장 이상 필수 (M-07). 첫 장이 대표 이미지
+model ItemPhoto {
+  id     String @id @default(cuid())
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  url          String
+  displayOrder Int    @default(0)
+
+  @@index([itemId, displayOrder])
+}
+
+/// M-09 / A-03 규칙 — 비활성 속성의 값도 보존된다 (D-036)
+model ItemAttributeValue {
+  id                  String            @id @default(cuid())
+  itemId              String
+  categoryAttributeId String
+  item                Item              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  categoryAttribute   CategoryAttribute @relation(fields: [categoryAttributeId], references: [id], onDelete: Restrict)
+
+  /// 타입별 값. 속성 값은 번역 대상이 아니다 — 원문 그대로 (policies/i18n §1-2)
+  /// text/textarea/url/date/select → string, number → string(정밀도 보존),
+  /// boolean → bool, multiselect → string[]
+  value Json
+
+  @@unique([itemId, categoryAttributeId])
+  @@index([categoryAttributeId])
+}
+
+// ---------------------------------------------------------------------------
+// 일기 (diary)
+// ---------------------------------------------------------------------------
+
+model Diary {
+  id     String @id @default(cuid())
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// D-053 — 언어 무관 1000자. 플레인 텍스트, URL 자동 링크화 없음
+  body       String
+  visibility Visibility @default(PUBLIC)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos DiaryPhoto[]
+  items  DiaryItem[]
+
+  @@index([roomId, visibility, createdAt])
+}
+
+/// 사진 최대 10장. 아이템과 정책 공유 (D-037)
+model DiaryPhoto {
+  id      String @id @default(cuid())
+  diaryId String
+  diary   Diary  @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+
+  url          String
+  displayOrder Int    @default(0)
+
+  @@index([diaryId, displayOrder])
+}
+
+/// M-03 — Diary↔Item은 N:M (D-054).
+/// 아이템 삭제 시 일기는 남고 연결만 해제된다 — Cascade는 이 join row에만 적용된다
+model DiaryItem {
+  diaryId String
+  itemId  String
+  diary   Diary  @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+  item    Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([diaryId, itemId])
+  @@index([itemId])
+}
+
+// ---------------------------------------------------------------------------
+// 경험치 · 레벨 (leveling)
+// ---------------------------------------------------------------------------
+
+/// A-09 — 어드민이 관리하는 레벨 테이블. 10레벨 (D-026)
+model LevelDefinition {
+  level       Int @id
+  requiredExp Int
+
+  updatedAt DateTime @updatedAt
+}
+
+/// D-026 — 같은 행동은 1일 1회. D-056 — "오늘"의 경계는 유저 타임존 기준
+/// D-058 — 회수 없음. 레벨은 단조 증가
+model ExperienceLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reason ExperienceReason
+  amount Int
+
+  /// 유저 타임존 기준 날짜 (YYYY-MM-DD). 1일 1회 판정의 유일 제약 근거 (D-056)
+  /// 운영 지표는 createdAt(UTC)을 쓴다 — 두 기준이 공존한다
+  localDate String
+
+  createdAt DateTime @default(now())
+
+  /// FR-01-A-04 — 같은 행동을 같은 날 반복해도 추가 부여 없음
+  @@unique([userId, reason, localDate])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// 신고 (market)
+// ---------------------------------------------------------------------------
+
+/// D-029, D-035 — 대상은 아이템·일기·방·도감·외부 링크. A-08
+model Report {
+  id         String @id @default(cuid())
+  reporterId String
+  reporter   User   @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  targetType ReportTargetType
+  /// 대상 엔티티 id. 대상 종류가 5가지라 FK로 묶지 않는다
+  targetId   String
+
+  reason String
+  detail String?
+
+  status     ReportStatus @default(PENDING)
+  handledBy  String?
+  handledAt  DateTime?
+  /// 조치 내용 (비공개 처리 / 반려 사유)
+  resolution String?
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
