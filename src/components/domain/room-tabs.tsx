@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 
 /**
  * 마이룸 하위 3메뉴 — 프로필 / 아이템 / 기록 (myroom-service §1-4).
@@ -6,16 +7,22 @@ import { useTranslations } from "next-intl";
  */
 export function RoomTabs({
   active,
+  /** 본인 방은 `/me`, 타인 방은 `/rooms/{id}` */
+  basePath = "/me",
 }: {
   active: "profile" | "items" | "records";
+  basePath?: string;
 }) {
   const t = useTranslations();
+  const href = (k: "profile" | "items" | "records") =>
+    k === "items" ? basePath : `${basePath}/${k}`;
 
   return (
     <nav className="sticky top-0 z-10 flex border-b bg-background lg:top-19 lg:h-fit lg:flex-col lg:self-start lg:rounded-lg lg:border">
       {(["profile", "items", "records"] as const).map((k) => (
-        <span
+        <Link
           key={k}
+          href={href(k)}
           aria-current={k === active ? "page" : undefined}
           className={
             k === active
@@ -24,7 +31,7 @@ export function RoomTabs({
           }
         >
           {t(`myRoom.tab.${k}`)}
-        </span>
+        </Link>
       ))}
     </nav>
   );

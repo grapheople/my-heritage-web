@@ -485,3 +485,83 @@ export function isItemIndexable(item: ItemDetail): boolean {
     item.roomPublic
   );
 }
+
+/* ─────────────────────────────────────────────────────────────
+   S-06 일기 작성·수정 · S-07 일기 상세 · 기록 목록
+   ───────────────────────────────────────────────────────────── */
+
+export type DiaryEntry = {
+  id: string;
+  roomId: string;
+  roomName: string;
+  /** 작성 시각 역순으로 표시 (FR-04-A-01) */
+  createdAt: string;
+  visibility: "PUBLIC" | "PRIVATE";
+  /** 플레인 텍스트. 개행 보존, 마크다운·URL 링크화 없음 (FR-01-B-01~04) */
+  body: string;
+  /** 최대 10장. 필수 아님 (FR-01-A-05·06) */
+  photoCount: number;
+  /**
+   * 연결된 아이템 (N:M, D-054).
+   * `visibility` 는 **아이템의** 공개 상태 — 비공개면 링크를 비활성화하되
+   * 일기 자체는 계속 노출한다 (FR-02-A-08).
+   */
+  items: { id: string; name: string; visibility: "PUBLIC" | "PRIVATE" }[];
+};
+
+export const DEV_DIARIES: DiaryEntry[] = [
+  {
+    id: "d-3", roomId: "r-jun", roomName: "시계쟁이 준",
+    createdAt: "2026-08-02", visibility: "PUBLIC", photoCount: 3,
+    body: "주말에 처음 데려간 캠핑. 텐트 세우는 데 40분 걸렸다.\n다음엔 20분 안에 해보자.",
+    items: [
+      { id: "c-1", name: "Snow Peak Land Station", visibility: "PUBLIC" },
+      { id: "c-2", name: "YETI Tundra 45", visibility: "PUBLIC" },
+    ],
+  },
+  {
+    id: "d-2", roomId: "r-jun", roomName: "시계쟁이 준",
+    createdAt: "2026-07-21", visibility: "PUBLIC", photoCount: 1,
+    body: "오버홀 맡기고 왔다. 3주 걸린다고.",
+    items: [{ id: "w-1", name: "Rolex Submariner 116610LN", visibility: "PUBLIC" }],
+  },
+  {
+    // 비공개 일기 — 소유자만 (FR-03-A-03)
+    id: "d-4", roomId: "r-jun", roomName: "시계쟁이 준",
+    createdAt: "2026-07-05", visibility: "PRIVATE", photoCount: 0,
+    body: "가격이 또 올랐다. 지금 팔까 고민 중.",
+    items: [{ id: "w-5", name: "Patek Philippe Aquanaut 5167A", visibility: "PRIVATE" }],
+  },
+  {
+    // 공개 일기인데 연결된 아이템이 비공개 — 링크만 비활성 (FR-02-A-08)
+    id: "d-5", roomId: "r-jun", roomName: "시계쟁이 준",
+    createdAt: "2026-07-02", visibility: "PUBLIC", photoCount: 2,
+    body: "케이스에 넣어두기만 하는 것도 나쁘지 않다.",
+    items: [{ id: "w-5", name: "Patek Philippe Aquanaut 5167A", visibility: "PRIVATE" }],
+  },
+  {
+    id: "d-1", roomId: "r-jun", roomName: "시계쟁이 준",
+    createdAt: "2026-06-30", visibility: "PUBLIC", photoCount: 4,
+    body: "드디어 데려왔다. 3년 기다린 시계.",
+    items: [{ id: "w-1", name: "Rolex Submariner 116610LN", visibility: "PUBLIC" }],
+  },
+];
+
+export function findDiary(id: string): DiaryEntry | undefined {
+  return DEV_DIARIES.find((d) => d.id === id);
+}
+
+/**
+ * 방의 일기 목록 — 작성 시각 역순 (FR-04-A-01).
+ * 타인 뷰에서는 **공개 일기만** (FR-04-A-03).
+ */
+export function roomDiaries(roomId: string, isOwner: boolean): DiaryEntry[] {
+  return DEV_DIARIES.filter(
+    (d) => d.roomId === roomId && (isOwner || d.visibility === "PUBLIC"),
+  );
+}
+
+/** 일기 본문 최대 길이. 언어 무관 유니코드 문자 수 (D-053, FR-01-A-01·02) */
+export const DIARY_MAX_LENGTH = 1000;
+/** 사진 최대 장수 (D-037, FR-01-A-05) */
+export const DIARY_MAX_PHOTOS = 10;

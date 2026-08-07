@@ -54,7 +54,7 @@ export default async function OtherRoomPage({
         level={room.level}
         itemCount={publicCount}
       />
-      <RoomTabs active="items" />
+      <RoomTabs active="items" basePath={`/rooms/${room.id}`} />
       {publicCount === 0 ? (
         <div className="lg:min-w-0">
           <EmptyState title={t("empty.items")} />
