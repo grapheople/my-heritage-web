@@ -181,7 +181,10 @@
     "purchasedFrom": "구매처",
     "purchaseDate": "구매일",
     "purchasePrice": "구매가",
-    "refUrl": "참고 링크"
+    "refUrl": "참고 링크",
+    "accessories": "포함 부속품",
+    "hasBox": "정품 박스",
+    "note": "메모"
   },
   "report": {
     "reportThis": "신고하기",
@@ -281,7 +284,8 @@
     "continueWithoutCodex": "등록이 끝날 때까지 도감 연결 없이 아이템을 등록할 수 있어요.",
     "reviewNotice": "바로 등록되지는 않아요. 운영자 확인 후 목록에 추가됩니다.",
     "alreadyExists": "이미 있는 브랜드예요 — ‘{name}’으로 선택해주세요.",
-    "alreadyRequested": "같은 요청이 이미 {count}건 있어요. 함께 처리됩니다."
+    "alreadyRequested": "같은 요청이 이미 {count}건 있어요. 함께 처리됩니다.",
+    "none": "찾는 브랜드가 없어요"
   },
   "notif": {
     "empty": "아직 알림이 없어요",
@@ -296,5 +300,45 @@
       "SANCTION": "제재",
       "CODEX_MERGED": "도감"
     }
+  },
+  "reg": {
+    "newTitle": "아이템 등록",
+    "editTitle": "아이템 수정",
+    "step1": "어떤 물건인가요?",
+    "choose": "선택",
+    "yes": "있어요",
+    "required": "필수 항목이에요",
+    "photoRequired": "사진을 1장 이상 등록해주세요",
+    "photos": "사진",
+    "cover": "대표",
+    "autoFilled": "자동 · 수정 가능",
+    "autoFillNotice": "도감에서 찾았어요. 값을 고치면 도감을 다시 찾습니다.",
+    "brandSearch": "브랜드 검색 (한글·일본어도 됩니다)",
+    "unknownKey": "고유번호를 모르겠어요",
+    "unknownKeyNotice": "도감에 연결되지 않아 ‘같은 물건 가진 사람’에는 나타나지 않아요. 나중에 넣으면 연결됩니다.",
+    "urlWarnNotice": "누르면 외부로 나간다는 경고가 먼저 표시됩니다.",
+    "noDraft": "작성 중 나가면 입력한 내용이 저장되지 않아요.",
+    "saved": "등록됐어요",
+    "savedNotice": "공개 · 전시중 상태로 등록됩니다. 오늘 첫 등록이면 경험치 30을 받아요."
+  },
+  "opt": {
+    "auto": "오토",
+    "quartz": "쿼츠",
+    "manual": "수동"
+  },
+  "cond": {
+    "new": "새제품",
+    "unused": "미사용",
+    "light": "사용감 적음",
+    "used": "사용감 있음"
+  },
+  "acc": {
+    "warranty": "보증서",
+    "links": "여분 링크",
+    "pouch": "파우치",
+    "manual": "설명서"
+  },
+  "unit": {
+    "year": "년"
   }
 }
