@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { MarketCard } from "@/components/domain/market-card";
 import { MarketControls } from "@/components/domain/market-controls";
 import { DEV_MARKET } from "@/lib/dev-fixture";
+import { localeAlternates } from "@/lib/site";
 
 /**
  * S-09 마켓 — 판매중 아이템 목록.
@@ -20,7 +21,11 @@ import { DEV_MARKET } from "@/lib/dev-fixture";
  * | 가격순은 단일 통화 선택 시에만. 비활성 이유를 안내 | D-048, FR-02-C-01·02 |
  * | 광고 삽입 지점 확보 (MVP 미노출) | D-025, FR-02-A-07 |
  */
-export const metadata: Metadata = { robots: { index: true, follow: true } };
+export const metadata: Metadata = {
+  robots: { index: true, follow: true },
+  // 3개 로케일 상호 선언 (D-091). 색인 대상에만 붙인다
+  alternates: { languages: localeAlternates("/market") },
+};
 
 export default async function MarketPage({
   searchParams,

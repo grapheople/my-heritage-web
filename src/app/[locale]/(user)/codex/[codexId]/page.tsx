@@ -11,6 +11,7 @@ import {
   findCodex,
   resolveCodexDesc,
 } from "@/lib/dev-fixture";
+import { localeAlternates } from "@/lib/site";
 
 /**
  * S-10 도감 상세 — **이 앱에서 가장 조심해야 하는 화면이다.**
@@ -33,7 +34,18 @@ import {
  * ## 색인
  * 색인 대상이다 (D-078). 기본값이 noindex 이므로 여기서 켠다.
  */
-export const metadata: Metadata = { robots: { index: true, follow: true } };
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/codex/[codexId]">): Promise<Metadata> {
+  const { codexId } = await params;
+  const entry = findCodex(codexId);
+  if (!entry) return {};
+  return {
+    title: entry.displayName,
+    robots: { index: true, follow: true },
+    alternates: { languages: localeAlternates(`/codex/${codexId}`) },
+  };
+}
 
 /** ISR — 콘텐츠가 거의 안 바뀌고 색인 대상이다. 병합·검증 시 revalidate */
 export const revalidate = 3600;
