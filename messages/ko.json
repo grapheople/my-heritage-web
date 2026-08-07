@@ -50,7 +50,12 @@
     "all": "전체",
     "category": "카테고리",
     "language": "언어권",
-    "currency": "통화"
+    "currency": "통화",
+    "lang": {
+      "ko": "한국어",
+      "ja": "일본어",
+      "en": "영어"
+    }
   },
   "sanction": {
     "warning": "경고",
@@ -98,5 +103,12 @@
   },
   "codex": {
     "unverified": "미검증"
+  },
+  "feed": {
+    "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
+    "showAllLangs": "전체 언어권 보기"
+  },
+  "room": {
+    "privateDesc": "방 주인이 공개하지 않은 방입니다."
   }
 }
