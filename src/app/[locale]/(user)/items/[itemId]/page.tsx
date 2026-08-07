@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { findItem, isItemIndexable } from "@/lib/dev-fixture";
 import { formatPrice, ownershipDuration } from "@/lib/format";
+import { localeAlternates } from "@/lib/site";
 
 /**
  * S-05 아이템 상세.
@@ -39,7 +40,11 @@ export async function generateMetadata({
   const item = findItem(itemId);
   // 기본값은 layout 의 noindex 다. 색인 조건을 만족할 때만 켠다 (D-093)
   if (!item || !isItemIndexable(item)) return {};
-  return { title: item.name, robots: { index: true, follow: true } };
+  return {
+    title: item.name,
+    robots: { index: true, follow: true },
+    alternates: { languages: localeAlternates(`/items/${itemId}`) },
+  };
 }
 
 export default async function ItemDetailPage({
