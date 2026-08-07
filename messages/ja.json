@@ -189,5 +189,46 @@
     "errUrlScheme": "http または https で始まる必要があります",
     "errNeedsPublic": "公開への切り替えに同意すると販売できます",
     "notWired": "入力値の検証まで確認しました。保存は開発連携後に動作します。"
+  },
+  "settings": {
+    "title": "プロフィール設定",
+    "roomName": "部屋の名前",
+    "roomNameHint": "他の人と同じ名前でも大丈夫です。",
+    "bio": "自己紹介",
+    "roomVisibility": "部屋の公開",
+    "roomPublicDesc": "誰でも見られます",
+    "roomPrivateDesc": "自分だけが見られます",
+    "goPrivateWarn": "非公開にすると販売中 {count}件がマーケットから外れます。",
+    "goPublicWarn": "公開にすると販売中 {count}件がマーケットに再表示されます。価格・リンクはそのままです。",
+    "language": "言語",
+    "blocks": "ブロック一覧",
+    "contact": "お問い合わせ",
+    "languageHint": "サービス画面のみ変わります。記録・部屋の名前・自己紹介・アイテム情報は書いたまま残ります。",
+    "noBlocks": "ブロックした人はいません",
+    "blocksHint": "ブロックすると互いの部屋・アイテム・記録・出品が見えなくなります。相手には通知されません。",
+    "blockedAt": "{date} にブロック",
+    "unblock": "解除"
+  },
+  "level": {
+    "current": "現在のレベル",
+    "max": "最高レベル",
+    "toNext": "次のレベルまで {exp}",
+    "total": "累計経験値 {exp}",
+    "today": "今日できること",
+    "done": "完了",
+    "dayBoundary": "1日の区切りは自分のタイムゾーン基準です。",
+    "history": "最近の履歴",
+    "table": "レベル表",
+    "reason": {
+      "login": "ログイン",
+      "item": "アイテム登録",
+      "diary": "記録を書く"
+    }
+  },
+  "contact": {
+    "body": "ご利用中の問題や制限への異議は下記アドレスへお送りください。",
+    "notReady": "お問い合わせ先を準備中です",
+    "scope1": "報告結果・制限への異議",
+    "scope2": "アカウント・データに関する依頼"
   }
 }

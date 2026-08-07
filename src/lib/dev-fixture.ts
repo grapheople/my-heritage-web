@@ -565,3 +565,101 @@ export function roomDiaries(roomId: string, isOwner: boolean): DiaryEntry[] {
 export const DIARY_MAX_LENGTH = 1000;
 /** 사진 최대 장수 (D-037, FR-01-A-05) */
 export const DIARY_MAX_PHOTOS = 10;
+
+/* ─────────────────────────────────────────────────────────────
+   설정류 — S-11 프로필 · S-12 언어 · S-14 레벨 · S-19 차단 · S-20 문의
+   ───────────────────────────────────────────────────────────── */
+
+/** 레벨 테이블. seed 의 값은 자리만 잡은 것이고 A-09 확정본으로 교체된다 */
+export const DEV_LEVELS: { level: number; required: number }[] = [
+  { level: 1, required: 0 }, { level: 2, required: 100 },
+  { level: 3, required: 300 }, { level: 4, required: 700 },
+  { level: 5, required: 1500 }, { level: 6, required: 3000 },
+  { level: 7, required: 5500 }, { level: 8, required: 9000 },
+  { level: 9, required: 14000 }, { level: 10, required: 20000 },
+];
+
+export const MAX_LEVEL = 10;
+/** 1일 획득 상한 (D-026, FR-01-A-07) */
+export const DAILY_EXP_CAP = 60;
+
+/** 경험치 사유 3종. 각 1일 1회 (D-026) */
+export const EXP_RULES = [
+  { reason: "login", amount: 10 },
+  { reason: "item", amount: 30 },
+  { reason: "diary", amount: 20 },
+] as const;
+
+export type ExpLog = {
+  id: string;
+  reason: (typeof EXP_RULES)[number]["reason"];
+  amount: number;
+  /** 유저 타임존 기준 날짜 (D-056) */
+  localDate: string;
+};
+
+export const DEV_EXP = {
+  total: 3_420,
+  /** 오늘 이미 받은 사유 — "오늘 안 한 것"을 보여주는 것이 이 화면의 핵심이다 */
+  todayEarned: ["login"] as string[],
+  logs: [
+    { id: "e1", reason: "login", amount: 10, localDate: "2026-08-08" },
+    { id: "e2", reason: "diary", amount: 20, localDate: "2026-08-02" },
+    { id: "e3", reason: "login", amount: 10, localDate: "2026-08-02" },
+    { id: "e4", reason: "item", amount: 30, localDate: "2026-07-28" },
+    { id: "e5", reason: "login", amount: 10, localDate: "2026-07-28" },
+  ] satisfies ExpLog[],
+};
+
+/**
+ * 현재 레벨과 구간 진행률 (FR-02-A-02).
+ * **Lv.10 은 다음 레벨 진행률을 표시하지 않는다** (D-057, FR-02-A-03).
+ * 누적 경험치는 계속 적립·표시한다 (FR-02-A-04).
+ */
+export type LevelProgress =
+  | { isMax: true; level: number; total: number }
+  | {
+      isMax: false;
+      level: number;
+      total: number;
+      /** 현재 레벨 구간 내 경험치 (FR-02-A-02) */
+      inLevel: number;
+      /** 현재 구간의 폭 */
+      span: number;
+      /** 다음 레벨까지 남은 경험치 */
+      toNext: number;
+    };
+
+export function levelProgress(total: number): LevelProgress {
+  const current =
+    [...DEV_LEVELS].reverse().find((l) => total >= l.required) ?? DEV_LEVELS[0];
+  const next = DEV_LEVELS.find((l) => l.level === current.level + 1);
+  // Lv.10 은 다음 레벨 진행률을 내지 않는다 (D-057, FR-02-A-03)
+  if (!next) return { isMax: true, level: current.level, total };
+  return {
+    isMax: false,
+    level: current.level,
+    total,
+    inLevel: total - current.required,
+    span: next.required - current.required,
+    toNext: next.required - total,
+  };
+}
+
+/** 차단 목록 (D-051). 상대에게 알리지 않는다 (FR-05-B-04) */
+export const DEV_BLOCKS = [
+  { roomId: "r-x1", roomName: "spam_seller_01", blockedAt: "2026-07-30" },
+  { roomId: "r-x2", roomName: "느린배송", blockedAt: "2026-06-11" },
+];
+
+/** 프로필 (S-11) */
+export const DEV_PROFILE_SETTINGS = {
+  roomName: "시계쟁이 준",
+  bio: "빈티지 다이버만 모읍니다. 서울 · 2019년부터.",
+  /** 방 공개 상태 (D-019) */
+  roomPublic: true,
+  /** 방 비공개 전환 시 마켓에서 내려가는 매물 수 (FR-02-A-05·07) */
+  onSaleCount: 3,
+  language: "ko" as OwnerLang,
+  timezone: "Asia/Seoul",
+};

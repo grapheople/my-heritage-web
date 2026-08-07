@@ -189,5 +189,46 @@
     "errUrlScheme": "Must start with http or https",
     "errNeedsPublic": "Agree to make it public to list it",
     "notWired": "Validation verified. Saving will work once the backend is wired."
+  },
+  "settings": {
+    "title": "Profile settings",
+    "roomName": "Room name",
+    "roomNameHint": "It's fine if someone else uses the same name.",
+    "bio": "About",
+    "roomVisibility": "Room visibility",
+    "roomPublicDesc": "Anyone can see your room",
+    "roomPrivateDesc": "Only you can see it",
+    "goPrivateWarn": "Going private removes {count} listings from the market.",
+    "goPublicWarn": "Going public puts {count} listings back on the market. Price and link stay as they were.",
+    "language": "Language",
+    "blocks": "Blocked",
+    "contact": "Contact",
+    "languageHint": "Only the interface changes. Your entries, room name, about and item details stay as written.",
+    "noBlocks": "You haven't blocked anyone",
+    "blocksHint": "Blocking hides both rooms, items, entries and listings from each other. They are not told.",
+    "blockedAt": "Blocked {date}",
+    "unblock": "Unblock"
+  },
+  "level": {
+    "current": "Current level",
+    "max": "Max level",
+    "toNext": "{exp} to next level",
+    "total": "{exp} total",
+    "today": "What you can do today",
+    "done": "Done",
+    "dayBoundary": "The day resets in your own time zone.",
+    "history": "Recent",
+    "table": "Level table",
+    "reason": {
+      "login": "Sign in",
+      "item": "Add an item",
+      "diary": "Write an entry"
+    }
+  },
+  "contact": {
+    "body": "If something goes wrong or you want to appeal a restriction, write to the address below.",
+    "notReady": "We're setting up a contact address",
+    "scope1": "Appeals about reports or restrictions",
+    "scope2": "Account and data requests"
   }
 }
