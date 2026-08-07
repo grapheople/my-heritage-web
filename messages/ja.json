@@ -282,5 +282,19 @@
     "reviewNotice": "すぐには登録されません。運営が確認してから一覧に追加されます。",
     "alreadyExists": "すでにあるブランドです — 「{name}」を選んでください。",
     "alreadyRequested": "同じリクエストがすでに{count}件あります。まとめて処理されます。"
+  },
+  "notif": {
+    "empty": "まだお知らせがありません",
+    "allOn": "お知らせはすべて受け取ります。オフにはできません。",
+    "BRAND_REQUEST_RESULT": "リクエストされた「{brand}」ブランドが登録されました。選択できます。",
+    "REPORT_RESULT": "報告が処理されました。該当コンテンツは非公開になりました。",
+    "SANCTION": "利用制限が適用されました。理由と期間をご確認ください。",
+    "CODEX_MERGED": "所有アイテムの図鑑が「{codex}」に統合されました。名称が変わる場合があります。",
+    "kind": {
+      "BRAND_REQUEST_RESULT": "ブランド",
+      "REPORT_RESULT": "報告",
+      "SANCTION": "制限",
+      "CODEX_MERGED": "図鑑"
+    }
   }
 }

@@ -282,5 +282,19 @@
     "reviewNotice": "It won't appear right away. A moderator reviews it first.",
     "alreadyExists": "That brand already exists — pick “{name}”.",
     "alreadyRequested": "{count} people already asked for this. Requests are merged."
+  },
+  "notif": {
+    "empty": "No notifications yet",
+    "allOn": "You receive all notifications. They can't be turned off.",
+    "BRAND_REQUEST_RESULT": "The brand “{brand}” you requested was added. You can select it now.",
+    "REPORT_RESULT": "Your report was handled. The content has been hidden.",
+    "SANCTION": "A restriction was applied to your account. Check the reason and period.",
+    "CODEX_MERGED": "A codex entry for your item was merged into “{codex}”. Its name may change.",
+    "kind": {
+      "BRAND_REQUEST_RESULT": "Brand",
+      "REPORT_RESULT": "Report",
+      "SANCTION": "Restriction",
+      "CODEX_MERGED": "Codex"
+    }
   }
 }

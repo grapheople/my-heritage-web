@@ -110,6 +110,16 @@ enum ExperienceReason {
 // User / Room / 제재
 // ---------------------------------------------------------------------------
 
+/// 인앱 알림 종류 (D-087).
+/// **경험치·레벨업은 없다** — 인앱에서만 발생하므로 그 자리에서 보여주면 되고,
+/// 알림함에 쌓으면 나머지 4종이 묻힌다 (FR-08-B-05, 원칙 7).
+enum NotificationType {
+  BRAND_REQUEST_RESULT /// 브랜드 추가 요청 승인·반려 (D-047)
+  REPORT_RESULT /// 신고 처리 결과 (market F-05)
+  SANCTION /// 제재 부과·해제 (D-066)
+  CODEX_MERGED /// 연결된 도감이 병합됨 (codex F-06)
+}
+
 model User {
   id       String       @id @default(cuid())
   provider AuthProvider
@@ -136,6 +146,7 @@ model User {
   reportsMade    Report[]        @relation("reporter")
   brandRequests  BrandRequest[]
   createdCodex   CodexItem[]     @relation("codexCreator")
+  notifications  Notification[]
 
   @@unique([provider, subject])
   @@index([language])
@@ -582,4 +593,34 @@ model Report {
 
   @@index([status, createdAt])
   @@index([targetType, targetId])
+}
+
+/// 인앱 알림 (S-22, D-087).
+///
+/// ⚠️ **푸시가 없으므로(D-059) 이것이 유일한 전달 경로다.** 위 4종은 유저가
+/// 서비스에 없을 때 발생한다. 특히 제재 통지가 전달되지 않으면
+/// D-066("제재 시 로그인을 막지 않는다")의 근거가 무너진다.
+///
+/// 알림별 on/off 설정은 두지 않는다 (FR-08-A-08) — 4종 전부 받아야 하는
+/// 것이라 끄면 제재 통지를 놓친다.
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+
+  /// 이동 대상 엔티티 id. 종류가 여러 가지라 FK로 묶지 않는다 (Report 와 같은 이유)
+  targetId String?
+
+  /// 문구 치환값. 본문은 3개 언어 i18n 리소스로 만든다 (FR-08-A-09) —
+  /// 서버에 완성된 문장을 저장하면 유저가 언어를 바꿔도 옛 언어로 남는다
+  params Json?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  /// 목록은 최신순 (FR-08-A-04). 미읽음 뱃지 판정도 이 인덱스를 쓴다
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
