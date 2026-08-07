@@ -368,3 +368,120 @@ export function codexListings(codexId: string): MarketListing[] {
   const ids = CODEX_ITEM_IDS[codexId] ?? [];
   return DEV_MARKET.filter((l) => ids.includes(l.id));
 }
+
+/* ─────────────────────────────────────────────────────────────
+   S-05 아이템 상세 · S-18 판매 전환
+   ───────────────────────────────────────────────────────────── */
+
+export type ItemDetail = {
+  id: string;
+  /** 파생값. 저장하지 않는다 (D-073, FR-06-A-11) */
+  name: string;
+  categoryKey: string;
+  roomId: string;
+  roomName: string;
+  ownerLevel: number;
+  visibility: "PUBLIC" | "PRIVATE";
+  saleStatus: "DISPLAYED" | "ON_SALE" | "SOLD";
+  /** 방 공개 상태 — 공개 판정은 Room AND Item (M-06, D-019) */
+  roomPublic: boolean;
+  /** 도감 연결. 없으면 "같은 물건 가진 사람"에 나타나지 않는다 (D-032) */
+  codexId?: string;
+  /** 활성 속성값만. 값이 빈 항목은 렌더하지 않는다 (FR-06-A-01·02) */
+  attrs: CodexAttr[];
+  /** ⚠️ 타인에게 표시하지 않는다 (FR-06-A-05, D-019) */
+  owner: {
+    purchasedFrom?: string;
+    purchaseDate?: string;
+    purchasePrice?: string;
+  };
+  /** 연결된 공개 일기 (FR-06-A-04, 원칙 1) */
+  diaries: { id: string; date: string; excerpt: string }[];
+  /** 판매중일 때만 (D-050) */
+  sale?: { price: number; currency: CurrencyCode; url: string };
+  /** 아이템 `url` 속성 — 외부 링크 경고를 경유해야 한다 (D-040) */
+  refUrl?: string;
+};
+
+export const DEV_ITEMS: Record<string, ItemDetail> = {
+  "w-1": {
+    id: "w-1",
+    name: "Rolex Submariner 116610LN",
+    categoryKey: "category.watch",
+    roomId: "r-jun", roomName: "시계쟁이 준", ownerLevel: 6,
+    visibility: "PUBLIC", saleStatus: "ON_SALE", roomPublic: true,
+    codexId: "cx-116610",
+    attrs: [
+      { labelKey: "attr.brand", value: "Rolex" },
+      { labelKey: "attr.model", value: "Submariner Date" },
+      { labelKey: "attr.uniqueId", value: "116610LN" },
+      { labelKey: "attr.condition", value: "사용감 적음" },
+    ],
+    owner: {
+      purchasedFrom: "명동 백화점",
+      purchaseDate: "2023-03-14",
+      purchasePrice: "₩11,800,000",
+    },
+    diaries: [
+      { id: "d-1", date: "2026-06-30", excerpt: "드디어 데려왔다. 3년 기다린 시계." },
+      { id: "d-2", date: "2026-07-21", excerpt: "오버홀 맡기고 왔다. 3주 걸린다고." },
+    ],
+    sale: { price: 12_400_000, currency: "KRW", url: "https://cafe.example.com/watch/12345" },
+    refUrl: "https://www.rolex.com/watches/submariner",
+  },
+  "w-2": {
+    id: "w-2",
+    name: "Omega Speedmaster 3570.50",
+    categoryKey: "category.watch",
+    roomId: "r-jun", roomName: "시계쟁이 준", ownerLevel: 6,
+    visibility: "PUBLIC", saleStatus: "DISPLAYED", roomPublic: true,
+    codexId: "cx-3570",
+    attrs: [
+      { labelKey: "attr.brand", value: "Omega" },
+      { labelKey: "attr.model", value: "Speedmaster Professional" },
+      { labelKey: "attr.uniqueId", value: "3570.50" },
+    ],
+    owner: { purchaseDate: "2021-11-02" },
+    diaries: [],
+  },
+  // 비공개 아이템 — 소유자만 볼 수 있다 (D-019). 색인 대상 아님 (D-093)
+  "w-5": {
+    id: "w-5",
+    name: "Patek Philippe Aquanaut 5167A",
+    categoryKey: "category.watch",
+    roomId: "r-jun", roomName: "시계쟁이 준", ownerLevel: 6,
+    visibility: "PRIVATE", saleStatus: "DISPLAYED", roomPublic: true,
+    attrs: [{ labelKey: "attr.brand", value: "Patek Philippe" }],
+    owner: { purchasedFrom: "지인" },
+    diaries: [],
+  },
+  // 떠난 아이템 — 방에는 남지만 현재 보유자가 아니다 (D-023). 색인 제외
+  "g-1": {
+    id: "g-1",
+    name: "Rolex Explorer I 214270",
+    categoryKey: "category.watch",
+    roomId: "r-jun", roomName: "시계쟁이 준", ownerLevel: 6,
+    visibility: "PUBLIC", saleStatus: "SOLD", roomPublic: true,
+    attrs: [{ labelKey: "attr.brand", value: "Rolex" }],
+    owner: {}, diaries: [],
+  },
+};
+
+export function findItem(id: string): ItemDetail | undefined {
+  return DEV_ITEMS[id];
+}
+
+/**
+ * 조건부 색인 판정 (D-093).
+ *
+ * **판매중 + 아이템 공개 + 방 공개**일 때만 색인한다. 판매 의사가 없는
+ * 소장품이 검색엔진에 색인되면 D-031 절도 리스크를 아이템 단위로 다시 키운다.
+ * 떠난 아이템(SOLD)도 제외한다 — 현재 보유자가 아니다 (D-023).
+ */
+export function isItemIndexable(item: ItemDetail): boolean {
+  return (
+    item.saleStatus === "ON_SALE" &&
+    item.visibility === "PUBLIC" &&
+    item.roomPublic
+  );
+}

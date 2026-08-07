@@ -15,7 +15,7 @@ pnpm db:local             # 로컬 Postgres (별도 터미널)
 pnpm db:migrate           # 마이그레이션 적용
 pnpm prisma db seed       # 카테고리 6개 · 공통 속성 14종 · 레벨 테이블
 
-pnpm dev                  # http://localhost:3000
+pnpm dev                  # http://localhost:3002
 ```
 
 - 유저 앱: `/ko` · `/ja` · `/en` (`/`는 `Accept-Language`로 판별 후 리다이렉트)

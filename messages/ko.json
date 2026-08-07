@@ -38,7 +38,11 @@
       "public": "공개",
       "private": "비공개"
     },
-    "ownedFor": "{years, plural, =0 {} other {#년 }}{months, plural, =0 {} other {#개월}}"
+    "ownedFor": "{years, plural, =0 {} other {#년 }}{months, plural, =0 {} other {#개월}}",
+    "ownedForLabel": "소유",
+    "ownerOnly": "나만 보이는 정보",
+    "ownerOnlyHint": "구매처·구매일·구매가는 다른 사람에게 보이지 않아요.",
+    "linkedDiaries": "연결된 기록 {count}"
   },
   "diary": {
     "visibility": {
@@ -109,7 +113,9 @@
     "noOwners": "아직 이 물건을 전시한 사람이 없어요",
     "ownersLoginRequired": "로그인하면 이 물건을 가진 사람들의 방을 볼 수 있어요.",
     "onSaleHere": "이 물건의 판매중 매물",
-    "originalText": "운영자 검수 전 원문입니다"
+    "originalText": "운영자 검수 전 원문입니다",
+    "goToCodex": "이 물건의 도감 보기",
+    "notLinked": "도감에 연결되지 않은 아이템이에요"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
@@ -122,7 +128,9 @@
     "allCurrencies": "전체 통화",
     "sortRecent": "최신순",
     "sortPrice": "가격순",
-    "sortPriceHint": "통화를 선택하면 가격순으로 볼 수 있어요"
+    "sortPriceHint": "통화를 선택하면 가격순으로 볼 수 있어요",
+    "goToDeal": "거래 페이지로 이동",
+    "dealDisclaimer": "거래는 외부에서 이뤄지며 본인 책임입니다."
   },
   "search": {
     "placeholder": "아이템·도감·방 검색",
@@ -138,6 +146,34 @@
     "brand": "브랜드",
     "movement": "무브먼트",
     "caseSize": "케이스 지름",
-    "year": "제조년도"
+    "year": "제조년도",
+    "model": "모델명",
+    "uniqueId": "고유번호",
+    "condition": "상태",
+    "purchasedFrom": "구매처",
+    "purchaseDate": "구매일",
+    "purchasePrice": "구매가",
+    "refUrl": "참고 링크"
+  },
+  "report": {
+    "reportThis": "신고하기"
+  },
+  "sell": {
+    "convert": "판매중으로 전환",
+    "editListing": "판매 정보 수정",
+    "reuseNotice": "사진·속성·기록은 그대로 씁니다. 가격·통화·링크만 정해주세요.",
+    "price": "가격",
+    "dealUrl": "외부 거래 링크",
+    "dealUrlHint": "중고 거래 글이나 판매 페이지 주소를 넣어주세요. http 또는 https 로 시작해야 합니다.",
+    "noConversion": "통화는 환산하지 않고 그대로 표시됩니다.",
+    "privateNotice": "이 아이템은 비공개입니다. 판매중으로 바꾸면 공개로 전환됩니다.",
+    "privateConfirm": "공개로 전환하는 것에 동의합니다",
+    "errPrice": "가격을 입력해주세요",
+    "errCurrency": "통화를 선택해주세요",
+    "errUrlRequired": "거래 링크를 입력해주세요",
+    "errUrlFormat": "링크 형식이 올바르지 않아요",
+    "errUrlScheme": "http 또는 https 로 시작해야 해요",
+    "errNeedsPublic": "공개 전환에 동의해야 판매할 수 있어요",
+    "notWired": "입력값 검증까지 확인했습니다. 저장은 개발 연동 후 동작합니다."
   }
 }
