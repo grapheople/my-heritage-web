@@ -159,8 +159,12 @@ export function ItemForm({
           autoFilled={autoKeys.includes(a.key)}
           brandSlot={
             a.brandSelect ? (
-              <BrandSelect value={values[a.key] ?? ""}
-                onChange={(v) => set(a.key, v)} invalid={Boolean(errors[a.key])} />
+              <BrandSelect
+                value={values[a.key] ?? ""}
+                onChange={(v) => set(a.key, v)}
+                invalid={Boolean(errors[a.key])}
+                category={category}
+              />
             ) : undefined
           }
         />
