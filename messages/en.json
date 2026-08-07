@@ -104,7 +104,12 @@
   },
   "codex": {
     "unverified": "Unverified",
-    "owners": "{count} owners"
+    "owners": "{count} owners",
+    "ownersTitle": "Collectors with this item",
+    "noOwners": "No one has displayed this item yet",
+    "ownersLoginRequired": "Sign in to see the rooms of collectors who own this item.",
+    "onSaleHere": "On sale now",
+    "originalText": "Original text, not yet reviewed"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
@@ -128,5 +133,11 @@
       "rooms": "Rooms"
     },
     "matchedBy": "Matched “{alias}”"
+  },
+  "attr": {
+    "brand": "Brand",
+    "movement": "Movement",
+    "caseSize": "Case size",
+    "year": "Year"
   }
 }
