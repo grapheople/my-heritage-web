@@ -48,7 +48,21 @@
     "visibility": {
       "public": "Public",
       "private": "Private"
-    }
+    },
+    "newTitle": "Write an entry",
+    "editTitle": "Edit entry",
+    "visibilityLabel": "Visibility",
+    "bodyLabel": "Text",
+    "bodyPlaceholder": "What happened with this item today?",
+    "plainTextHint": "Plain text only. Links are not auto-linked.",
+    "photosLabel": "Photos",
+    "addPhoto": "Add photo",
+    "optional": "(optional)",
+    "linkItemsLabel": "Link items",
+    "linkedItems": "Linked items",
+    "errEmpty": "Add some text or at least one photo",
+    "photoCount": "{count} photos",
+    "itemCount": "{count} items"
   },
   "filter": {
     "all": "All",

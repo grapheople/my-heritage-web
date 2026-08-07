@@ -48,7 +48,21 @@
     "visibility": {
       "public": "公開",
       "private": "非公開"
-    }
+    },
+    "newTitle": "記録を書く",
+    "editTitle": "記録を編集",
+    "visibilityLabel": "公開範囲",
+    "bodyLabel": "内容",
+    "bodyPlaceholder": "今日このアイテムと何がありましたか？",
+    "plainTextHint": "文字のみ保存されます。リンクは自動でつながりません。",
+    "photosLabel": "写真",
+    "addPhoto": "写真を追加",
+    "optional": "（任意）",
+    "linkItemsLabel": "紐づけるアイテム",
+    "linkedItems": "紐づいたアイテム",
+    "errEmpty": "内容か写真のどちらかが必要です",
+    "photoCount": "写真 {count}",
+    "itemCount": "アイテム {count}"
   },
   "filter": {
     "all": "すべて",

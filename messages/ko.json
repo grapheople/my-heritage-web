@@ -48,7 +48,21 @@
     "visibility": {
       "public": "공개",
       "private": "비공개"
-    }
+    },
+    "newTitle": "기록 쓰기",
+    "editTitle": "기록 수정",
+    "visibilityLabel": "공개 범위",
+    "bodyLabel": "내용",
+    "bodyPlaceholder": "오늘 이 물건과 무슨 일이 있었나요?",
+    "plainTextHint": "글자만 저장됩니다. 링크는 자동으로 연결되지 않아요.",
+    "photosLabel": "사진",
+    "addPhoto": "사진 추가",
+    "optional": "(선택)",
+    "linkItemsLabel": "연결할 아이템",
+    "linkedItems": "연결된 아이템",
+    "errEmpty": "내용이나 사진 중 하나는 있어야 해요",
+    "photoCount": "사진 {count}",
+    "itemCount": "아이템 {count}"
   },
   "filter": {
     "all": "전체",
