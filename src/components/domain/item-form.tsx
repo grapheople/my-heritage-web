@@ -2,7 +2,8 @@
 
 import { Check, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
 import { StatusBadge } from "./status-badge";
@@ -56,7 +57,11 @@ export function ItemForm({
   const [unknownKey, setUnknownKey] = useState(false);
   const [photos, setPhotos] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [done, setDone] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [saved, setSaved] = useState<
+    { itemId: string; expGranted: boolean; codexLinked: boolean } | null
+  >(null);
+  const [pending, startTransition] = useTransition();
 
   const attrs = category ? (CATEGORY_ATTRS[category] ?? []) : [];
 
@@ -79,8 +84,14 @@ export function ItemForm({
     }
   }
 
+  /**
+   * 클라이언트 검증은 **즉시 피드백용**이다. 진짜 검증은 Server Action 이 한다 —
+   * 클라이언트만 믿으면 요청을 직접 보내는 것으로 우회된다.
+   */
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!category) return;
+
     const next: Record<string, string> = {};
     for (const a of attrs) {
       // 매칭 키는 "모르겠어요" 시 면제 (D-032)
@@ -90,7 +101,27 @@ export function ItemForm({
     // 사진 1장 필수 (FR-07-A-03)
     if (photos === 0) next.__photos = t("reg.photoRequired");
     setErrors(next);
-    if (Object.keys(next).length === 0) setDone(true);
+    setFormError("");
+    if (Object.keys(next).length > 0) return;
+
+    startTransition(async () => {
+      const res = await createItem({
+        category,
+        values,
+        photoCount: photos,
+        unknownMatchingKey: unknownKey,
+      });
+      if (res.ok) {
+        setSaved({
+          itemId: res.itemId,
+          expGranted: res.expGranted,
+          codexLinked: res.codexLinked,
+        });
+      } else {
+        setErrors(res.fieldErrors);
+        setFormError(res.formError ?? "");
+      }
+    });
   }
 
   /* ── 1단계: 카테고리 선택 (FR-05-A-01) ── */
@@ -112,12 +143,28 @@ export function ItemForm({
     );
   }
 
-  if (done) {
+  if (saved) {
     return (
       <div className="rounded-lg border p-4">
         <p className="text-sm font-semibold">{t("reg.saved")}</p>
-        {/* 초기 상태 명시 (FR-05-A-04) + 경험치 1일 1회 (FR-05-A-05) */}
-        <p className="mt-2 text-sm text-muted-foreground">{t("reg.savedNotice")}</p>
+        {/* 초기 상태 = 공개·전시중 (FR-05-A-04) */}
+        <p className="mt-2 text-sm text-muted-foreground">{t("reg.savedState")}</p>
+        <ul className="mt-3 flex flex-col gap-1 text-sm">
+          {/* 경험치는 그날 첫 등록만 (D-026, FR-01-A-04) */}
+          <li className={saved.expGranted ? "text-sale" : "text-muted-foreground"}>
+            {saved.expGranted ? t("reg.expGranted") : t("reg.expAlready")}
+          </li>
+          {/* 도감 미연결이면 "같은 물건 가진 사람"에 안 나타난다 (D-032) */}
+          <li className={saved.codexLinked ? "text-sale" : "text-muted-foreground"}>
+            {saved.codexLinked ? t("reg.codexLinked") : t("reg.codexNotLinked")}
+          </li>
+        </ul>
+        <a
+          href={`/ko/items/${saved.itemId}`}
+          className="mt-4 block rounded-lg border py-2.5 text-center text-sm font-semibold hover:bg-accent"
+        >
+          {t("reg.viewItem")}
+        </a>
       </div>
     );
   }
@@ -221,9 +268,15 @@ export function ItemForm({
         {t("reg.noDraft")}
       </p>
 
-      <button type="submit"
-        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90">
-        {t("common.save")}
+      {formError && (
+        <p className="rounded-lg border border-destructive bg-destructive/5 p-3 text-sm text-destructive">
+          {formError}
+        </p>
+      )}
+
+      <button type="submit" disabled={pending}
+        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">
+        {pending ? t("common.loading") : t("common.save")}
       </button>
     </form>
   );

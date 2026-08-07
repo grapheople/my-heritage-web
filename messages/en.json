@@ -319,7 +319,13 @@
     "urlWarnNotice": "Opening this shows an external-link warning first.",
     "noDraft": "Nothing is saved if you leave before submitting.",
     "saved": "Item added",
-    "savedNotice": "Added as public and on display. First item today earns 30 XP."
+    "savedNotice": "Added as public and on display. First item today earns 30 XP.",
+    "savedState": "Added as public and on display.",
+    "expGranted": "First item today — you earned 30 XP",
+    "expAlready": "You already earned item XP today",
+    "codexLinked": "Linked to a codex entry — you'll appear under “collectors with this item”",
+    "codexNotLinked": "Not linked to a codex entry. Add the reference number to link it",
+    "viewItem": "View the item"
   },
   "opt": {
     "auto": "Automatic",

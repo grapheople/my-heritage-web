@@ -1,4 +1,8 @@
+import { prisma } from "@/lib/prisma";
 import { auth } from "./config";
+
+/** `prisma/seed-dev.ts` 와 일치해야 한다 */
+const DEV_SUBJECT = "dev-local-subject";
 
 /**
  * "지금 이 화면을 누가 보고 있는가".
@@ -9,6 +13,8 @@ import { auth } from "./config";
 export type Viewer = {
   userId: string;
   roomId?: string;
+  /** 경험치 1일 1회 판정 기준 (D-056). 세션에 없으면 UTC */
+  timezone?: string;
   /** 신규 가입 — 방 이름 미설정 (FR-05-A-05) */
   needsRoomName: boolean;
 };
@@ -18,19 +24,37 @@ export type Viewer = {
  *
  * OAuth 자격증명(`AUTH_GOOGLE_ID` 등)이 없으면 로그인을 할 수 없어 로그인
  * 전용 화면을 전혀 확인할 수 없다. `.env`에 자격증명이 없고 **개발 모드일
- * 때만** 픽스처 유저로 간주한다.
+ * 때만** 개발용 유저로 간주한다.
  *
  * 프로덕션에서는 절대 작동하지 않는다 — `NODE_ENV` 와 자격증명 부재를
  * 동시에 요구한다. 자격증명이 채워지면 이 우회로는 자동으로 꺼진다.
+ *
+ * **DB 의 실제 행을 가리킨다** — `prisma/seed-dev.ts` 가 만든 유저다.
+ * 하드코딩된 가짜 id 를 쓰면 Server Action 이 외래 키 위반으로 실패한다.
  */
-function devViewer(): Viewer | null {
+async function devViewer(): Promise<Viewer | null> {
   const isDev = process.env.NODE_ENV === "development";
   const hasOAuth = Boolean(
     process.env.AUTH_GOOGLE_ID || process.env.AUTH_APPLE_ID,
   );
   if (!isDev || hasOAuth) return null;
-  // lib/dev-fixture.ts 의 r-jun
-  return { userId: "dev-user", roomId: "r-jun", needsRoomName: false };
+
+  const user = await prisma.user.findUnique({
+    where: { provider_subject: { provider: "GOOGLE", subject: DEV_SUBJECT } },
+    select: { id: true, timezone: true, room: { select: { id: true, name: true } } },
+  });
+  if (!user) {
+    console.warn(
+      "[auth] 개발용 유저가 없습니다. `pnpm db:seed-dev` 를 실행하세요 (D-097).",
+    );
+    return null;
+  }
+  return {
+    userId: user.id,
+    roomId: user.room?.id,
+    timezone: user.timezone,
+    needsRoomName: !user.room?.name,
+  };
 }
 
 /** 로그인한 뷰어. 비로그인이면 `null` */
@@ -43,7 +67,7 @@ export async function getViewer(): Promise<Viewer | null> {
       needsRoomName: session.user.needsRoomName,
     };
   }
-  return devViewer();
+  return await devViewer();
 }
 
 /**

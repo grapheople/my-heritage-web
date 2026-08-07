@@ -20,7 +20,8 @@
     "db:import-brands": "tsx prisma/import-brands.ts",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:reset": "docker compose down -v"
+    "db:reset": "docker compose down -v",
+    "db:seed-dev": "tsx prisma/seed-dev.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
