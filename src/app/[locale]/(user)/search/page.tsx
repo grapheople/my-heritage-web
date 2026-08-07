@@ -92,14 +92,18 @@ async function CodexResults({ nq, category }: { nq: string; category?: string })
   if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
   return (
     <div className="py-1 lg:py-2">
-      {hits.map(({ c, alias }) => (
-        <CodexRow
-          key={c.id}
-          entry={c}
-          matchedAlias={alias}
-          viewerLoggedIn={loggedIn}
-        />
-      ))}
+      {hits.map(({ c, alias }) => {
+        // ⚠️ 비로그인에게는 **넘기지 않는다** — 조건부 렌더가 아니다 (D-096)
+        const { ownerCount, ...entry } = c;
+        return (
+          <CodexRow
+            key={c.id}
+            entry={entry}
+            matchedAlias={alias}
+            ownerCount={loggedIn ? ownerCount : undefined}
+          />
+        );
+      })}
     </div>
   );
 }
