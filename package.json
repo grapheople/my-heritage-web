@@ -17,7 +17,10 @@
     "db:local": "prisma dev",
     "prisma:format": "prisma format",
     "postinstall": "prisma generate",
-    "db:import-brands": "tsx prisma/import-brands.ts"
+    "db:import-brands": "tsx prisma/import-brands.ts",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
