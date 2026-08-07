@@ -38,7 +38,11 @@
       "public": "公開",
       "private": "非公開"
     },
-    "ownedFor": "{years, plural, =0 {} other {#年}}{months, plural, =0 {} other {#ヶ月}}"
+    "ownedFor": "{years, plural, =0 {} other {#年}}{months, plural, =0 {} other {#ヶ月}}",
+    "ownedForLabel": "所有",
+    "ownerOnly": "自分だけに見える情報",
+    "ownerOnlyHint": "購入先・購入日・購入価格は他の人には表示されません。",
+    "linkedDiaries": "紐づいた記録 {count}"
   },
   "diary": {
     "visibility": {
@@ -109,7 +113,9 @@
     "noOwners": "まだこのアイテムを展示した人がいません",
     "ownersLoginRequired": "ログインすると、このアイテムを持つ人の部屋を見られます。",
     "onSaleHere": "このアイテムの販売中の出品",
-    "originalText": "運営確認前の原文です"
+    "originalText": "運営確認前の原文です",
+    "goToCodex": "このアイテムの図鑑を見る",
+    "notLinked": "図鑑に紐づいていないアイテムです"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
@@ -122,7 +128,9 @@
     "allCurrencies": "すべての通貨",
     "sortRecent": "新着順",
     "sortPrice": "価格順",
-    "sortPriceHint": "通貨を選ぶと価格順で見られます"
+    "sortPriceHint": "通貨を選ぶと価格順で見られます",
+    "goToDeal": "取引ページへ移動",
+    "dealDisclaimer": "取引は外部で行われ、自己責任となります。"
   },
   "search": {
     "placeholder": "アイテム・図鑑・部屋を検索",
@@ -138,6 +146,34 @@
     "brand": "ブランド",
     "movement": "ムーブメント",
     "caseSize": "ケース径",
-    "year": "製造年"
+    "year": "製造年",
+    "model": "モデル名",
+    "uniqueId": "固有番号",
+    "condition": "状態",
+    "purchasedFrom": "購入先",
+    "purchaseDate": "購入日",
+    "purchasePrice": "購入価格",
+    "refUrl": "参考リンク"
+  },
+  "report": {
+    "reportThis": "報告する"
+  },
+  "sell": {
+    "convert": "販売中に変更",
+    "editListing": "販売情報を編集",
+    "reuseNotice": "写真・属性・記録はそのまま使います。価格・通貨・リンクだけ決めてください。",
+    "price": "価格",
+    "dealUrl": "外部取引リンク",
+    "dealUrlHint": "中古取引の投稿や販売ページのURLを入力してください。http または https で始まる必要があります。",
+    "noConversion": "通貨は換算せずそのまま表示されます。",
+    "privateNotice": "このアイテムは非公開です。販売中にすると公開に切り替わります。",
+    "privateConfirm": "公開に切り替えることに同意します",
+    "errPrice": "価格を入力してください",
+    "errCurrency": "通貨を選択してください",
+    "errUrlRequired": "取引リンクを入力してください",
+    "errUrlFormat": "リンクの形式が正しくありません",
+    "errUrlScheme": "http または https で始まる必要があります",
+    "errNeedsPublic": "公開への切り替えに同意すると販売できます",
+    "notWired": "入力値の検証まで確認しました。保存は開発連携後に動作します。"
   }
 }

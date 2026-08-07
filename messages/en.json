@@ -38,7 +38,11 @@
       "public": "Public",
       "private": "Private"
     },
-    "ownedFor": "{years, plural, =0 {} =1 {# year } other {# years }}{months, plural, =0 {} =1 {# month} other {# months}}"
+    "ownedFor": "{years, plural, =0 {} =1 {# year } other {# years }}{months, plural, =0 {} =1 {# month} other {# months}}",
+    "ownedForLabel": "Owned",
+    "ownerOnly": "Only you can see this",
+    "ownerOnlyHint": "Where, when and how much you paid are never shown to others.",
+    "linkedDiaries": "Linked entries {count}"
   },
   "diary": {
     "visibility": {
@@ -109,7 +113,9 @@
     "noOwners": "No one has displayed this item yet",
     "ownersLoginRequired": "Sign in to see the rooms of collectors who own this item.",
     "onSaleHere": "On sale now",
-    "originalText": "Original text, not yet reviewed"
+    "originalText": "Original text, not yet reviewed",
+    "goToCodex": "View in codex",
+    "notLinked": "Not linked to a codex entry"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
@@ -122,7 +128,9 @@
     "allCurrencies": "All currencies",
     "sortRecent": "Newest",
     "sortPrice": "Price",
-    "sortPriceHint": "Pick a currency to sort by price"
+    "sortPriceHint": "Pick a currency to sort by price",
+    "goToDeal": "Go to listing",
+    "dealDisclaimer": "Deals happen off-site and are at your own risk."
   },
   "search": {
     "placeholder": "Search items, codex, rooms",
@@ -138,6 +146,34 @@
     "brand": "Brand",
     "movement": "Movement",
     "caseSize": "Case size",
-    "year": "Year"
+    "year": "Year",
+    "model": "Model",
+    "uniqueId": "Reference",
+    "condition": "Condition",
+    "purchasedFrom": "Bought from",
+    "purchaseDate": "Purchase date",
+    "purchasePrice": "Purchase price",
+    "refUrl": "Reference link"
+  },
+  "report": {
+    "reportThis": "Report"
+  },
+  "sell": {
+    "convert": "List for sale",
+    "editListing": "Edit listing",
+    "reuseNotice": "Photos, attributes and entries are reused. Just set price, currency and link.",
+    "price": "Price",
+    "dealUrl": "External listing link",
+    "dealUrlHint": "Paste the URL of your listing. It must start with http or https.",
+    "noConversion": "Currency is shown as-is, never converted.",
+    "privateNotice": "This item is private. Listing it will make it public.",
+    "privateConfirm": "I agree to make this item public",
+    "errPrice": "Enter a price",
+    "errCurrency": "Select a currency",
+    "errUrlRequired": "Enter a listing link",
+    "errUrlFormat": "That link doesn't look valid",
+    "errUrlScheme": "Must start with http or https",
+    "errNeedsPublic": "Agree to make it public to list it",
+    "notWired": "Validation verified. Saving will work once the backend is wired."
   }
 }
