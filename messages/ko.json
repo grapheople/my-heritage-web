@@ -102,7 +102,8 @@
     "more": "더 보기"
   },
   "codex": {
-    "unverified": "미검증"
+    "unverified": "미검증",
+    "owners": "{count}명 보유"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
@@ -110,5 +111,21 @@
   },
   "room": {
     "privateDesc": "방 주인이 공개하지 않은 방입니다."
+  },
+  "market": {
+    "allCurrencies": "전체 통화",
+    "sortRecent": "최신순",
+    "sortPrice": "가격순",
+    "sortPriceHint": "통화를 선택하면 가격순으로 볼 수 있어요"
+  },
+  "search": {
+    "placeholder": "아이템·도감·방 검색",
+    "prompt": "무엇을 찾으시나요?",
+    "tab": {
+      "items": "아이템",
+      "codex": "도감",
+      "rooms": "방"
+    },
+    "matchedBy": "‘{alias}’로 찾았어요"
   }
 }

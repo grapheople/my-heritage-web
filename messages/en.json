@@ -102,7 +102,8 @@
     "more": "See more"
   },
   "codex": {
-    "unverified": "Unverified"
+    "unverified": "Unverified",
+    "owners": "{count} owners"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
@@ -110,5 +111,21 @@
   },
   "room": {
     "privateDesc": "The owner has not made this room public."
+  },
+  "market": {
+    "allCurrencies": "All currencies",
+    "sortRecent": "Newest",
+    "sortPrice": "Price",
+    "sortPriceHint": "Pick a currency to sort by price"
+  },
+  "search": {
+    "placeholder": "Search items, codex, rooms",
+    "prompt": "What are you looking for?",
+    "tab": {
+      "items": "Items",
+      "codex": "Codex",
+      "rooms": "Rooms"
+    },
+    "matchedBy": "Matched “{alias}”"
   }
 }
