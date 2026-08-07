@@ -25,7 +25,22 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "app" });
-  return { title: t("title"), description: t("description") };
+  return {
+    title: t("title"),
+    description: t("description"),
+    /**
+     * ⚠️ **색인 기본값은 noindex 다** (D-078, CLAUDE.md 규칙 10).
+     *
+     * 색인할 페이지에서만 `export const metadata = { robots: { index: true } }`
+     * 로 켠다 — 도감 상세 · 마켓 · 판매중 공개 아이템 상세뿐이다.
+     *
+     * 반대로 하면(기본 index + 제외 열거) 화면이 늘어날 때마다 새 화면이
+     * 기본 색인 상태로 추가돼 D-078 이 조용히 깨진다. 특히 도감 소유자
+     * 목록이 검색엔진에 노출되면 D-031 에서 수용한 절도 리스크가
+     * 검색엔진 규모로 커진다.
+     */
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function LocaleLayout({

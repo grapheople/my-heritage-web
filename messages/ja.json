@@ -102,7 +102,8 @@
     "more": "もっと見る"
   },
   "codex": {
-    "unverified": "未検証"
+    "unverified": "未検証",
+    "owners": "{count}人が所有"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
@@ -110,5 +111,21 @@
   },
   "room": {
     "privateDesc": "部屋の持ち主が公開していない部屋です。"
+  },
+  "market": {
+    "allCurrencies": "すべての通貨",
+    "sortRecent": "新着順",
+    "sortPrice": "価格順",
+    "sortPriceHint": "通貨を選ぶと価格順で見られます"
+  },
+  "search": {
+    "placeholder": "アイテム・図鑑・部屋を検索",
+    "prompt": "何をお探しですか？",
+    "tab": {
+      "items": "アイテム",
+      "codex": "図鑑",
+      "rooms": "部屋"
+    },
+    "matchedBy": "「{alias}」で一致しました"
   }
 }

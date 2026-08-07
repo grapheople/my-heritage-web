@@ -1,5 +1,6 @@
 import type { FeedItem } from "@/components/domain/feed-card";
 import type { ItemThumbData } from "@/components/domain/item-thumb";
+import type { CurrencyCode } from "@/lib/format";
 import type { RoomSection } from "@/components/domain/room-display";
 
 /**
@@ -155,3 +156,83 @@ export const DEV_FEED: (FeedItem & { lang: OwnerLang })[] = DEV_ROOMS
     ),
   )
   .reverse();
+
+/* ─────────────────────────────────────────────────────────────
+   S-09 마켓 · S-08 검색
+   ───────────────────────────────────────────────────────────── */
+
+export type MarketListing = {
+  id: string;
+  name: string;
+  categoryKey: string;
+  roomId: string;
+  roomName: string;
+  price: number;
+  currency: CurrencyCode;
+};
+
+/** 소유자 언어 → 판매자 지정 통화. 환산하지 않는다 (D-011) */
+const CURRENCY_BY_LANG: Record<OwnerLang, CurrencyCode> = {
+  ko: "KRW", ja: "JPY", en: "USD",
+};
+
+const PRICE_BY_CURRENCY: Record<CurrencyCode, number[]> = {
+  KRW: [12_400_000, 890_000, 2_150_000],
+  JPY: [148_000, 62_000],
+  USD: [1_240, 320],
+};
+
+/**
+ * 마켓 매물 — 판매중 + 공개 아이템만 (FR-02-A-01·02).
+ * 기본 정렬은 판매 전환 시각 역순 (FR-02-A-03). 픽스처에는 시각이 없어
+ * 배열 순서를 전환순으로 보고 뒤집는다.
+ */
+export const DEV_MARKET: MarketListing[] = DEV_ROOMS
+  .filter((r) => r.isPublic)
+  .flatMap((r) => {
+    const currency = CURRENCY_BY_LANG[r.lang];
+    const prices = PRICE_BY_CURRENCY[currency];
+    let n = 0;
+    return r.sections.flatMap((s) =>
+      s.items
+        .filter((i) => i.onSale && !i.isPrivate)
+        .map((i) => ({
+          id: i.id, name: i.name, categoryKey: s.categoryKey,
+          roomId: r.id, roomName: r.name,
+          currency, price: prices[n++ % prices.length],
+        })),
+    );
+  })
+  .reverse();
+
+/* ── 검색 (S-08) ── */
+
+export type CodexEntry = {
+  id: string;
+  /** 원문 1개 고정. 번역하지 않는다 (D-009) */
+  displayName: string;
+  categoryKey: string;
+  uniqueId: string;
+  verified: boolean;
+  ownerCount: number;
+  /** 언어별 검색용 별칭. 화면에 표시하지 않고 매칭에만 쓴다 (D-009·D-043) */
+  aliases: string[];
+};
+
+export const DEV_CODEX: CodexEntry[] = [
+  { id: "cx-116610", displayName: "Rolex Submariner Date 116610LN",
+    categoryKey: "category.watch", uniqueId: "116610LN", verified: true,
+    ownerCount: 128, aliases: ["롤렉스 서브마리너", "ロレックス サブマリーナ", "sub date"] },
+  { id: "cx-3570", displayName: "Omega Speedmaster Professional 3570.50",
+    categoryKey: "category.watch", uniqueId: "3570.50", verified: true,
+    ownerCount: 74, aliases: ["오메가 스피드마스터", "オメガ スピードマスター", "moonwatch"] },
+  { id: "cx-skx007", displayName: "Seiko SKX007",
+    categoryKey: "category.watch", uniqueId: "SKX007", verified: false,
+    ownerCount: 213, aliases: ["세이코 SKX", "セイコー SKX"] },
+  { id: "cx-tundra45", displayName: "YETI Tundra 45",
+    categoryKey: "category.camping", uniqueId: "TUNDRA45", verified: true,
+    ownerCount: 41, aliases: ["예티 툰드라", "イエティ タンドラ"] },
+  { id: "cx-dunklow", displayName: "Nike Dunk Low Retro White Black",
+    categoryKey: "category.shoes", uniqueId: "DD1391-100", verified: true,
+    ownerCount: 96, aliases: ["나이키 덩크 로우 판다", "ナイキ ダンク ロー", "panda dunk"] },
+];
