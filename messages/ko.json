@@ -78,7 +78,21 @@
   "sanction": {
     "warning": "경고",
     "suspended": "일시 정지",
-    "banned": "영구 정지"
+    "banned": "영구 정지",
+    "noticeTitle": "이용 제한 안내",
+    "reason": "사유",
+    "period": "기간",
+    "issuedAt": "적용일",
+    "until": "{date}까지",
+    "permanent": "기한 없음",
+    "blockedTitle": "지금 할 수 없는 것",
+    "blocked1": "NEW 피드·검색·마켓·다른 사람 방 보기",
+    "blocked2": "아이템·기록 작성과 수정",
+    "blocked3": "판매 전환과 신고",
+    "appealTitle": "이의가 있으신가요",
+    "appealBody": "아래 주소로 보내주시면 확인하겠습니다.",
+    "leaveService": "탈퇴하기",
+    "seeDetail": "자세히 보기"
   },
   "auth": {
     "login": "로그인",
@@ -170,7 +184,33 @@
     "refUrl": "참고 링크"
   },
   "report": {
-    "reportThis": "신고하기"
+    "reportThis": "신고하기",
+    "title": "신고",
+    "reasonLabel": "신고 사유",
+    "detailLabel": "자세한 내용",
+    "submit": "신고하기",
+    "submitted": "신고가 접수됐어요",
+    "errNoReason": "사유를 선택해주세요",
+    "noAutoHide": "신고해도 해당 콘텐츠가 바로 내려가지는 않아요. 운영자가 확인한 뒤 조치합니다.",
+    "resultNotice": "처리 결과는 알림으로 알려드려요.",
+    "target": {
+      "item": "아이템 신고",
+      "diary": "기록 신고",
+      "room": "방 신고",
+      "codex": "도감 신고",
+      "link": "외부 링크 신고"
+    },
+    "reason": {
+      "fake": "가품·모조품",
+      "stolen": "도난품",
+      "weapon": "무기·위험물",
+      "drug": "의약품·마약류",
+      "alcohol": "주류·담배",
+      "nonphysical": "실물 없는 상품(계정·기프티콘 등)",
+      "phishing": "사기·피싱 링크",
+      "inappropriate": "부적절한 콘텐츠",
+      "wrongInfo": "정보 오류"
+    }
   },
   "sell": {
     "convert": "판매중으로 전환",
@@ -230,5 +270,17 @@
     "notReady": "문의 주소를 준비하고 있어요",
     "scope1": "신고 결과·제재에 대한 이의",
     "scope2": "계정·데이터 관련 요청"
+  },
+  "brand": {
+    "requestTitle": "브랜드 추가 요청",
+    "requestDesc": "찾는 브랜드가 목록에 없나요? 알려주시면 운영자가 확인 후 등록합니다.",
+    "nameLabel": "브랜드명",
+    "namePlaceholder": "예: Grand Seiko",
+    "submit": "요청 보내기",
+    "submitted": "요청을 보냈어요",
+    "continueWithoutCodex": "등록이 끝날 때까지 도감 연결 없이 아이템을 등록할 수 있어요.",
+    "reviewNotice": "바로 등록되지는 않아요. 운영자 확인 후 목록에 추가됩니다.",
+    "alreadyExists": "이미 있는 브랜드예요 — ‘{name}’으로 선택해주세요.",
+    "alreadyRequested": "같은 요청이 이미 {count}건 있어요. 함께 처리됩니다."
   }
 }
