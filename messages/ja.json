@@ -104,7 +104,12 @@
   },
   "codex": {
     "unverified": "未検証",
-    "owners": "{count}人が所有"
+    "owners": "{count}人が所有",
+    "ownersTitle": "同じアイテムを持つ人",
+    "noOwners": "まだこのアイテムを展示した人がいません",
+    "ownersLoginRequired": "ログインすると、このアイテムを持つ人の部屋を見られます。",
+    "onSaleHere": "このアイテムの販売中の出品",
+    "originalText": "運営確認前の原文です"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
@@ -128,5 +133,11 @@
       "rooms": "部屋"
     },
     "matchedBy": "「{alias}」で一致しました"
+  },
+  "attr": {
+    "brand": "ブランド",
+    "movement": "ムーブメント",
+    "caseSize": "ケース径",
+    "year": "製造年"
   }
 }

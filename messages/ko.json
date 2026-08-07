@@ -104,7 +104,12 @@
   },
   "codex": {
     "unverified": "미검증",
-    "owners": "{count}명 보유"
+    "owners": "{count}명 보유",
+    "ownersTitle": "같은 물건을 가진 사람",
+    "noOwners": "아직 이 물건을 전시한 사람이 없어요",
+    "ownersLoginRequired": "로그인하면 이 물건을 가진 사람들의 방을 볼 수 있어요.",
+    "onSaleHere": "이 물건의 판매중 매물",
+    "originalText": "운영자 검수 전 원문입니다"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
@@ -128,5 +133,11 @@
       "rooms": "방"
     },
     "matchedBy": "‘{alias}’로 찾았어요"
+  },
+  "attr": {
+    "brand": "브랜드",
+    "movement": "무브먼트",
+    "caseSize": "케이스 지름",
+    "year": "제조년도"
   }
 }
