@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "./config";
 
@@ -31,6 +32,15 @@ export type Viewer = {
  *
  * **DB 의 실제 행을 가리킨다** — `prisma/seed-dev.ts` 가 만든 유저다.
  * 하드코딩된 가짜 id 를 쓰면 Server Action 이 외래 키 위반으로 실패한다.
+ *
+ * ## ⚠️ 이 우회로는 비로그인 경로를 가린다
+ * 우회로가 켜져 있으면 `isLoggedIn()` 이 **항상 true** 라서 D-078·D-096
+ * (비로그인에게 보유자 수·소유자 목록을 가린다)을 **확인할 수 없다.**
+ * 그래서 `dev-logged-out=1` 쿠키로 비로그인을 흉내낼 수 있게 둔다.
+ *
+ *     curl -b 'dev-logged-out=1' http://localhost:3002/ko/search?q=sub&tab=codex
+ *
+ * 우회로가 꺼져 있으면(자격증명 존재 / 프로덕션) 이 쿠키도 아무 효과가 없다.
  */
 async function devViewer(): Promise<Viewer | null> {
   const isDev = process.env.NODE_ENV === "development";
@@ -38,6 +48,11 @@ async function devViewer(): Promise<Viewer | null> {
     process.env.AUTH_GOOGLE_ID || process.env.AUTH_APPLE_ID,
   );
   if (!isDev || hasOAuth) return null;
+
+  // 우회로가 켜져 있는 동안만 읽는다. `auth()` 도 쿠키를 읽으므로
+  // 렌더 전략(정적/동적)에 새로 미치는 영향은 없다
+  const jar = await cookies();
+  if (jar.get("dev-logged-out")?.value === "1") return null;
 
   const user = await prisma.user.findUnique({
     where: { provider_subject: { provider: "GOOGLE", subject: DEV_SUBJECT } },
