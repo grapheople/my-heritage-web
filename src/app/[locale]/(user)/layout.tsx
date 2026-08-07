@@ -1,4 +1,5 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { TopNav } from "@/components/layout/top-nav";
 import { isLoggedIn } from "@/lib/auth/viewer";
 
@@ -21,7 +22,17 @@ export default async function UserLayout({
   const loggedIn = await isLoggedIn();
   return (
     <div className="flex min-h-dvh flex-col">
-      <TopNav loggedIn={loggedIn} />
+      <TopNav loggedIn={loggedIn}>
+        <NotificationBell />
+      </TopNav>
+
+      {/* sm·md 알림 진입점 (FR-08-A-02). lg 는 TopNav 안에 있다.
+          로그인 유저에게만 (FR-08-A-07) */}
+      {loggedIn && (
+        <div className="flex justify-end border-b px-2 lg:hidden">
+          <NotificationBell />
+        </div>
+      )}
       {/* sm·md 는 유동 폭이다. `max-w-screen-sm`(v3)은 Tailwind v4 에서 동작하지
           않아 캡이 걸리지 않았고, md(640~1023)에서 진열 4열을 쓰려면 애초에
           640 캡이 맞지 않는다 (D-089). lg 에서만 1200 으로 묶는다 */}

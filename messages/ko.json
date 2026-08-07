@@ -282,5 +282,19 @@
     "reviewNotice": "바로 등록되지는 않아요. 운영자 확인 후 목록에 추가됩니다.",
     "alreadyExists": "이미 있는 브랜드예요 — ‘{name}’으로 선택해주세요.",
     "alreadyRequested": "같은 요청이 이미 {count}건 있어요. 함께 처리됩니다."
+  },
+  "notif": {
+    "empty": "아직 알림이 없어요",
+    "allOn": "알림은 모두 받습니다. 끌 수 없어요.",
+    "BRAND_REQUEST_RESULT": "요청하신 ‘{brand}’ 브랜드가 등록됐어요. 이제 선택할 수 있습니다.",
+    "REPORT_RESULT": "신고가 처리됐어요. 해당 콘텐츠는 비공개 처리됐습니다.",
+    "SANCTION": "이용 제한이 적용됐어요. 사유와 기간을 확인해주세요.",
+    "CODEX_MERGED": "보유하신 아이템의 도감이 ‘{codex}’로 합쳐졌어요. 명칭이 바뀔 수 있습니다.",
+    "kind": {
+      "BRAND_REQUEST_RESULT": "브랜드",
+      "REPORT_RESULT": "신고",
+      "SANCTION": "제재",
+      "CODEX_MERGED": "도감"
+    }
   }
 }

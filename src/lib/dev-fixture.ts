@@ -710,3 +710,56 @@ export const DEV_SANCTION = {
   until: "2026-08-15",
   issuedAt: "2026-08-08",
 };
+
+/* ─────────────────────────────────────────────────────────────
+   S-22 알림함 (D-087)
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * 알림 4종 (D-087). **경험치·레벨업은 대상이 아니다** (FR-08-B-05) —
+ * 인앱에서만 발생하므로 그 자리에서 보여주면 되고, 알림함에 쌓으면
+ * 나머지 4종이 묻힌다 (원칙 7).
+ */
+export type NotificationKind =
+  | "BRAND_REQUEST_RESULT"
+  | "REPORT_RESULT"
+  | "SANCTION"
+  | "CODEX_MERGED";
+
+export type NotificationItem = {
+  id: string;
+  type: NotificationKind;
+  /** 문구 치환값. 본문은 3개 언어 i18n 리소스로 만든다 (FR-08-A-09) */
+  params: Record<string, string>;
+  /** 이동 대상 (FR-08-A-06) */
+  href?: string;
+  createdAt: string;
+  read: boolean;
+};
+
+export const DEV_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: "n-1", type: "BRAND_REQUEST_RESULT",
+    params: { brand: "Grand Seiko", result: "approved" },
+    href: "/items/new", createdAt: "2026-08-08", read: false,
+  },
+  {
+    id: "n-2", type: "REPORT_RESULT",
+    params: { result: "hidden" },
+    href: undefined, createdAt: "2026-08-07", read: false,
+  },
+  {
+    id: "n-3", type: "CODEX_MERGED",
+    params: { codex: "Rolex Submariner Date 116610LN" },
+    href: "/codex/cx-116610", createdAt: "2026-08-05", read: true,
+  },
+  {
+    id: "n-4", type: "SANCTION",
+    params: { level: "warning" },
+    href: "/suspended", createdAt: "2026-08-01", read: true,
+  },
+];
+
+export function unreadCount(): number {
+  return DEV_NOTIFICATIONS.filter((n) => !n.read).length;
+}
