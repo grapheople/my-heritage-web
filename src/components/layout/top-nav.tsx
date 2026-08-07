@@ -15,7 +15,7 @@ import { isNavActive, NAV_ITEMS } from "./nav-items";
  * D-069 — 비로그인·정지 상태에서도 **항상 노출되고 누를 수 있다.** 회색 처리나
  * 숨김을 쓰지 않는다. 권한이 없으면 이동한 화면에서 안내를 띄운다.
  */
-export function TopNav() {
+export function TopNav({ loggedIn }: { loggedIn: boolean }) {
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
   const pathname = usePathname();
@@ -54,15 +54,18 @@ export function TopNav() {
           </ul>
         </nav>
 
-        {/* S-22 알림함 (D-087). 라우트가 아직 없어 비활성 자리만 잡는다 */}
-        <button
-          type="button"
-          aria-label={t("notifications")}
-          disabled
-          className="text-muted-foreground disabled:opacity-40"
-        >
-          <Bell className="size-5" aria-hidden />
-        </button>
+        {/* S-22 알림함 (D-087). **비로그인에게는 노출하지 않는다** (FR-08-A-07).
+            라우트가 아직 없어 비활성 자리만 잡는다 */}
+        {loggedIn && (
+          <button
+            type="button"
+            aria-label={t("notifications")}
+            disabled
+            className="text-muted-foreground disabled:opacity-40"
+          >
+            <Bell className="size-5" aria-hidden />
+          </button>
+        )}
       </div>
     </header>
   );

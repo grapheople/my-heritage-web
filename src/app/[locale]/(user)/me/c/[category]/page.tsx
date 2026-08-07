@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { ItemGrid } from "@/components/domain/item-grid";
+import { redirect } from "@/i18n/navigation";
+import { getViewer } from "@/lib/auth/viewer";
 import { findRoom } from "@/lib/dev-fixture";
 import { formatNumber } from "@/lib/format";
 
@@ -11,10 +13,18 @@ import { formatNumber } from "@/lib/format";
 export default async function MyRoomCategoryPage({
   params,
 }: PageProps<"/[locale]/me/c/[category]">) {
-  const { category } = await params;
+  const { locale, category } = await params;
   const t = await getTranslations();
 
-  const section = findRoom("r-jun")?.sections.find((s) => s.slug === category);
+  const viewer = await getViewer();
+  if (!viewer) {
+    redirect({ href: "/login", locale });
+    return null;
+  }
+
+  const section = viewer.roomId
+    ? findRoom(viewer.roomId)?.sections.find((s) => s.slug === category)
+    : undefined;
   if (!section) notFound();
 
   return (
