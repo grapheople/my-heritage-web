@@ -50,7 +50,12 @@
     "all": "すべて",
     "category": "カテゴリ",
     "language": "言語圏",
-    "currency": "通貨"
+    "currency": "通貨",
+    "lang": {
+      "ko": "韓国語",
+      "ja": "日本語",
+      "en": "英語"
+    }
   },
   "sanction": {
     "warning": "警告",
@@ -98,5 +103,12 @@
   },
   "codex": {
     "unverified": "未検証"
+  },
+  "feed": {
+    "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
+    "showAllLangs": "すべての言語圏を見る"
+  },
+  "room": {
+    "privateDesc": "部屋の持ち主が公開していない部屋です。"
   }
 }

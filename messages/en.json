@@ -50,7 +50,12 @@
     "all": "All",
     "category": "Category",
     "language": "Language",
-    "currency": "Currency"
+    "currency": "Currency",
+    "lang": {
+      "ko": "Korean",
+      "ja": "Japanese",
+      "en": "English"
+    }
   },
   "sanction": {
     "warning": "Warning",
@@ -98,5 +103,12 @@
   },
   "codex": {
     "unverified": "Unverified"
+  },
+  "feed": {
+    "emptyByLang": "No items are on display in this language yet.",
+    "showAllLangs": "Show all languages"
+  },
+  "room": {
+    "privateDesc": "The owner has not made this room public."
   }
 }
