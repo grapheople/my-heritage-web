@@ -12,16 +12,20 @@ import type { CodexEntry } from "@/lib/dev-fixture";
  * 원문이 영문이라 한국어로 검색한 유저가 "왜 이게 나왔지"를 알 수 없기 때문이다
  * (`policies/i18n` §2, D-043).
  *
- * `ownerCount`(보유자 수)는 **도감 상세에서는 로그인 유저에게만** 보인다
- * (D-078, FR-07-A-02). 검색 결과의 이 숫자도 같은 규칙을 따라야 하므로
- * 인증이 붙으면 `viewerLoggedIn` 분기가 필요하다 — 지금은 픽스처다.
+ * ⚠️ **보유자 수는 로그인 유저에게만 보인다** (D-078, FR-07-A-02).
+ * 검색 결과가 색인 대상은 아니지만, 같은 숫자를 한쪽에서만 가리면 우회로가
+ * 생긴다 — 비로그인이 검색으로 "이 시계 213명 보유"를 알 수 있으면 D-078 을
+ * 우회한 것이다. 판정은 `lib/auth/viewer.ts` 한 곳에서만 한다.
  */
 export function CodexRow({
   entry,
   matchedAlias,
+  viewerLoggedIn,
 }: {
   entry: CodexEntry;
   matchedAlias?: string;
+  /** 비로그인에게는 보유자 수를 렌더하지 않는다 (D-078) */
+  viewerLoggedIn: boolean;
 }) {
   const t = useTranslations();
 
@@ -45,9 +49,11 @@ export function CodexRow({
           </p>
         )}
       </div>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {t("codex.owners", { count: formatNumber(entry.ownerCount) })}
-      </span>
+      {viewerLoggedIn && (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {t("codex.owners", { count: formatNumber(entry.ownerCount) })}
+        </span>
+      )}
     </Link>
   );
 }

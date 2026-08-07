@@ -1,25 +1,40 @@
 import { RoomDisplay } from "@/components/domain/room-display";
 import { RoomProfile } from "@/components/domain/room-profile";
 import { RoomTabs } from "@/components/domain/room-tabs";
+import { redirect } from "@/i18n/navigation";
+import { getViewer } from "@/lib/auth/viewer";
 import { findRoom } from "@/lib/dev-fixture";
 
 /**
  * S-02 마이룸 (본인).
  *
- * 진열 메타포가 이 서비스의 차별점이다 — 그리드 리스트로 만들면 인스타의
- * 열등 복제품이 된다. 아이템 1개인 방과 50개인 방이 시각적으로 명확히 달라야
- * 하고, 그 "부피"가 자랑거리가 되어야 한다 (원칙 2).
+ * 진열 메타포가 이 서비스의 차별점이다 — 아이템 1개인 방과 50개인 방이
+ * 시각적으로 명확히 달라야 하고, 그 "부피"가 자랑거리가 되어야 한다 (원칙 2).
  *
  * S-03(타인 방)과 **같은 컴포넌트를 쓴다.** 차이는 데이터뿐이다 —
  * 본인 방에서는 **비공개 아이템도 표식과 함께 노출**된다 (D-019, FR-01-B-01).
  *
- * ⚠️ 데이터는 개발용 고정값이다 (`lib/dev-fixture.ts`). 인증(D-021·D-092)이
- * 붙으면 세션의 방을 조회하도록 바꾼다.
+ * ⚠️ **비로그인이면 로그인 화면으로 보낸다** (FR-05-B-07). 탭 자체는 누를 수
+ * 있게 두는 것이 D-069 다 — 회색 처리나 숨김을 쓰지 않는다.
  */
-const MY_ROOM_ID = "r-jun";
+export default async function MyRoomPage({
+  params,
+}: PageProps<"/[locale]/me">) {
+  const { locale } = await params;
+  const viewer = await getViewer();
+  if (!viewer) {
+    // redirect 는 내부에서 throw 한다. return 은 타입 좁히기용이다
+    redirect({ href: { pathname: "/login", query: { next: "/me" } }, locale });
+    return null;
+  }
 
-export default async function MyRoomPage() {
-  const room = findRoom(MY_ROOM_ID)!;
+  // 방 조회는 아직 픽스처다. Prisma 로 바꿀 때 이 한 줄만 바뀐다
+  const room = viewer.roomId ? findRoom(viewer.roomId) : undefined;
+  if (!room) {
+    // 방 이름 미설정 신규 가입은 설정으로 유도한다 (FR-05-A-05 — 전용 화면 없음)
+    redirect({ href: "/me/settings", locale });
+    return null;
+  }
 
   // 개수 내림차순 (D-075, FR-01-A-10). 떠난 아이템은 집계 제외 (FR-01-A-07)
   const sections = [...room.sections].sort(
@@ -36,11 +51,7 @@ export default async function MyRoomPage() {
         itemCount={total}
       />
       <RoomTabs active="items" />
-      <RoomDisplay
-        sections={sections}
-        goneItems={room.gone}
-        basePath="/me"
-      />
+      <RoomDisplay sections={sections} goneItems={room.gone} basePath="/me" />
     </div>
   );
 }

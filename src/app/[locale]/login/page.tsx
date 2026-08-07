@@ -1,12 +1,74 @@
-import { ScreenStub } from "@/components/dev/screen-stub";
+import { getTranslations } from "next-intl/server";
+import { signIn } from "@/lib/auth/config";
+import { getViewer } from "@/lib/auth/viewer";
+import { Link, redirect } from "@/i18n/navigation";
 
-export default function PageS13login() {
+/**
+ * S-13 로그인.
+ *
+ * **Google · Apple 소셜만** (D-021, FR-05-A-01).
+ * **이메일/비밀번호 가입은 제공하지 않는다** (FR-05-A-02) — 입력 필드가 없는 게
+ * 정상이다.
+ *
+ * Auth.js 기본 로그인 화면을 쓰지 않는다 — UI 문구가 3개 언어여야 한다 (D-003).
+ * 탭바가 붙지 않는다 (`(user)` 그룹 밖).
+ */
+export default async function LoginPage({
+  params,
+  searchParams,
+}: PageProps<"/[locale]/login">) {
+  const { locale } = await params;
+  const t = await getTranslations();
+  const sp = await searchParams;
+
+  // 이미 로그인했으면 되돌린다
+  if (await getViewer()) {
+    redirect({ href: "/", locale });
+    return null;
+  }
+
+  const next = typeof sp.next === "string" ? sp.next : "/";
+
+  async function login(provider: "google" | "apple") {
+    "use server";
+    await signIn(provider, { redirectTo: next });
+  }
+
   return (
-    <ScreenStub
-      id="S-13"
-      title="로그인"
-      owner="myroom-service"
-      spec="02-planning-spec.md F-05"
-    />
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{t("app.title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("auth.loginRequired")}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <form action={login.bind(null, "google")}>
+          <button
+            type="submit"
+            className="w-full rounded-lg border py-3 text-sm font-semibold hover:bg-accent"
+          >
+            {t("auth.loginWithGoogle")}
+          </button>
+        </form>
+        <form action={login.bind(null, "apple")}>
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            {t("auth.loginWithApple")}
+          </button>
+        </form>
+      </div>
+
+      {/* 비로그인도 열람은 가능하다 (FR-05-B-01) — 막다른 길로 두지 않는다 */}
+      <Link
+        href="/"
+        className="text-center text-sm text-muted-foreground underline"
+      >
+        {t("auth.browseWithoutLogin")}
+      </Link>
+    </main>
   );
 }

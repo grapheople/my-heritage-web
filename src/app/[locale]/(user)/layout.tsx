@@ -1,5 +1,6 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { TopNav } from "@/components/layout/top-nav";
+import { isLoggedIn } from "@/lib/auth/viewer";
 
 /**
  * 유저 셸 — 모바일 우선 + 데스크톱 대응 (D-077).
@@ -14,12 +15,13 @@ import { TopNav } from "@/components/layout/top-nav";
  *
  * 어드민은 `(admin)` 그룹에서 별도 셸을 쓴다 (데스크톱 1440 · ko 단일 · D-030).
  */
-export default function UserLayout({
+export default async function UserLayout({
   children,
 }: LayoutProps<"/[locale]">) {
+  const loggedIn = await isLoggedIn();
   return (
     <div className="flex min-h-dvh flex-col">
-      <TopNav />
+      <TopNav loggedIn={loggedIn} />
       {/* sm·md 는 유동 폭이다. `max-w-screen-sm`(v3)은 Tailwind v4 에서 동작하지
           않아 캡이 걸리지 않았고, md(640~1023)에서 진열 4열을 쓰려면 애초에
           640 캡이 맞지 않는다 (D-089). lg 에서만 1200 으로 묶는다 */}

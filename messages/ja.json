@@ -66,7 +66,8 @@
     "login": "ログイン",
     "loginWithGoogle": "Googleで続ける",
     "loginWithApple": "Appleで続ける",
-    "loginRequired": "ログインが必要です"
+    "loginRequired": "ログインが必要です",
+    "browseWithoutLogin": "ログインせずに見る"
   },
   "common": {
     "save": "保存",

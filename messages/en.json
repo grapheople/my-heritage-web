@@ -66,7 +66,8 @@
     "login": "Log in",
     "loginWithGoogle": "Continue with Google",
     "loginWithApple": "Continue with Apple",
-    "loginRequired": "Log in to continue"
+    "loginRequired": "Log in to continue",
+    "browseWithoutLogin": "Browse without signing in"
   },
   "common": {
     "save": "Save",

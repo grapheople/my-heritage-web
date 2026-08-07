@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { RoomRow } from "@/components/domain/room-row";
 import { SearchBar } from "@/components/domain/search-bar";
+import { isLoggedIn } from "@/lib/auth/viewer";
 import { DEV_CODEX, DEV_FEED, DEV_ROOMS } from "@/lib/dev-fixture";
 
 /**
@@ -76,6 +77,8 @@ async function ItemResults({ nq, category }: { nq: string; category?: string }) 
 /** 도감 — 원문 명칭·고유값·alias 전부 매칭 (FR-04-A-04) */
 async function CodexResults({ nq, category }: { nq: string; category?: string }) {
   const t = await getTranslations();
+  // ⚠️ 보유자 수는 로그인 유저에게만 (D-078)
+  const loggedIn = await isLoggedIn();
   const hits = DEV_CODEX
     .filter((c) => !category || c.categoryKey === `category.${category}`)
     .map((c) => {
@@ -90,7 +93,12 @@ async function CodexResults({ nq, category }: { nq: string; category?: string })
   return (
     <div className="py-1 lg:py-2">
       {hits.map(({ c, alias }) => (
-        <CodexRow key={c.id} entry={c} matchedAlias={alias} />
+        <CodexRow
+          key={c.id}
+          entry={c}
+          matchedAlias={alias}
+          viewerLoggedIn={loggedIn}
+        />
       ))}
     </div>
   );
