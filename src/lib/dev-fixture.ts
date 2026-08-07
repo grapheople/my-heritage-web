@@ -663,3 +663,50 @@ export const DEV_PROFILE_SETTINGS = {
   language: "ko" as OwnerLang,
   timezone: "Asia/Seoul",
 };
+
+/* ─────────────────────────────────────────────────────────────
+   운영 — S-15 신고 · S-17 브랜드 요청 · S-21 제재
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * 신고 사유 (FR-05-A-02, D-035·D-052).
+ * **금지품목 6종 + 사기·피싱 링크 + 부적절한 콘텐츠 + 정보 오류.**
+ * 자동 판정하지 않는다 (FR-06-A-04) — 신고 기반 사후 조치다.
+ */
+export const REPORT_REASONS = [
+  // 금지품목 6종 (D-052)
+  "fake", "stolen", "weapon", "drug", "alcohol", "nonphysical",
+  // 그 외
+  "phishing", "inappropriate", "wrongInfo",
+] as const;
+
+export type ReportTarget = "item" | "diary" | "room" | "codex" | "link";
+
+/** 신고 가능 대상 (FR-05-A-01, D-029·D-035·D-040) */
+export const REPORT_TARGETS: ReportTarget[] = [
+  "item", "diary", "room", "codex", "link",
+];
+
+/** 브랜드 마스터 — 요청 전 중복 검사에 쓴다 (FR-09-A-07) */
+export const DEV_BRANDS = [
+  { name: "Rolex", aliases: ["롤렉스", "ロレックス"] },
+  { name: "Omega", aliases: ["오메가", "オメガ"] },
+  { name: "Seiko", aliases: ["세이코", "セイコー"] },
+  { name: "Snow Peak", aliases: ["스노우피크", "スノーピーク"] },
+  { name: "Nike", aliases: ["나이키", "ナイキ"] },
+];
+
+/** 대기 중인 브랜드 요청 — 같은 요청은 병합한다 (FR-09-A-06) */
+export const DEV_BRAND_REQUESTS = [
+  { name: "Grand Seiko", categoryKey: "category.watch", count: 4 },
+];
+
+/** 제재 상태 (D-064·D-066) */
+export type SanctionLevel = "WARNING" | "SUSPENDED" | "BANNED";
+export const DEV_SANCTION = {
+  level: "SUSPENDED" as SanctionLevel,
+  reasonKey: "report.reason.inappropriate",
+  /** 영구 정지면 없다 */
+  until: "2026-08-15",
+  issuedAt: "2026-08-08",
+};

@@ -78,7 +78,21 @@
   "sanction": {
     "warning": "Warning",
     "suspended": "Suspended",
-    "banned": "Permanently banned"
+    "banned": "Permanently banned",
+    "noticeTitle": "Account restricted",
+    "reason": "Reason",
+    "period": "Period",
+    "issuedAt": "Applied",
+    "until": "Until {date}",
+    "permanent": "No end date",
+    "blockedTitle": "What you can't do right now",
+    "blocked1": "Browse the feed, search, market or other rooms",
+    "blocked2": "Create or edit items and entries",
+    "blocked3": "List for sale or report",
+    "appealTitle": "Want to appeal?",
+    "appealBody": "Write to the address below and we'll take a look.",
+    "leaveService": "Delete account",
+    "seeDetail": "See details"
   },
   "auth": {
     "login": "Log in",
@@ -170,7 +184,33 @@
     "refUrl": "Reference link"
   },
   "report": {
-    "reportThis": "Report"
+    "reportThis": "Report",
+    "title": "Report",
+    "reasonLabel": "Reason",
+    "detailLabel": "Details",
+    "submit": "Submit report",
+    "submitted": "Report received",
+    "errNoReason": "Pick a reason",
+    "noAutoHide": "Reporting does not hide the content right away. A moderator reviews it first.",
+    "resultNotice": "We'll let you know the outcome in your notifications.",
+    "target": {
+      "item": "Report item",
+      "diary": "Report entry",
+      "room": "Report room",
+      "codex": "Report codex entry",
+      "link": "Report external link"
+    },
+    "reason": {
+      "fake": "Counterfeit",
+      "stolen": "Stolen goods",
+      "weapon": "Weapons or hazards",
+      "drug": "Drugs or medication",
+      "alcohol": "Alcohol or tobacco",
+      "nonphysical": "Non-physical goods (accounts, vouchers)",
+      "phishing": "Scam or phishing link",
+      "inappropriate": "Inappropriate content",
+      "wrongInfo": "Incorrect information"
+    }
   },
   "sell": {
     "convert": "List for sale",
@@ -230,5 +270,17 @@
     "notReady": "We're setting up a contact address",
     "scope1": "Appeals about reports or restrictions",
     "scope2": "Account and data requests"
+  },
+  "brand": {
+    "requestTitle": "Request a brand",
+    "requestDesc": "Can't find the brand? Tell us and a moderator will add it.",
+    "nameLabel": "Brand name",
+    "namePlaceholder": "e.g. Grand Seiko",
+    "submit": "Send request",
+    "submitted": "Request sent",
+    "continueWithoutCodex": "You can keep adding items without a codex link until it's approved.",
+    "reviewNotice": "It won't appear right away. A moderator reviews it first.",
+    "alreadyExists": "That brand already exists — pick “{name}”.",
+    "alreadyRequested": "{count} people already asked for this. Requests are merged."
   }
 }

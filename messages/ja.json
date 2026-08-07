@@ -78,7 +78,21 @@
   "sanction": {
     "warning": "警告",
     "suspended": "一時停止",
-    "banned": "永久停止"
+    "banned": "永久停止",
+    "noticeTitle": "利用制限のお知らせ",
+    "reason": "理由",
+    "period": "期間",
+    "issuedAt": "適用日",
+    "until": "{date}まで",
+    "permanent": "期限なし",
+    "blockedTitle": "今できないこと",
+    "blocked1": "新着・検索・マーケット・他の人の部屋の閲覧",
+    "blocked2": "アイテム・記録の作成と編集",
+    "blocked3": "販売への変更と報告",
+    "appealTitle": "異議がありますか",
+    "appealBody": "下記アドレスへお送りいただければ確認します。",
+    "leaveService": "退会する",
+    "seeDetail": "詳しく見る"
   },
   "auth": {
     "login": "ログイン",
@@ -170,7 +184,33 @@
     "refUrl": "参考リンク"
   },
   "report": {
-    "reportThis": "報告する"
+    "reportThis": "報告する",
+    "title": "報告",
+    "reasonLabel": "報告の理由",
+    "detailLabel": "詳細",
+    "submit": "報告する",
+    "submitted": "報告を受け付けました",
+    "errNoReason": "理由を選んでください",
+    "noAutoHide": "報告してもそのコンテンツがすぐ非表示になるわけではありません。運営が確認してから対応します。",
+    "resultNotice": "処理結果はお知らせでご連絡します。",
+    "target": {
+      "item": "アイテムの報告",
+      "diary": "記録の報告",
+      "room": "部屋の報告",
+      "codex": "図鑑の報告",
+      "link": "外部リンクの報告"
+    },
+    "reason": {
+      "fake": "偽物・模造品",
+      "stolen": "盗難品",
+      "weapon": "武器・危険物",
+      "drug": "医薬品・薬物",
+      "alcohol": "酒類・タバコ",
+      "nonphysical": "実物のない商品（アカウント等）",
+      "phishing": "詐欺・フィッシングリンク",
+      "inappropriate": "不適切なコンテンツ",
+      "wrongInfo": "情報の誤り"
+    }
   },
   "sell": {
     "convert": "販売中に変更",
@@ -230,5 +270,17 @@
     "notReady": "お問い合わせ先を準備中です",
     "scope1": "報告結果・制限への異議",
     "scope2": "アカウント・データに関する依頼"
+  },
+  "brand": {
+    "requestTitle": "ブランド追加リクエスト",
+    "requestDesc": "お探しのブランドが一覧にありませんか？お知らせいただければ運営が確認して登録します。",
+    "nameLabel": "ブランド名",
+    "namePlaceholder": "例: Grand Seiko",
+    "submit": "リクエストを送る",
+    "submitted": "リクエストを送りました",
+    "continueWithoutCodex": "登録が完了するまで、図鑑に紐づけずアイテムを登録できます。",
+    "reviewNotice": "すぐには登録されません。運営が確認してから一覧に追加されます。",
+    "alreadyExists": "すでにあるブランドです — 「{name}」を選んでください。",
+    "alreadyRequested": "同じリクエストがすでに{count}件あります。まとめて処理されます。"
   }
 }
