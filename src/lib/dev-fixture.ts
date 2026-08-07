@@ -763,3 +763,110 @@ export const DEV_NOTIFICATIONS: NotificationItem[] = [
 export function unreadCount(): number {
   return DEV_NOTIFICATIONS.filter((n) => !n.read).length;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   S-04 아이템 등록·수정
+   ───────────────────────────────────────────────────────────── */
+
+/** 동적 속성 8종 (D-038). 어드민이 카테고리별로 추가·삭제한다 */
+export type AttrType =
+  | "text" | "textarea" | "number" | "select"
+  | "multiselect" | "date" | "boolean" | "url";
+
+export type AttrDef = {
+  key: string;
+  /** i18n 키. **속성명은 번역 대상**이다 (D-010) */
+  labelKey: string;
+  type: AttrType;
+  required: boolean;
+  /** `number` 전용 — 단위도 번역 대상 (D-010) */
+  unit?: string;
+  /** `select`·`multiselect` 전용. **선택지도 번역 대상** — 가장 흔한 누락 */
+  optionKeys?: string[];
+  /** 이 속성이 도감 매칭 키인가 (D-013) */
+  matchingKey?: boolean;
+  /** 브랜드는 자유 텍스트가 아니라 마스터 select 다 (D-043) */
+  brandSelect?: boolean;
+};
+
+/**
+ * 카테고리별 활성 속성. **순서대로 표시한다** (FR-05-A-02, FR-02-A-10).
+ * 비활성 속성은 여기 들어오지 않는다 (D-036).
+ */
+export const CATEGORY_ATTRS: Record<string, AttrDef[]> = {
+  watch: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+    { key: "uniqueId", labelKey: "attr.uniqueId", type: "text", required: true, matchingKey: true },
+    { key: "movement", labelKey: "attr.movement", type: "select", required: false,
+      optionKeys: ["opt.auto", "opt.quartz", "opt.manual"] },
+    { key: "caseSize", labelKey: "attr.caseSize", type: "number", required: false, unit: "mm" },
+    { key: "year", labelKey: "attr.year", type: "number", required: false, unit: "unit.year" },
+    { key: "condition", labelKey: "attr.condition", type: "select", required: false,
+      optionKeys: ["cond.new", "cond.unused", "cond.light", "cond.used"] },
+    { key: "accessories", labelKey: "attr.accessories", type: "multiselect", required: false,
+      optionKeys: ["acc.warranty", "acc.links", "acc.pouch", "acc.manual"] },
+    { key: "hasBox", labelKey: "attr.hasBox", type: "boolean", required: false },
+    { key: "purchasedFrom", labelKey: "attr.purchasedFrom", type: "text", required: false },
+    { key: "purchaseDate", labelKey: "attr.purchaseDate", type: "date", required: false },
+    { key: "note", labelKey: "attr.note", type: "textarea", required: false },
+    { key: "refUrl", labelKey: "attr.refUrl", type: "url", required: false },
+  ],
+  camping: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+    { key: "uniqueId", labelKey: "attr.uniqueId", type: "text", required: false, matchingKey: true },
+    { key: "purchaseDate", labelKey: "attr.purchaseDate", type: "date", required: false },
+    { key: "note", labelKey: "attr.note", type: "textarea", required: false },
+  ],
+  shoes: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+    { key: "uniqueId", labelKey: "attr.uniqueId", type: "text", required: false, matchingKey: true },
+    { key: "condition", labelKey: "attr.condition", type: "select", required: false,
+      optionKeys: ["cond.new", "cond.unused", "cond.light", "cond.used"] },
+  ],
+  bicycle: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+  ],
+  apparel: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+  ],
+  deskterior: [
+    { key: "brand", labelKey: "attr.brand", type: "select", required: true, brandSelect: true },
+    { key: "model", labelKey: "attr.model", type: "text", required: true },
+  ],
+};
+
+/**
+ * 매칭 키로 도감 조회 (D-013, FR-03-A-01).
+ * ⚠️ **옷·자전거·데스크테리어는 매칭 키 초안이 검증되지 않았다** (D-034 조사 대기).
+ */
+export function lookupCodexByKey(
+  category: string,
+  value: string,
+): CodexEntry | undefined {
+  if (!value.trim()) return undefined;
+  const n = value.normalize("NFKC").toLowerCase().replace(/[\s-]/g, "");
+  return DEV_CODEX.find(
+    (c) =>
+      c.categoryKey === `category.${category}` &&
+      c.uniqueId.normalize("NFKC").toLowerCase().replace(/[\s-]/g, "") === n,
+  );
+}
+
+/** 도감이 보유한 속성값 — 자동 채움에 쓴다 (FR-03-A-01) */
+export function codexAttrValues(codexId: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const a of DEV_CODEX_ATTRS[codexId] ?? []) {
+    const key = a.labelKey.replace(/^attr\./, "");
+    out[key] = a.value;
+  }
+  const entry = findCodex(codexId);
+  if (entry) out.uniqueId = entry.uniqueId;
+  return out;
+}
+
+export const ITEM_MAX_PHOTOS = 10;

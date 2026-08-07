@@ -181,7 +181,10 @@
     "purchasedFrom": "Bought from",
     "purchaseDate": "Purchase date",
     "purchasePrice": "Purchase price",
-    "refUrl": "Reference link"
+    "refUrl": "Reference link",
+    "accessories": "Accessories",
+    "hasBox": "Original box",
+    "note": "Notes"
   },
   "report": {
     "reportThis": "Report",
@@ -281,7 +284,8 @@
     "continueWithoutCodex": "You can keep adding items without a codex link until it's approved.",
     "reviewNotice": "It won't appear right away. A moderator reviews it first.",
     "alreadyExists": "That brand already exists — pick “{name}”.",
-    "alreadyRequested": "{count} people already asked for this. Requests are merged."
+    "alreadyRequested": "{count} people already asked for this. Requests are merged.",
+    "none": "No matching brand"
   },
   "notif": {
     "empty": "No notifications yet",
@@ -296,5 +300,45 @@
       "SANCTION": "Restriction",
       "CODEX_MERGED": "Codex"
     }
+  },
+  "reg": {
+    "newTitle": "Add an item",
+    "editTitle": "Edit item",
+    "step1": "What kind of item is it?",
+    "choose": "Select",
+    "yes": "Yes",
+    "required": "Required",
+    "photoRequired": "Add at least one photo",
+    "photos": "Photos",
+    "cover": "Cover",
+    "autoFilled": "Auto · editable",
+    "autoFillNotice": "Found in the codex. Changing a value re-runs the lookup.",
+    "brandSearch": "Search brands (Korean and Japanese work too)",
+    "unknownKey": "I don't know the reference number",
+    "unknownKeyNotice": "Without it the item isn't linked to a codex entry, so it won't show under “collectors with this item”. You can add it later.",
+    "urlWarnNotice": "Opening this shows an external-link warning first.",
+    "noDraft": "Nothing is saved if you leave before submitting.",
+    "saved": "Item added",
+    "savedNotice": "Added as public and on display. First item today earns 30 XP."
+  },
+  "opt": {
+    "auto": "Automatic",
+    "quartz": "Quartz",
+    "manual": "Manual"
+  },
+  "cond": {
+    "new": "New",
+    "unused": "Unworn",
+    "light": "Light wear",
+    "used": "Used"
+  },
+  "acc": {
+    "warranty": "Warranty card",
+    "links": "Spare links",
+    "pouch": "Pouch",
+    "manual": "Manual"
+  },
+  "unit": {
+    "year": "yr"
   }
 }

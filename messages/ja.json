@@ -181,7 +181,10 @@
     "purchasedFrom": "購入先",
     "purchaseDate": "購入日",
     "purchasePrice": "購入価格",
-    "refUrl": "参考リンク"
+    "refUrl": "参考リンク",
+    "accessories": "付属品",
+    "hasBox": "純正箱",
+    "note": "メモ"
   },
   "report": {
     "reportThis": "報告する",
@@ -281,7 +284,8 @@
     "continueWithoutCodex": "登録が完了するまで、図鑑に紐づけずアイテムを登録できます。",
     "reviewNotice": "すぐには登録されません。運営が確認してから一覧に追加されます。",
     "alreadyExists": "すでにあるブランドです — 「{name}」を選んでください。",
-    "alreadyRequested": "同じリクエストがすでに{count}件あります。まとめて処理されます。"
+    "alreadyRequested": "同じリクエストがすでに{count}件あります。まとめて処理されます。",
+    "none": "該当するブランドがありません"
   },
   "notif": {
     "empty": "まだお知らせがありません",
@@ -296,5 +300,45 @@
       "SANCTION": "制限",
       "CODEX_MERGED": "図鑑"
     }
+  },
+  "reg": {
+    "newTitle": "アイテム登録",
+    "editTitle": "アイテム編集",
+    "step1": "どんなアイテムですか？",
+    "choose": "選択",
+    "yes": "あり",
+    "required": "必須項目です",
+    "photoRequired": "写真を1枚以上登録してください",
+    "photos": "写真",
+    "cover": "代表",
+    "autoFilled": "自動 · 編集可",
+    "autoFillNotice": "図鑑で見つかりました。値を変えると図鑑を再検索します。",
+    "brandSearch": "ブランド検索（日本語でも可）",
+    "unknownKey": "固有番号がわかりません",
+    "unknownKeyNotice": "図鑑に紐づかないため「同じアイテムを持つ人」には表示されません。後から入力すれば紐づきます。",
+    "urlWarnNotice": "タップすると外部に移動する警告が先に表示されます。",
+    "noDraft": "作成中に離れると入力内容は保存されません。",
+    "saved": "登録しました",
+    "savedNotice": "公開・展示中で登録されます。今日最初の登録なら経験値30を獲得します。"
+  },
+  "opt": {
+    "auto": "オート",
+    "quartz": "クォーツ",
+    "manual": "手巻き"
+  },
+  "cond": {
+    "new": "新品",
+    "unused": "未使用",
+    "light": "使用感少",
+    "used": "使用感あり"
+  },
+  "acc": {
+    "warranty": "保証書",
+    "links": "予備コマ",
+    "pouch": "ポーチ",
+    "manual": "説明書"
+  },
+  "unit": {
+    "year": "年"
   }
 }
