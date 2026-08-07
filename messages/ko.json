@@ -189,5 +189,46 @@
     "errUrlScheme": "http 또는 https 로 시작해야 해요",
     "errNeedsPublic": "공개 전환에 동의해야 판매할 수 있어요",
     "notWired": "입력값 검증까지 확인했습니다. 저장은 개발 연동 후 동작합니다."
+  },
+  "settings": {
+    "title": "프로필 설정",
+    "roomName": "방 이름",
+    "roomNameHint": "다른 사람과 같은 이름을 써도 괜찮아요.",
+    "bio": "소개",
+    "roomVisibility": "방 공개",
+    "roomPublicDesc": "누구나 내 방을 볼 수 있어요",
+    "roomPrivateDesc": "나만 볼 수 있어요",
+    "goPrivateWarn": "비공개로 바꾸면 판매중 {count}건이 마켓에서 내려갑니다.",
+    "goPublicWarn": "공개로 바꾸면 판매중 {count}건이 마켓에 다시 노출됩니다. 가격·링크는 그대로예요.",
+    "language": "언어",
+    "blocks": "차단 목록",
+    "contact": "문의",
+    "languageHint": "서비스 화면만 바뀝니다. 일기·방 이름·소개·아이템 정보는 쓴 그대로 남아요.",
+    "noBlocks": "차단한 사람이 없어요",
+    "blocksHint": "차단하면 서로의 방·아이템·기록·매물이 보이지 않습니다. 상대에게는 알리지 않아요.",
+    "blockedAt": "{date} 차단",
+    "unblock": "해제"
+  },
+  "level": {
+    "current": "현재 레벨",
+    "max": "최고 레벨",
+    "toNext": "다음 레벨까지 {exp}",
+    "total": "누적 경험치 {exp}",
+    "today": "오늘 할 수 있는 것",
+    "done": "완료",
+    "dayBoundary": "하루 기준은 내 시간대예요.",
+    "history": "최근 내역",
+    "table": "레벨 표",
+    "reason": {
+      "login": "로그인",
+      "item": "아이템 등록",
+      "diary": "기록 쓰기"
+    }
+  },
+  "contact": {
+    "body": "서비스 이용 중 문제가 있거나 제재에 이의가 있으면 아래 주소로 보내주세요.",
+    "notReady": "문의 주소를 준비하고 있어요",
+    "scope1": "신고 결과·제재에 대한 이의",
+    "scope2": "계정·데이터 관련 요청"
   }
 }
