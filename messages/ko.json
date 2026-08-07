@@ -7,7 +7,8 @@
     "new": "새 아이템",
     "myRoom": "마이룸",
     "search": "검색",
-    "market": "마켓"
+    "market": "마켓",
+    "notifications": "알림"
   },
   "myRoom": {
     "tab": {
@@ -91,5 +92,11 @@
     "title": "외부 사이트로 이동합니다",
     "body": "이 서비스가 관리하지 않는 페이지입니다. 거래는 본인 책임입니다.",
     "continue": "이동"
+  },
+  "display": {
+    "more": "더 보기"
+  },
+  "codex": {
+    "unverified": "미검증"
   }
 }

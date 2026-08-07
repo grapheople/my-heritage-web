@@ -7,7 +7,8 @@
     "new": "New",
     "myRoom": "My Room",
     "search": "Search",
-    "market": "Market"
+    "market": "Market",
+    "notifications": "Notifications"
   },
   "myRoom": {
     "tab": {
@@ -91,5 +92,11 @@
     "title": "You're leaving this service",
     "body": "This page isn't managed by us. Any transaction is at your own risk.",
     "continue": "Continue"
+  },
+  "display": {
+    "more": "See more"
+  },
+  "codex": {
+    "unverified": "Unverified"
   }
 }
