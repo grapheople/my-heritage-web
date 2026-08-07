@@ -870,3 +870,67 @@ export function codexAttrValues(codexId: string): Record<string, string> {
 }
 
 export const ITEM_MAX_PHOTOS = 10;
+
+/* ─────────────────────────────────────────────────────────────
+   어드민 (A-01~A-13) — ko 단일 (D-030)
+   ───────────────────────────────────────────────────────────── */
+
+/** A-13 운영 대시보드 큐 5종 (D-072) */
+export const DEV_ADMIN_QUEUES = {
+  mergeCandidates: 7,
+  unverifiedCodex: 34,
+  pendingReports: 3,
+  pendingBrandRequests: 1,
+  activeSanctions: 2,
+};
+
+/** A-08 신고 처리 큐. 누적 신고가 많으면 상단 (FR-05-A-07) */
+export const DEV_ADMIN_REPORTS = [
+  { id: "rp-1", target: "item", targetId: "w-1", targetName: "Rolex Submariner 116610LN",
+    reason: "fake", count: 4, status: "PENDING", createdAt: "2026-08-08" },
+  { id: "rp-2", target: "link", targetId: "w-1", targetName: "cafe.example.com/watch/12345",
+    reason: "phishing", count: 2, status: "PENDING", createdAt: "2026-08-07" },
+  { id: "rp-3", target: "diary", targetId: "d-3", targetName: "주말에 처음 데려간 캠핑…",
+    reason: "inappropriate", count: 1, status: "RESOLVED", createdAt: "2026-08-05" },
+];
+
+/** A-10 제재. **제재 이전 공개 상태를 보존한다** (D-065, FR-07-B-03) */
+export const DEV_ADMIN_SANCTIONS = [
+  { id: "sc-1", roomId: "r-x1", roomName: "spam_seller_01", level: "SUSPENDED",
+    reason: "fake", until: "2026-08-15", previousRoomVisibility: "PUBLIC", issuedAt: "2026-08-08" },
+  { id: "sc-2", roomId: "r-x2", roomName: "느린배송", level: "WARNING",
+    reason: "wrongInfo", until: null, previousRoomVisibility: "PRIVATE", issuedAt: "2026-07-20" },
+];
+
+/** A-01 카테고리 — 6개 고정. 신규 생성·삭제 불가 (D-007) */
+export const DEV_ADMIN_CATEGORIES = [
+  { slug: "watch", labelKey: "category.watch", order: 1, active: true, itemCount: 1240 },
+  { slug: "shoes", labelKey: "category.shoes", order: 2, active: true, itemCount: 860 },
+  { slug: "bicycle", labelKey: "category.bicycle", order: 3, active: true, itemCount: 210 },
+  { slug: "apparel", labelKey: "category.apparel", order: 4, active: true, itemCount: 430 },
+  { slug: "camping", labelKey: "category.camping", order: 5, active: true, itemCount: 690 },
+  { slug: "deskterior", labelKey: "category.deskterior", order: 6, active: false, itemCount: 120 },
+];
+
+/** A-12 브랜드 요청 큐 — 요청 건수 순 (FR-09-B-01) */
+export const DEV_ADMIN_BRAND_REQUESTS = [
+  { id: "br-1", name: "Grand Seiko", category: "watch", count: 4, requestedAt: "2026-08-06" },
+  { id: "br-2", name: "Helinox", category: "camping", count: 2, requestedAt: "2026-08-07" },
+];
+
+/** A-03 매칭 키 — ⚠️ 옷·자전거·데스크테리어는 미검증 (D-034 조사 대기) */
+export const DEV_MATCHING_KEYS = [
+  { category: "watch", keys: ["uniqueId"], verified: true },
+  { category: "shoes", keys: ["uniqueId"], verified: true },
+  { category: "camping", keys: ["uniqueId"], verified: true },
+  { category: "bicycle", keys: ["model", "year"], verified: false },
+  { category: "apparel", keys: [], verified: false },
+  { category: "deskterior", keys: ["uniqueId"], verified: false },
+];
+
+/** A-06 병합 후보 — 되돌리기가 가능해야 한다 */
+export const DEV_MERGE_CANDIDATES = [
+  { id: "mg-1", a: "Rolex Submariner Date 116610LN", b: "ROLEX SUBMARINER 116610LN",
+    aOwners: 128, bOwners: 3, similarity: 0.96 },
+  { id: "mg-2", a: "Seiko SKX007", b: "SEIKO SKX007J1", aOwners: 213, bOwners: 41, similarity: 0.81 },
+];
