@@ -169,16 +169,46 @@ curl -s https://<도메인>/sitemap.xml | grep -c '<url>'
 안 된다"를 알려야 하는 엔드포인트가 정작 그 상황에서 **침묵한다** — 실제로
 76초를 매달린 적이 있다.
 
-## 8. ⚠️ 로컬 개발은 docker DB 로
+## 8. 로컬 개발 — Supabase 와 docker 를 오간다
 
-사내 네트워크가 Postgres 포트를 막으므로(§2) **로컬에서 Supabase DB 를 쓸 수
-없다.** `.env` 의 `DATABASE_URL` 은 docker(`localhost:5434`)로 두고, Supabase
-값은 `.env.local` 에만 둔다.
+기본값은 **Supabase** 다. `.env` 의 `DATABASE_URL` 은 주석 처리돼 있고,
+`.env.local` 의 `POSTGRES_PRISMA_URL`(풀링) 이 쓰인다.
 
 ```bash
-pnpm db:up        # docker Postgres
-pnpm db:which     # 지금 어느 DB 를 보는지
+pnpm db:which     # 지금 어느 DB 를 보는지 — 앱과 CLI 를 둘 다 찍는다
+pnpm dev          # Supabase 를 본다
+pnpm dev:docker   # 이번 실행만 docker 를 본다
 ```
 
-**스토리지는 예외다** — HTTPS 443 이라 차단되지 않으므로 로컬에서도 실제
-Supabase Storage 에 올라간다. 즉 **업로드 경로는 로컬에서 그대로 검증된다.**
+> **VPN 을 끄고 써야 한다** (§2). 사내 네트워크는 5432·6543 을 막는다.
+> 스토리지는 HTTPS 443 이라 VPN 과 무관하게 항상 동작한다.
+
+docker 로 되돌리려면 `.env` 의 `DATABASE_URL` 주석을 살린다.
+
+### ⚠️ Supabase 를 볼 때 달라지는 것 3가지
+
+| 항목 | docker | Supabase |
+|---|---|---|
+| 로그인 | `seed-dev` 개발 유저로 자동 로그인 | **비로그인** — 그 유저가 없다 |
+| `/admin` | 어드민 0명이라 우회로가 연다 | **`DEV_ADMIN_EMAIL` 이 필요**하다 (아래) |
+| `pnpm db:seed-dev` | 동작 | **막힌다** — 원격 호스트면 거부한다 (D-097) |
+
+로그인 화면을 로컬에서 확인하려면 **OAuth 자격증명이 있어야 한다.**
+`AUTH_GOOGLE_ID` 가 채워지는 순간 `viewer.ts` 의 개발 우회로는 자동으로 꺼지고
+진짜 로그인이 유일한 경로가 된다.
+
+### `DEV_ADMIN_EMAIL` — 어드민 진입 (D-117)
+
+④ 로 어드민이 등록되면 개발 우회로(`어드민 0명일 때만`)가 꺼진다. OAuth 가
+없으면 로그인도 못 하므로 `/admin` 이 **404 로 닫힌다.** 그런데 ⑤ A-02 속성
+조합은 그 화면에서만 만들 수 있다. 그 고리를 끊는 값이다.
+
+```bash
+# .env.local
+DEV_ADMIN_EMAIL="pax.zee@kakaohealthcare.com"
+```
+
+- `NODE_ENV=development` 에서만 작동한다
+- **실재하고 `active` 인 `AdminUser` 여야** 사칭된다. 없으면 경고를 찍고 거부
+- 조치 로그의 `actorId` 는 **그 실제 어드민** 을 가리킨다 — 감사 기록이 거짓이 되지 않는다
+- 진짜 세션이 있으면 그쪽이 이긴다
