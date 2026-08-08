@@ -1,4 +1,6 @@
 import { AdminPage, Td } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { undoMergeCodex } from "@/lib/actions/admin";
 import { getAdminMergeHistory } from "@/lib/data/admin";
 
 /**
@@ -64,10 +66,13 @@ export default async function AdminCodexMergePage() {
                     <Td>{h.absorbedOwners}</Td>
                     <Td className="whitespace-nowrap">—</Td>
                     <Td>
-                      {/* 되돌리기가 없으면 수동 복구가 불가능하다 */}
-                      <button className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent">
-                        되돌리기
-                      </button>
+                      <AdminActionButton
+                        label="되돌리기"
+                        // ⚠️ 도감은 살아나지만 **이관된 아이템은 돌아오지 않는다**
+                        // — 어디서 왔는지 기록하지 않기 때문이다 (OI-62)
+                        confirm="도감만 복구됩니다. 옮겨간 아이템은 수동으로 되돌려야 합니다 (OI-62)."
+                        action={undoMergeCodex.bind(null, h.id)}
+                      />
                     </Td>
                   </tr>
                 ))

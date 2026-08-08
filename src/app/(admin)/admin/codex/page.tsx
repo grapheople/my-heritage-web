@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { setCodexVerification } from "@/lib/actions/admin";
 import { getAdminCodex } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
@@ -23,7 +25,7 @@ export default async function AdminCodexPage() {
       id="A-04" title="도감 목록"
       desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02)."
       action={
-        <button className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
+        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
           도감 직접 등록
         </button>
       }
@@ -37,8 +39,15 @@ export default async function AdminCodexPage() {
             <Td>{c.verified ? <Pill tone="sale">검증됨</Pill> : <Pill tone="warn">미검증</Pill>}</Td>
             <Td>{c.ownerCount}</Td>
             <Td>
-              <span className="flex gap-2 whitespace-nowrap">
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">편집</button>
+              <span className="flex items-start gap-2 whitespace-nowrap">
+                <AdminActionButton
+                  label={c.verified ? "미검증으로" : "검증됨으로"}
+                  tone={c.verified ? "default" : "primary"}
+                  // 되돌리면 검증 일시·검증자를 지운다 (FR-04-B-03·04)
+                  confirm={c.verified ? "검증 일시와 검증자 기록이 지워집니다." : undefined}
+                  action={setCodexVerification.bind(null, c.id, !c.verified)}
+                />
+                <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
                 <Link href="/admin/codex/aliases"
                   className="rounded-md border px-2 py-1 text-xs hover:bg-accent">alias</Link>
               </span>

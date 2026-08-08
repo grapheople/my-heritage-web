@@ -1,5 +1,13 @@
+import Link from "next/link";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { setCategoryAttribute } from "@/lib/actions/admin";
 import { getAdminCategoryAttributes } from "@/lib/data/admin";
+
+const CAT_LABEL: Record<string, string> = {
+  watch: "시계", shoes: "신발", bicycle: "자전거",
+  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어",
+};
 
 const TYPE_LABEL: Record<string, string> = {
   text: "한 줄", textarea: "여러 줄", number: "숫자", select: "단일 선택",
@@ -20,29 +28,38 @@ const TYPE_LABEL: Record<string, string> = {
  * 속성**명** · `number` **단위** · `select`/`multiselect` **선택지**.
  * 어드민 UI 는 ko 단일이지만 **이 값들은 유저에게 보인다** (D-010, D-030).
  */
-export default async function AdminAttributesPage() {
+export default async function AdminAttributesPage({
+  searchParams,
+}: PageProps<"/admin/attributes">) {
   const all = await getAdminCategoryAttributes();
-  // ⚠️ 카테고리 전환은 아직 클라이언트 상태가 없다 — 첫 카테고리만 보여준다.
-  // 조합이 비어 있으면 **아이템 등록 자체가 막힌다** (D-097)
-  const attrs = all[0]?.attrs ?? [];
+  const sp = await searchParams;
+  // 카테고리 전환은 링크로 한다 — 클라이언트 상태를 둘 이유가 없다
+  const slug = typeof sp.category === "string" ? sp.category : (all[0]?.slug ?? "");
+  const current = all.find((c) => c.slug === slug) ?? all[0];
+  const attrs = current?.attrs ?? [];
   return (
     <AdminPage
       id="A-02" title="동적 속성 관리"
       desc="카테고리별 속성 8종. 삭제는 없고 비활성화만 됩니다 (D-036)."
       action={
-        <button className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
+        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
           속성 추가
         </button>
       }
     >
       <div className="mb-4 flex gap-2">
-        {["시계", "신발", "자전거", "옷", "캠핑", "데스크테리어"].map((c, i) => (
-          <button key={c}
-            className={i === 0
-              ? "rounded-full border border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background"
-              : "rounded-full border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"}>
-            {c}
-          </button>
+        {all.map((c) => (
+          <Link
+            key={c.slug}
+            href={`/admin/attributes?category=${c.slug}`}
+            className={
+              c.slug === current?.slug
+                ? "rounded-full border border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background"
+                : "rounded-full border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            }
+          >
+            {CAT_LABEL[c.slug] ?? c.slug}
+          </Link>
         ))}
       </div>
 
@@ -56,9 +73,25 @@ export default async function AdminAttributesPage() {
             <Td>{a.required ? <Pill tone="warn">필수</Pill> : "—"}</Td>
             <Td>{a.matchingKey ? <Pill tone="sale">매칭 키</Pill> : "—"}</Td>
             <Td>
-              <span className="flex gap-2 whitespace-nowrap">
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">편집</button>
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">비활성화</button>
+              <span className="flex items-start gap-2 whitespace-nowrap">
+                <AdminActionButton
+                  label={a.active ? "비활성화" : "활성화"}
+                  // 값은 보존되고 표시에서만 빠진다 (D-036, M-09)
+                  confirm={a.active ? "기존 값은 보존되고 표시에서만 빠집니다." : undefined}
+                  action={setCategoryAttribute.bind(null, {
+                    categoryKey: current?.slug ?? "",
+                    attributeKey: a.key,
+                    active: !a.active,
+                  })}
+                />
+                <AdminActionButton
+                  label={a.required ? "선택으로" : "필수로"}
+                  action={setCategoryAttribute.bind(null, {
+                    categoryKey: current?.slug ?? "",
+                    attributeKey: a.key,
+                    required: !a.required,
+                  })}
+                />
               </span>
             </Td>
           </tr>

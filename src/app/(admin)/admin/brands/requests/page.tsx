@@ -1,4 +1,6 @@
 import { AdminPage, Table, Td } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { resolveBrandRequest } from "@/lib/actions/admin";
 import { getAdminBrandRequests } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
@@ -36,15 +38,23 @@ export default async function AdminBrandRequestsPage() {
             <Td className={r.count >= 3 ? "font-bold text-warn" : ""}>{r.count}</Td>
             <Td className="whitespace-nowrap">{r.requestedAt}</Td>
             <Td>
-              <span className="flex gap-2 whitespace-nowrap">
-                <button className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
-                  승인
-                </button>
-                {/* ⚠️ 이미 있는 브랜드면 새로 만들지 않고 alias 로 흡수한다 (D-047) */}
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
-                  기존 브랜드의 alias 로
-                </button>
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">반려</button>
+              <span className="flex items-start gap-2 whitespace-nowrap">
+                <AdminActionButton
+                  label="승인"
+                  tone="primary"
+                  // ⚠️ 승인 후 A-11 에서 **alias 를 반드시 넣어야 한다** (D-047).
+                  // 없으면 유저가 "롤렉스"로 검색해 못 찾고 또 요청을 보낸다
+                  confirm="마스터에 등재됩니다. 승인 후 A-11 에서 alias 를 넣으세요."
+                  action={resolveBrandRequest.bind(null, { requestId: r.id, approve: true })}
+                />
+                <AdminActionButton
+                  label="반려"
+                  action={resolveBrandRequest.bind(null, {
+                    requestId: r.id,
+                    approve: false,
+                    note: "마스터 등재 기준 미달",
+                  })}
+                />
               </span>
             </Td>
           </tr>
