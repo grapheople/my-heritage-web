@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
+import { ReportActions } from "@/components/admin/report-actions";
 import { getAdminReports } from "@/lib/data/admin";
 
 const REASON_LABEL: Record<string, string> = {
@@ -54,19 +55,13 @@ export default async function AdminReportsPage() {
             <Td className="whitespace-nowrap">{r.createdAt}</Td>
             <Td>
               {r.status === "PENDING" && (
-                <span className="flex gap-2 whitespace-nowrap">
-                  {/* 콘텐츠 조치 (FR-05-A-05) */}
-                  <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
-                    비공개 처리
-                  </button>
+                <span className="flex items-start gap-2 whitespace-nowrap">
+                  <ReportActions reportId={r.id} />
                   {/* 유저 제재로 이동 (FR-05-A-09, D-064) */}
                   <Link href="/admin/sanctions"
                     className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
                     제재 →
                   </Link>
-                  <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
-                    반려
-                  </button>
                 </span>
               )}
             </Td>

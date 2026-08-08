@@ -1,4 +1,6 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { setCategoryActive } from "@/lib/actions/admin";
 import { getAdminCategories } from "@/lib/data/admin";
 
 const LABEL: Record<string, string> = {
@@ -35,9 +37,12 @@ export default async function AdminCategoriesPage() {
             <Td>{c.itemCount.toLocaleString("en-US")}</Td>
             <Td>{c.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}</Td>
             <Td>
-              <button className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent">
-                {c.active ? "비활성화" : "활성화"}
-              </button>
+              <AdminActionButton
+                label={c.active ? "비활성화" : "활성화"}
+                // 비활성화해도 기존 아이템은 그대로다 (D-036) — 그래서 확인만 받는다
+                confirm={c.active ? "신규 등록이 막힙니다. 기존 아이템은 그대로입니다." : undefined}
+                action={setCategoryActive.bind(null, c.slug, !c.active)}
+              />
             </Td>
           </tr>
         ))}

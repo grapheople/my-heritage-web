@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { setCodexVerification } from "@/lib/actions/admin";
 import { getAdminCodex } from "@/lib/data/admin";
 
 /**
@@ -30,11 +33,19 @@ export default async function AdminCodexVerificationPage() {
             <Td>{c.ownerCount}</Td>
             <Td>
               <span className="flex gap-2 whitespace-nowrap">
-                <button className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
-                  검증 완료
-                </button>
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">병합으로</button>
-                <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">삭제</button>
+                <AdminActionButton
+                  label="검증됨으로"
+                  tone="primary"
+                  action={setCodexVerification.bind(null, c.id, true)}
+                />
+                {/* 삭제 버튼을 두지 않는다 — 도감은 연결된 아이템이 있어
+                    지울 수 없다. 중복이면 병합(A-06)이 맞다 (D-016) */}
+                <Link
+                  href="/admin/codex/merge"
+                  className="rounded-md border px-2 py-1 text-xs hover:bg-accent"
+                >
+                  병합으로 →
+                </Link>
               </span>
             </Td>
           </tr>

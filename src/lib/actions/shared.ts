@@ -1,15 +1,40 @@
+import { revalidatePath } from "next/cache";
 import type { Viewer } from "@/lib/auth/viewer";
 import { userLocalDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 /**
  * Server Action 공통 조각.
- *
- * ⚠️ **여기에 `revalidatePath` 를 두지 않는다.** 무효화는 **요청 스코프**를
- * 요구해서 스크립트에서 호출할 수 없고, 무엇보다 무효화 대상은 호출한 곳마다
- * 다르다. 진입점(`"use server"` 함수)이 각자 한다 — `actions/item.ts` §진입점
- * 주석 참조.
  */
+
+/**
+ * 캐시 무효화 — **요청 스코프 밖에서는 조용히 넘어간다.**
+ *
+ * ## ⚠️ 왜 삼키는가
+ * `revalidatePath` 는 요청 스코프를 요구해서 스크립트·크론에서 부르면 던진다.
+ * 그런데 이 시점에는 **DB 쓰기가 이미 끝나 있다.** 여기서 던지면 호출부는
+ * 실패로 보는데 데이터는 바뀐 상태가 된다 — **부분 기록**이다.
+ *
+ * 실제로 그 사고를 한 번 냈다: `createItem` 이 아이템을 저장한 뒤
+ * `revalidatePath` 에서 던져 중복 행이 남았다. 그래서 등록·수정은 **진입점과
+ * 저장 로직을 분리**했고(§6-2), 분리가 과한 곳은 이 헬퍼를 쓴다.
+ *
+ * **무효화는 캐시 최적화이지 정합성의 일부가 아니다.** 실패해도 다음 요청에
+ * 최신 데이터가 나온다 — 조금 늦을 뿐이다. 반대로 여기서 실패를 전파하면
+ * "저장은 됐는데 실패했다고 나오는" 상태가 된다.
+ */
+export function revalidate(...paths: string[]): void {
+  for (const path of paths) {
+    try {
+      revalidatePath(path, "page");
+    } catch (error) {
+      // 요청 스코프 밖 — 스크립트에서 부른 경우다. 개발 중에만 알린다
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`[revalidate] 건너뜀: ${path}`, (error as Error).message);
+      }
+    }
+  }
+}
 
 export type ActionResult<T = object> =
   | ({ ok: true } & T)

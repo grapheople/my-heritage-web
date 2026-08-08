@@ -36,7 +36,7 @@ export default async function AdminCodexAliasesPage() {
               )}
             </Td>
             <Td>
-              <button className="rounded-md border px-2 py-1 text-xs hover:bg-accent">편집</button>
+              <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
             </Td>
           </tr>
         ))}

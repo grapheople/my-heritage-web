@@ -1,4 +1,6 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
+import { AdminActionButton } from "@/components/admin/action-button";
+import { liftSanction } from "@/lib/actions/admin";
 import { getAdminSanctions } from "@/lib/data/admin";
 
 const LEVEL: Record<string, { label: string; tone: "muted" | "warn" | "danger" }> = {
@@ -34,7 +36,7 @@ export default async function AdminSanctionsPage() {
       id="A-10" title="유저·방 제재"
       desc="경고 / 일시 정지 / 영구 정지. 콘텐츠는 삭제하지 않고 이력을 남깁니다 (D-065)."
       action={
-        <button className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
+        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
           제재 부과
         </button>
       }
@@ -56,9 +58,17 @@ export default async function AdminSanctionsPage() {
               </Td>
               <Td className="whitespace-nowrap">{s.issuedAt}</Td>
               <Td>
-                <button className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent">
-                  해제
-                </button>
+                {s.lifted ? (
+                  <span className="text-xs text-muted-foreground">해제됨</span>
+                ) : (
+                  <AdminActionButton
+                    label="해제"
+                    // ⚠️ 방 공개 상태를 **제재 이전 값으로** 복원한다 (D-065, M-12).
+                    // 무조건 공개로 돌리면 원래 비공개였던 방이 열린다
+                    confirm={`해제하면 방이 ${s.previousRoomVisibility === "PUBLIC" ? "공개" : "비공개"}로 복원됩니다.`}
+                    action={liftSanction.bind(null, s.id)}
+                  />
+                )}
               </Td>
             </tr>
           );
