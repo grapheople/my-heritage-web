@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { createDiary, updateDiary } from "@/lib/actions/diary";
 import { StatusBadge } from "./status-badge";
 import { DIARY_MAX_LENGTH, MAX_PHOTOS as DIARY_MAX_PHOTOS } from "@/lib/constants";
+import { PhotoUploader } from "./photo-uploader";
 
 /**
  * 일기 작성·수정 폼 (S-06).
@@ -40,7 +41,7 @@ export function DiaryForm({
   initial?: {
     body: string;
     visibility: "PUBLIC" | "PRIVATE";
-    photoCount: number;
+    photos: string[];
     itemIds: string[];
   };
   /** 있으면 수정, 없으면 신규 — **수정은 경험치를 주지 않는다** (FR-01-C-03) */
@@ -51,7 +52,7 @@ export function DiaryForm({
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">(
     initial?.visibility ?? "PUBLIC",
   );
-  const [photos, setPhotos] = useState(initial?.photoCount ?? 0);
+  const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
   const [linked, setLinked] = useState<string[]>(initial?.itemIds ?? []);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -60,7 +61,7 @@ export function DiaryForm({
   // 유니코드 문자 수 — 이모지를 1로 센다
   const length = [...body].length;
   const remaining = DIARY_MAX_LENGTH - length;
-  const empty = body.trim().length === 0 && photos === 0;
+  const empty = body.trim().length === 0 && photos.length === 0;
 
   function onBodyChange(next: string) {
     // 초과분을 잘라내지 않는다. 이미 상한이면 추가 입력만 막는다 (FR-01-A-04)
@@ -76,7 +77,7 @@ export function DiaryForm({
     setError("");
 
     startTransition(async () => {
-      const payload = { body, visibility, photoCount: photos, itemIds: linked };
+      const payload = { body, visibility, photoUrls: photos, itemIds: linked };
       const res = diaryId
         ? await updateDiary(diaryId, payload)
         : await createDiary(payload);
@@ -141,24 +142,7 @@ export function DiaryForm({
             {t("diary.optional")}
           </span>
         </span>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {Array.from({ length: photos }).map((_, i) => (
-            <span key={i} className="size-16 rounded-md border bg-muted" />
-          ))}
-          {photos < DIARY_MAX_PHOTOS && (
-            <button
-              type="button"
-              onClick={() => setPhotos((n) => n + 1)}
-              className="size-16 rounded-md border border-dashed text-xl text-muted-foreground hover:bg-accent"
-              aria-label={t("diary.addPhoto")}
-            >
-              +
-            </button>
-          )}
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {photos} / {DIARY_MAX_PHOTOS}
-        </p>
+        <PhotoUploader urls={photos} onChange={setPhotos} max={DIARY_MAX_PHOTOS} />
       </div>
 
       {/* 아이템 연결 — 필수 아님. 비공개 아이템도 고를 수 있다 (FR-02-A-03·05) */}

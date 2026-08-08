@@ -346,7 +346,8 @@
     "codexCreated": "新しい図鑑が登録されました — 他の人もこのアイテムを見つけられます",
     "codexNotLinked": "図鑑に紐づきませんでした。固有番号を入力すると紐づきます",
     "viewItem": "登録したアイテムを見る",
-    "photoMax": "写真は最大{max}枚です"
+    "photoMax": "写真は最大{max}枚です",
+    "photoMoveLeft": "前に移動"
   },
   "opt": {
     "auto": "オート",

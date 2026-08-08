@@ -2,6 +2,7 @@ import type { CodexAttr, ItemDetail } from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import type { CurrencyCode } from "@/lib/format";
 import { blockedUserIds } from "@/lib/data/scope";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { prisma } from "@/lib/prisma";
@@ -128,6 +129,8 @@ export async function getItemDetail(
     saleStatus: item.saleStatus,
     roomPublic: item.room.visibility === "PUBLIC",
     codexId: item.codexItemId ?? undefined,
+    // 스토리지 전 플레이스홀더는 없는 것으로 다룬다 (OI-47 잔재)
+    photos: item.photos.map((p) => realPhotoUrl(p.url)).filter((u): u is string => !!u),
     attrs,
     owner: ownerInfo,
     diaries: diaries.map((d) => ({

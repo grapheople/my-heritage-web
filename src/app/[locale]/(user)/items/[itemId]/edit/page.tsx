@@ -41,7 +41,12 @@ export default async function EditItemPage({
       <h1 className="text-lg font-bold tracking-tight">{t("reg.editTitle")}</h1>
       <div className="mt-4">
         {/* itemId 를 넘겨야 수정이 된다 — 안 넘기면 아이템이 하나 더 생긴다 */}
-        <ItemForm itemId={item.id} fixedCategory={category} initialValues={initial} />
+        <ItemForm
+          itemId={item.id}
+          fixedCategory={category}
+          initialValues={initial}
+          initialPhotos={item.photos}
+        />
       </div>
     </div>
   );

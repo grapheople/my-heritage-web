@@ -3,6 +3,7 @@ import type { Viewer } from "@/lib/auth/viewer";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -89,6 +90,7 @@ export async function searchItems(
       saleStatus: true,
       category: { select: { key: true } },
       room: { select: { id: true, name: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" as const }, take: 1 },
       // 속성값으로 걸렸는지 판정용. 값 자체는 결과에 싣지 않는다
       attributeValues: {
         where: {
@@ -123,6 +125,7 @@ export async function searchItems(
       roomId: r.room.id,
       roomName: r.room.name,
       onSale: r.saleStatus === "ON_SALE",
+      photoUrl: realPhotoUrl(r.photos[0]?.url),
     }));
 }
 

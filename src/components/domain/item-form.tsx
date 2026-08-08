@@ -52,10 +52,13 @@ export function ItemForm({
    * 생긴다.** 수정은 경험치도 주지 않는다 (FR-05-B-05).
    */
   itemId,
+  /** 수정 모드의 기존 사진 — 안 넘기면 수정 저장에서 "사진 없음"으로 막힌다 */
+  initialPhotos,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
   itemId?: string;
+  initialPhotos?: string[];
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -67,7 +70,7 @@ export function ItemForm({
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
   const [unknownKey, setUnknownKey] = useState(false);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<
@@ -160,7 +163,12 @@ export function ItemForm({
     startTransition(async () => {
       if (itemId) {
         // 수정 — 경험치도 도감 자동 생성도 없다 (FR-05-B-05)
-        const res = await updateItem({ itemId, values, unknownMatchingKey: unknownKey });
+        const res = await updateItem({
+          itemId,
+          values,
+          photoUrls: photos,
+          unknownMatchingKey: unknownKey,
+        });
         if (res.ok) {
           setSaved({ itemId, expGranted: false, codexLinked: false, codexCreated: false });
         } else {

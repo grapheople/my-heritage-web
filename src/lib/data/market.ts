@@ -3,6 +3,7 @@ import type { Viewer } from "@/lib/auth/viewer";
 import type { CurrencyCode } from "@/lib/format";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -51,6 +52,7 @@ export async function getMarketListings(
       currency: true,
       category: { select: { key: true } },
       room: { select: { id: true, name: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" as const }, take: 1 },
       ...NAME_SELECT,
     },
     orderBy:
@@ -75,6 +77,7 @@ export async function getMarketListings(
         // Decimal → number. 표시는 통화별 소수 규칙을 formatPrice 가 처리한다
         price: Number(r.price),
         currency: r.currency,
+        photoUrl: realPhotoUrl(r.photos[0]?.url),
       },
     ];
   });

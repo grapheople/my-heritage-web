@@ -40,7 +40,7 @@ export default async function EditDiaryPage({
           initial={{
             body: diary.body,
             visibility: diary.visibility,
-            photoCount: diary.photoCount,
+            photos: diary.photos,
             itemIds: diary.items.map((i) => i.id),
           }}
         />

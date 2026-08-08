@@ -2,6 +2,7 @@ import type { DiaryEntry } from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import { blockedUserIds } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -23,7 +24,7 @@ const DIARY_SELECT = {
   visibility: true,
   body: true,
   room: { select: { id: true, name: true } },
-  _count: { select: { photos: true } },
+  photos: { select: { url: true }, orderBy: { displayOrder: "asc" as const } },
   items: {
     select: {
       item: { select: { id: true, visibility: true, ...NAME_SELECT } },
@@ -37,7 +38,7 @@ type DiaryRow = {
   visibility: "PUBLIC" | "PRIVATE";
   body: string;
   room: { id: string; name: string };
-  _count: { photos: number };
+  photos: { url: string }[];
   items: {
     item: {
       id: string;
@@ -57,7 +58,7 @@ function toEntry(d: DiaryRow): DiaryEntry {
     createdAt: d.createdAt.toISOString().slice(0, 10),
     visibility: d.visibility,
     body: d.body,
-    photoCount: d._count.photos,
+    photos: d.photos.map((p) => realPhotoUrl(p.url)).filter((u): u is string => !!u),
     items: d.items.map(({ item }) => ({
       id: item.id,
       name: deriveItemName(item),

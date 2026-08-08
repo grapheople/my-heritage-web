@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "./status-badge";
@@ -18,9 +19,16 @@ export type FeedItem = {
   roomId: string;
   roomName: string;
   onSale?: boolean;
+  /** 대표 사진 = 첫 장 (FR-07-A-04). 없으면 그라디언트로 대체한다 */
+  photoUrl?: string;
 };
 
-/** id에서 결정적 색상 — 스토리지가 붙기 전(OI-47) 개발용 경로 */
+/**
+ * id 에서 결정적 색상.
+ *
+ * **사진이 없을 때만** 쓴다. 아이템은 사진 1장이 필수라(FR-07-A-03) 정상
+ * 데이터에서는 나오지 않는다 — 스토리지 전 옛 데이터의 안전망이다.
+ */
 function swatch(id: string): string {
   let n = 2166136261;
   for (const ch of id) n = Math.imul(n ^ ch.charCodeAt(0), 16777619);
@@ -35,11 +43,21 @@ export function FeedCard({ item }: { item: FeedItem }) {
     <article className="group">
       <Link href={`/items/${item.id}`} className="block">
         <div className="relative aspect-square overflow-hidden rounded-md border bg-muted">
-          <div
-            aria-hidden
-            className="absolute inset-0 transition-transform group-hover:scale-[1.03]"
-            style={{ background: swatch(item.id) }}
-          />
+          {item.photoUrl ? (
+            <Image
+              src={item.photoUrl}
+              alt=""
+              fill
+              sizes="(min-width:1024px) 25vw, 50vw"
+              className="object-cover transition-transform group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="absolute inset-0 transition-transform group-hover:scale-[1.03]"
+              style={{ background: swatch(item.id) }}
+            />
+          )}
           {item.onSale && (
             <div className="absolute top-1.5 left-1.5">
               <StatusBadge variant="sale" />

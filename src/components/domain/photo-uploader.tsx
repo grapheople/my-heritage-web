@@ -11,6 +11,7 @@ import { useRef, useState, useTransition } from "react";
  * |---|---|
  * | 최대 10장 | D-037, FR-07-A-02 |
  * | **첫 장이 대표 이미지** | FR-07-A-04 |
+ * | **순서 변경 가능** | FR-07-A-05 |
  * | 아이템은 1장 필수, 일기는 선택 | FR-07-A-03 / diary FR-01-A-06 |
  *
  * ## ⚠️ 업로드를 등록과 분리한 이유
@@ -24,6 +25,13 @@ import { useRef, useState, useTransition } from "react";
  * 실패한 장은 목록에 넣지 않는다. "올라간 것처럼 보이는데 저장은 안 된" 상태가
  * 제일 나쁘다.
  */
+/** 두 자리를 맞바꾼 새 배열. 원본을 건드리지 않는다 */
+function swap(list: string[], a: number, b: number): string[] {
+  const next = [...list];
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+}
+
 export function PhotoUploader({
   urls,
   onChange,
@@ -85,6 +93,18 @@ export function PhotoUploader({
             >
               ×
             </button>
+            {/* 순서 변경 (FR-07-A-05). 드래그 대신 좌우 이동 버튼을 쓴다 —
+                드래그는 터치·키보드 접근성을 따로 만들어야 한다 */}
+            {i > 0 && (
+              <button
+                type="button"
+                aria-label={t("reg.photoMoveLeft")}
+                onClick={() => onChange(swap(urls, i, i - 1))}
+                className="absolute bottom-0 right-0 rounded-tl-md bg-foreground/80 px-1 text-[10px] text-background"
+              >
+                ‹
+              </button>
+            )}
           </span>
         ))}
 

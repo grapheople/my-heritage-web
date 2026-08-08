@@ -47,6 +47,8 @@ export type MarketListing = {
   /** 판매자 지정 통화 그대로. **환산하지 않는다** (D-011) */
   price: number;
   currency: CurrencyCode;
+  /** 대표 사진 = 첫 장 (FR-07-A-04) */
+  photoUrl?: string;
 };
 
 export type ItemDetail = {
@@ -63,6 +65,11 @@ export type ItemDetail = {
   roomPublic: boolean;
   /** 도감 연결. 없으면 "같은 물건 가진 사람"에 나타나지 않는다 (D-032) */
   codexId?: string;
+  /**
+   * 사진 URL — **순서가 표시 순서이고 첫 장이 대표**다 (D-037, FR-07-A-04).
+   * 아이템은 1장 이상이 보장된다 (FR-07-A-03)
+   */
+  photos: string[];
   /** 활성 속성값만. 값이 빈 항목은 렌더하지 않는다 (FR-06-A-01·02) */
   attrs: CodexAttr[];
   /** ⚠️ 타인에게는 **조회 계층이 채우지 않는다** (FR-06-A-05, D-019) */
@@ -88,8 +95,8 @@ export type DiaryEntry = {
   visibility: "PUBLIC" | "PRIVATE";
   /** 플레인 텍스트. 개행 보존, 마크다운·URL 링크화 없음 (FR-01-B-01~04) */
   body: string;
-  /** 최대 10장. 필수 아님 (FR-01-A-05·06) */
-  photoCount: number;
+  /** 사진 URL. 최대 10장, **필수 아님** (FR-01-A-05·06) */
+  photos: string[];
   /**
    * 연결된 아이템 (N:M, D-054).
    *

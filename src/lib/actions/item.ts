@@ -281,6 +281,8 @@ export async function createItemAs(
 export type UpdateItemInput = {
   itemId: string;
   values: Record<string, string>;
+  /** 사진 URL. **순서가 표시 순서**이고 첫 장이 대표다 (FR-07-A-04·05) */
+  photoUrls: string[];
   unknownMatchingKey: boolean;
 };
 
@@ -331,6 +333,13 @@ export async function updateItemAs(
       fieldErrors[key] = "필수 항목이에요";
     }
   }
+  // 사진 1장 필수는 수정에서도 같다 (FR-07-A-03)
+  if (input.photoUrls.length < 1) {
+    fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
+  }
+  if (input.photoUrls.length > MAX_PHOTOS) {
+    fieldErrors.__photos = `사진은 최대 ${MAX_PHOTOS}장입니다`;
+  }
   if (Object.keys(fieldErrors).length > 0) return fail(fieldErrors);
 
   /* ── 브랜드 (D-043) ── */
@@ -377,6 +386,14 @@ export async function updateItemAs(
         codexItemId,
       },
     });
+    // 사진은 통째로 다시 만든다 — 순서 변경(FR-07-A-05)까지 한 번에 반영된다.
+    // ⚠️ 스토리지 파일은 지우지 않는다. 되돌릴 수 없고, 정리는 미참조 blob 을
+    // 훑는 배치의 몫이다 (OI-66)
+    await tx.itemPhoto.deleteMany({ where: { itemId: owned.id } });
+    await tx.itemPhoto.createMany({
+      data: input.photoUrls.map((url, i) => ({ itemId: owned.id, url, displayOrder: i })),
+    });
+
     // 값은 upsert 한다. 비운 값은 지운다 — 빈 문자열을 남기면 조회 계층이
     // "값이 있다"로 보고 렌더한다 (FR-06-A-02)
     for (const [key, a] of attrByKey) {

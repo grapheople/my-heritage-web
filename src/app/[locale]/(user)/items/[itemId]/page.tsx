@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { SaleStatusActions } from "@/components/domain/sale-status-actions";
@@ -70,7 +71,30 @@ export default async function ItemDetailPage({
 
   return (
     <div>
-      <div className="aspect-square w-full border-b bg-muted lg:aspect-[16/9]" />
+      {/* 대표 이미지 = 첫 장 (FR-07-A-04). 아이템은 1장 이상이 보장된다 */}
+      <div className="relative aspect-square w-full overflow-hidden border-b bg-muted lg:aspect-[16/9]">
+        {item.photos[0] && (
+          <Image
+            src={item.photos[0]}
+            alt={item.name}
+            fill
+            sizes="(min-width:1024px) 1200px, 100vw"
+            className="object-cover"
+            priority
+          />
+        )}
+      </div>
+
+      {/* 나머지 사진 (FR-07-A-01) */}
+      {item.photos.length > 1 && (
+        <div className="grid grid-cols-4 gap-1 border-b p-1">
+          {item.photos.slice(1).map((url) => (
+            <div key={url} className="relative aspect-square overflow-hidden rounded-sm bg-muted">
+              <Image src={url} alt="" fill sizes="25vw" className="object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
 
       <header className="px-4 py-5 lg:px-0">
         <div className="flex flex-wrap items-center gap-1.5">
