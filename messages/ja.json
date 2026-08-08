@@ -92,7 +92,20 @@
     "appealTitle": "異議がありますか",
     "appealBody": "下記アドレスへお送りいただければ確認します。",
     "leaveService": "退会する",
-    "seeDetail": "詳しく見る"
+    "seeDetail": "詳しく見る",
+    "reasonCode": {
+      "FAKE": "偽造品",
+      "STOLEN": "盗品",
+      "WEAPON": "武器類",
+      "DRUG": "医薬品・薬物",
+      "ALCOHOL": "酒類",
+      "NON_PHYSICAL": "実物のない商品",
+      "PHISHING": "詐欺・フィッシングリンク",
+      "INAPPROPRIATE": "不適切なコンテンツ",
+      "WRONG_INFO": "情報の誤り",
+      "REPEATED": "繰り返しの違反",
+      "OTHER": "その他"
+    }
   },
   "auth": {
     "login": "ログイン",
@@ -332,7 +345,8 @@
     "codexLinked": "図鑑に紐づきました — 「同じアイテムを持つ人」に表示されます",
     "codexCreated": "新しい図鑑が登録されました — 他の人もこのアイテムを見つけられます",
     "codexNotLinked": "図鑑に紐づきませんでした。固有番号を入力すると紐づきます",
-    "viewItem": "登録したアイテムを見る"
+    "viewItem": "登録したアイテムを見る",
+    "photoMax": "写真は最大{max}枚です"
   },
   "opt": {
     "auto": "オート",

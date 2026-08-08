@@ -52,6 +52,23 @@ enum ItemSaleStatus {
   SOLD /// 판매완료 — "떠난 아이템". 도감 소유자 목록에서 제외 (D-023)
 }
 
+/// D-103 — 제재 사유. **신고 사유(D-052·D-035)와 같은 축을 쓴다** —
+/// 축이 갈리면 신고 처리(A-08) → 제재(A-10) 이동 시 매핑이 안 된다 (FR-05-A-09).
+/// 라벨은 3개 언어 i18n 리소스에 있다 — 유저가 자기 언어로 읽어야 하기 때문 (D-066)
+enum SanctionReason {
+  FAKE /// 위조품
+  STOLEN /// 도난품
+  WEAPON
+  DRUG
+  ALCOHOL
+  NON_PHYSICAL /// 실물 없는 상품
+  PHISHING /// 사기·피싱 링크
+  INAPPROPRIATE /// 부적절한 콘텐츠
+  WRONG_INFO /// 정보 오류
+  REPEATED /// 반복 위반
+  OTHER /// 기타 — detail 필수. 이 비율이 높으면 enum 의 의미가 사라진다
+}
+
 /// myroom-service §3-5 (D-064)
 enum SanctionLevel {
   WARNING /// 경고 — 기능 제한 없음 (FR-07-A-07)
@@ -120,6 +137,28 @@ enum NotificationType {
   CODEX_MERGED /// 연결된 도감이 병합됨 (codex F-06)
 }
 
+/// D-102 — 어드민 계정. **유저와 섞지 않는다.**
+///
+/// `User.isAdmin` 플래그 방식은 탈락시켰다: 유저 탈퇴(`deletedAt`)와 어드민
+/// 권한이 한 행에 얽히고, 유저 조회 쿼리마다 권한 필드가 따라다닌다.
+///
+/// 로그인은 기존 소셜(D-021)을 그대로 쓰고, **여기에 있고 `active` 인 이메일만**
+/// `/admin` 에 접근한다. 계정 추가 화면은 두지 않는다 — 어드민을 추가하는
+/// 화면 자체가 권한 상승 경로다.
+model AdminUser {
+  id     String  @id @default(cuid())
+  /// 소셜 계정 이메일. 이것으로 세션과 대조한다
+  email  String  @unique
+  name   String
+  /// 퇴사·권한 회수. 행을 지우지 않는다 — 과거 조치 이력의 참조가 끊긴다
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
 model User {
   id       String       @id @default(cuid())
   provider AuthProvider
@@ -180,16 +219,18 @@ model Sanction {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  level     SanctionLevel
-  /// FR-07-A-04 — 필수
-  reason    String
+  level      SanctionLevel
+  /// FR-07-A-04 — 필수. 3개 언어 라벨은 i18n 리소스에 있다 (D-103)
+  reasonCode SanctionReason
+  /// 보조 설명. **`OTHER` 일 때는 사실상 필수**다 — 번역되지 않는 원문이 노출된다
+  detail     String?
   /// 일시 정지에만 존재. 만료 시 자동 해제 (FR-07-A-09)
-  expiresAt DateTime?
+  expiresAt  DateTime?
 
   /// M-12 — 해제 시 이 값으로 복원한다. 강제 전환값으로 덮어쓰지 않는다
   previousRoomVisibility Visibility?
 
-  /// 조치자(어드민) 식별자. 어드민 계정 모델은 미확정이므로 문자열로 둔다
+  /// 조치자 — `AdminUser.id` (D-102). FR-07-A-05 이력 보존의 핵심이다
   issuedBy String
   issuedAt DateTime  @default(now())
   liftedBy String?

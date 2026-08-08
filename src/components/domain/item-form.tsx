@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { createItem, updateItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
+import { PhotoUploader } from "./photo-uploader";
 import { StatusBadge } from "./status-badge";
 import type { AttrDef } from "@/lib/data/attributes";
 
@@ -65,7 +66,8 @@ export function ItemForm({
   const [codexVerified, setCodexVerified] = useState(false);
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
   const [unknownKey, setUnknownKey] = useState(false);
-  const [photos, setPhotos] = useState(0);
+  /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
+  const [photos, setPhotos] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<
@@ -150,7 +152,7 @@ export function ItemForm({
       if (req && !values[a.key]?.trim()) next[a.key] = t("reg.required");
     }
     // 사진 1장 필수 (FR-07-A-03)
-    if (photos === 0) next.__photos = t("reg.photoRequired");
+    if (photos.length === 0) next.__photos = t("reg.photoRequired");
     setErrors(next);
     setFormError("");
     if (Object.keys(next).length > 0) return;
@@ -170,7 +172,7 @@ export function ItemForm({
       const res = await createItem({
         category,
         values,
-        photoCount: photos,
+        photoUrls: photos,
         unknownMatchingKey: unknownKey,
       });
       if (res.ok) {
@@ -306,29 +308,12 @@ export function ItemForm({
         <span className="text-sm font-semibold">
           {t("reg.photos")} <span className="text-destructive">*</span>
         </span>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {Array.from({ length: photos }).map((_, i) => (
-            <span key={i} className="relative size-16 rounded-md border bg-muted">
-              {/* 첫 사진이 대표 이미지 (FR-07-A-04) */}
-              {i === 0 && (
-                <span className="absolute bottom-0 left-0 rounded-tr-md rounded-bl-md bg-foreground px-1 text-[10px] font-bold text-background">
-                  {t("reg.cover")}
-                </span>
-              )}
-            </span>
-          ))}
-          {photos < ITEM_MAX_PHOTOS && (
-            <button type="button" onClick={() => setPhotos((n) => n + 1)}
-              aria-label={t("diary.addPhoto")}
-              className="size-16 rounded-md border border-dashed text-xl text-muted-foreground hover:bg-accent">
-              +
-            </button>
-          )}
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">{photos} / {ITEM_MAX_PHOTOS}</p>
-        {errors.__photos && (
-          <p className="mt-1.5 text-xs text-destructive">{errors.__photos}</p>
-        )}
+        <PhotoUploader
+          urls={photos}
+          onChange={setPhotos}
+          max={ITEM_MAX_PHOTOS}
+          error={errors.__photos}
+        />
       </div>
 
       {/* 이탈 시 임시 저장하지 않는다 (FR-05-A-07) */}

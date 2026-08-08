@@ -26,7 +26,12 @@ export type CreateItemInput = {
   category: string;
   /** 속성 key → 값. `multiselect` 는 세미콜론 구분 문자열 */
   values: Record<string, string>;
-  photoCount: number;
+  /**
+   * 업로드된 사진 URL. **순서가 곧 표시 순서**이고 **첫 장이 대표 이미지**다
+   * (D-037, FR-07-A-04). 업로드는 `/api/upload` 가 먼저 끝내고 폼이 URL 만
+   * 들고 온다 — 등록 요청에 바이트를 실으면 타임아웃에 걸린다
+   */
+  photoUrls: string[];
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
   unknownMatchingKey: boolean;
 };
@@ -126,8 +131,10 @@ export async function createItemAs(
     }
   }
   // 사진 1장 필수 (FR-07-A-03)
-  if (input.photoCount < 1) fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
-  if (input.photoCount > MAX_PHOTOS) fieldErrors.__photos = `사진은 최대 ${MAX_PHOTOS}장입니다`;
+  if (input.photoUrls.length < 1) fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
+  if (input.photoUrls.length > MAX_PHOTOS) {
+    fieldErrors.__photos = `사진은 최대 ${MAX_PHOTOS}장입니다`;
+  }
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
 
   /* ── 브랜드 (D-043 — 자유 텍스트가 아니라 마스터 참조) ── */
@@ -221,12 +228,8 @@ export async function createItemAs(
       visibility: "PUBLIC",
       saleStatus: "DISPLAYED",
       photos: {
-        // 첫 사진이 대표 이미지 (FR-07-A-04). 실제 업로드는 OI-47 대기 —
-        // 지금은 순서만 만들고 url 은 플레이스홀더다
-        create: Array.from({ length: input.photoCount }, (_, i) => ({
-          url: `placeholder://item/${i}`,
-          displayOrder: i,
-        })),
+        // 첫 장이 대표 이미지 (FR-07-A-04). 순서를 그대로 쓴다
+        create: input.photoUrls.map((url, i) => ({ url, displayOrder: i })),
       },
       attributeValues: {
         create: Object.entries(input.values)

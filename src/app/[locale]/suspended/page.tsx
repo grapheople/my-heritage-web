@@ -49,9 +49,15 @@ export default async function SuspendedPage({
       <dl className="mt-5 flex flex-col gap-3 rounded-lg border p-4 text-sm">
         <div className="flex gap-4">
           <dt className="w-16 shrink-0 text-muted-foreground">{t("sanction.reason")}</dt>
-          {/* ⚠️ 어드민이 **입력한 원문**이다 (FR-07-A-04 — "사유를 입력받는다").
-              번역 키가 아니라서 어드민이 쓴 언어 그대로 보인다 — OI-56 */}
-          <dd>{s.reason}</dd>
+          {/* 사유는 enum 이라 **유저 언어로 번역된다** (D-103, OI-56 해소).
+              상세(detail)는 어드민이 쓴 원문이라 번역되지 않는다 — `OTHER`
+              일 때만 실질적으로 노출된다 */}
+          <dd>
+            {t(`sanction.reasonCode.${s.reasonCode}`)}
+            {s.detail && (
+              <span className="mt-0.5 block text-muted-foreground">{s.detail}</span>
+            )}
+          </dd>
         </div>
         <div className="flex gap-4">
           <dt className="w-16 shrink-0 text-muted-foreground">{t("sanction.period")}</dt>

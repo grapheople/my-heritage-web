@@ -8,8 +8,15 @@ const LEVEL: Record<string, { label: string; tone: "muted" | "warn" | "danger" }
   SUSPENDED: { label: "일시 정지", tone: "warn" },
   BANNED: { label: "영구 정지", tone: "danger" },
 };
+/**
+ * 제재 사유 라벨 — 어드민은 **ko 단일**이다 (D-030).
+ * 유저 화면(S-21)은 같은 enum 을 3개 언어 i18n 리소스로 번역한다 (D-103).
+ */
 const REASON: Record<string, string> = {
-  fake: "가품·모조품", wrongInfo: "정보 오류", inappropriate: "부적절한 콘텐츠",
+  FAKE: "위조품", STOLEN: "도난품", WEAPON: "무기류",
+  DRUG: "의약품·마약류", ALCOHOL: "주류", NON_PHYSICAL: "실물 없는 상품",
+  PHISHING: "사기·피싱 링크", INAPPROPRIATE: "부적절한 콘텐츠",
+  WRONG_INFO: "정보 오류", REPEATED: "반복 위반", OTHER: "기타",
 };
 
 /**
@@ -48,7 +55,12 @@ export default async function AdminSanctionsPage() {
             <tr key={s.id}>
               <Td className="font-semibold">{s.roomName}</Td>
               <Td><Pill tone={lv.tone}>{lv.label}</Pill></Td>
-              <Td>{REASON[s.reason] ?? s.reason}</Td>
+              <Td>
+                {REASON[s.reasonCode] ?? s.reasonCode}
+                {s.detail && (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{s.detail}</span>
+                )}
+              </Td>
               <Td className="whitespace-nowrap">{s.until ?? "기한 없음"}</Td>
               {/* ⚠️ 해제 시 이 값으로 복원한다 (D-065) */}
               <Td>
