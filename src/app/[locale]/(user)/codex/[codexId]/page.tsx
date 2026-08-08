@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { CodexOwners } from "@/components/domain/codex-owners";
@@ -88,7 +89,20 @@ export default async function CodexDetailPage({
     <div>
       {/* ── 제품 정보 (색인 대상) ── */}
       <header className="px-4 py-5 lg:px-0">
-        <div className="aspect-[4/3] w-full rounded-lg border bg-muted lg:max-w-lg" />
+        {/* 대표 이미지 — **연결된 공개 아이템의 사진을 빌려 쓴다** (D-110).
+            도감에는 사진 필드가 없고, 후보가 없으면 빈 자리로 남는다 */}
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border bg-muted lg:max-w-lg">
+          {entry.imageUrl && (
+            <Image
+              src={entry.imageUrl}
+              alt={entry.displayName}
+              fill
+              sizes="(min-width:1024px) 512px, 100vw"
+              className="object-cover"
+              priority
+            />
+          )}
+        </div>
         <div className="mt-4 flex items-start gap-2">
           {/* 도감 명칭은 원문 1개 고정. 번역하지 않는다 (D-009) */}
           <h1 className="flex-1 text-xl font-bold tracking-tight">

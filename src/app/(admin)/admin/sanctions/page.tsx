@@ -59,13 +59,32 @@ export default async function AdminSanctionsPage({
   ]);
   const preselected = preselectList.find((t) => t.userId === reportTarget?.userId);
 
+  // 신고에서 넘어온 콘텐츠 — 제재와 함께 조치할지 묻는다 (D-111).
+  // ⚠️ 아이템·일기만이다. 방은 제재 자체가 비공개로 만들고, 도감·외부 링크는
+  // 특정 유저 콘텐츠가 아니다
+  const CONTENT_LABEL: Record<string, string> = { ITEM: "아이템", DIARY: "기록" };
+  const reportContent =
+    reportTarget && typeof sp.targetType === "string" && typeof sp.targetId === "string"
+      && CONTENT_LABEL[sp.targetType]
+      ? {
+          targetType: sp.targetType,
+          targetId: sp.targetId,
+          label: CONTENT_LABEL[sp.targetType],
+        }
+      : undefined;
+
   return (
     <AdminPage
       id="A-10" title="유저·방 제재"
       desc="경고 / 일시 정지 / 영구 정지. 콘텐츠는 삭제하지 않고 이력을 남깁니다 (D-065)."
 
     >
-      <SanctionForm targets={targets} query={q} preselected={preselected} />
+      <SanctionForm
+        targets={targets}
+        query={q}
+        preselected={preselected}
+        reportContent={reportContent}
+      />
 
       <div className="mt-6">
       <Table head={["방", "단계", "사유", "기간", "제재 이전 공개 상태", "적용일", "조치"]}>

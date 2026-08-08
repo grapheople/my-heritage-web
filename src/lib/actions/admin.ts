@@ -541,6 +541,16 @@ export async function issueSanction(input: {
   /** 보조 설명. **`OTHER` 는 필수** — 아니면 유저에게 아무 정보도 안 간다 */
   detail?: string;
   expiresAt?: string;
+  /**
+   * 신고에서 넘어온 경우 그 콘텐츠도 비공개 처리한다 (D-111, FR-05-A-05).
+   *
+   * ⚠️ **기본값이 아니다.** 자동으로 켜면 "제재 = 콘텐츠 삭제"가 되어
+   * **경고인데 콘텐츠까지 내려가는** 과잉 조치가 생긴다. 어드민이 고른다.
+   *
+   * ⚠️ **비공개 처리는 삭제가 아니다.** 유저의 기록을 운영이 지우면 원칙 1이
+   * 무너진다.
+   */
+  hideContent?: { targetType: string; targetId: string };
 }): Promise<ActionResult> {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
@@ -579,6 +589,18 @@ export async function issueSanction(input: {
         issuedBy: ADMIN_ACTOR,
       },
     });
+
+    // 신고 콘텐츠 조치 — 어드민이 체크했을 때만 (D-111)
+    if (input.hideContent) {
+      const { targetType, targetId } = input.hideContent;
+      if (targetType === "ITEM") {
+        await tx.item.updateMany({ where: { id: targetId }, data: { visibility: "PRIVATE" } });
+      } else if (targetType === "DIARY") {
+        await tx.diary.updateMany({ where: { id: targetId }, data: { visibility: "PRIVATE" } });
+      }
+      // ROOM 은 제재 자체가 방을 비공개로 만든다. CODEX·EXTERNAL_LINK 는
+      // 특정 유저 콘텐츠가 아니라 여기서 다룰 대상이 아니다
+    }
 
     if (forcePrivate && user.room) {
       // 방만 비공개로. **아이템·일기·매물은 삭제하지 않는다** (FR-07-B-02).

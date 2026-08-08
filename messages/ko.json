@@ -347,7 +347,9 @@
     "codexNotLinked": "도감에 연결되지 않았어요. 고유번호를 넣으면 연결됩니다",
     "viewItem": "등록한 아이템 보기",
     "photoMax": "사진은 최대 {max}장이에요",
-    "photoMoveLeft": "앞으로 이동"
+    "photoMoveLeft": "앞으로 이동",
+    "nickname": "내 별칭",
+    "nicknameHint": "같은 물건을 2개 이상 가졌을 때 구분용이에요. 예: 출근용"
   },
   "opt": {
     "auto": "오토",

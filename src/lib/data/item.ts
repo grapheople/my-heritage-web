@@ -121,6 +121,7 @@ export async function getItemDetail(
   return {
     id: item.id,
     name: deriveItemName(item),
+    nickname: item.nickname ?? undefined,
     categoryKey: `category.${item.category.key}`,
     roomId: item.room.id,
     roomName: item.room.name,

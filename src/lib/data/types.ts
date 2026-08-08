@@ -12,6 +12,12 @@ import type { CurrencyCode } from "@/lib/format";
 /** 소유자 설정 언어 — NEW 피드 언어권 필터의 기준 (D-027, FR-03-B-02) */
 export type OwnerLang = "ko" | "ja" | "en";
 
+/**
+ * 유저 별칭 (D-112). **명칭을 대체하지 않고 옆에 붙는다.**
+ * 같은 도감 아이템을 2개 보유했을 때 유저가 자기 것을 구분하는 수단이다.
+ */
+export type ItemNickname = string | undefined;
+
 /** 도감·아이템 속성 한 줄. 값이 비면 렌더하지 않는다 (FR-06-A-02) */
 export type CodexAttr = { labelKey: string; value: string };
 
@@ -29,6 +35,11 @@ export type CodexEntry = {
   ownerCount: number;
   /** 언어별 검색용 별칭. 화면에 표시하지 않고 매칭에만 쓴다 (D-009·D-043) */
   aliases: string[];
+  /**
+   * 대표 이미지 (D-110). **연결된 공개 아이템의 사진을 빌려 쓴다** —
+   * 도감에는 사진 필드가 없다. 후보가 없으면 `undefined`
+   */
+  imageUrl?: string;
 };
 
 /** 도감 소유자 — ⚠️ 서버 렌더 결과에 포함되면 안 된다 (FR-07-A-08, D-078) */
@@ -55,6 +66,8 @@ export type ItemDetail = {
   id: string;
   /** 파생값. 저장하지 않는다 (D-073, FR-06-A-11) */
   name: string;
+  /** 유저 별칭 (D-112). 명칭과 **함께** 표시한다 */
+  nickname?: string;
   categoryKey: string;
   roomId: string;
   roomName: string;

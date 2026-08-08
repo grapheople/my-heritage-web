@@ -94,6 +94,7 @@ export async function getRoom(
   const thumb = (i: (typeof items)[number]): ItemThumbData => ({
     id: i.id,
     name: deriveItemName(i),
+    nickname: i.nickname ?? undefined,
     // 스토리지 전이라 플레이스홀더는 없는 것으로 다룬다 (OI-47)
     photoUrl: realPhotoUrl(i.photos[0]?.url),
     onSale: i.saleStatus === "ON_SALE",

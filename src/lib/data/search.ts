@@ -68,6 +68,8 @@ export async function searchItems(
         { brand: { name: { contains: query, mode: "insensitive" } } },
         { codexItem: { displayName: { contains: query, mode: "insensitive" } } },
         { codexItem: { normalizedKey: { contains: nq } } },
+        // 유저 별칭도 찾는다 (D-112) — "출근용"으로 자기 아이템을 찾는다
+        { nickname: { contains: query, mode: "insensitive" } },
         // 속성값 (FR-04-A-05). 제외 대상은 **조회 조건에서** 뺀다 —
         // 가져온 뒤 거르면 결과 수로 존재가 드러난다 (D-099)
         {
@@ -116,11 +118,14 @@ export async function searchItems(
     // 명칭 매칭은 정규화까지 보고 최종 판정한다. 속성값으로 걸린 행은
     // 명칭이 안 맞아도 남긴다 — 그게 FR-04-A-05 가 요구하는 것이다
     .filter(({ r, name }) =>
-      normalizeBrandToken(name).includes(nq) || r.attributeValues.length > 0,
+      normalizeBrandToken(name).includes(nq) ||
+      normalizeBrandToken(r.nickname ?? "").includes(nq) ||
+      r.attributeValues.length > 0,
     )
     .map(({ r, name }) => ({
       id: r.id,
       name,
+      nickname: r.nickname ?? undefined,
       categoryKey: `category.${r.category.key}`,
       roomId: r.room.id,
       roomName: r.room.name,

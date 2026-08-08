@@ -66,6 +66,7 @@ export async function getFeed(
   return items.map((i) => ({
     id: i.id,
     name: deriveItemName(i),
+    nickname: i.nickname ?? undefined,
     categoryKey: `category.${i.category.key}`,
     roomId: i.room.id,
     roomName: i.room.name,

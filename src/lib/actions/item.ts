@@ -32,6 +32,8 @@ export type CreateItemInput = {
    * 들고 온다 — 등록 요청에 바이트를 실으면 타임아웃에 걸린다
    */
   photoUrls: string[];
+  /** 유저 별칭(선택) — 같은 도감 아이템 구분용 (D-112) */
+  nickname?: string;
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
   unknownMatchingKey: boolean;
 };
@@ -223,6 +225,7 @@ export async function createItemAs(
       categoryId: category.id,
       brandId,
       model: input.values.model?.trim() || null,
+      nickname: input.nickname?.trim() || null,
       codexItemId,
       // 초기 상태 (FR-05-A-04, D-019)
       visibility: "PUBLIC",
@@ -283,6 +286,7 @@ export type UpdateItemInput = {
   values: Record<string, string>;
   /** 사진 URL. **순서가 표시 순서**이고 첫 장이 대표다 (FR-07-A-04·05) */
   photoUrls: string[];
+  nickname?: string;
   unknownMatchingKey: boolean;
 };
 
@@ -383,6 +387,7 @@ export async function updateItemAs(
       data: {
         brandId,
         model: input.values.model?.trim() || null,
+        nickname: input.nickname?.trim() || null,
         codexItemId,
       },
     });

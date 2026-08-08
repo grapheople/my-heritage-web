@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { FilterBar } from "@/components/domain/filter-bar";
 import { Link } from "@/i18n/navigation";
+import { localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
 
@@ -18,7 +20,26 @@ import { getFeed } from "@/lib/data/feed";
  * | 카테고리 + 언어권 필터를 **동시 적용**, 한 줄 배치 | D-082, FR-03-B-06 |
  * | 언어권 기본값 `전체` | D-027, FR-03-B-03 |
  * | 일기는 섞지 않는다 | D-006 |
+ *
+ * ## ⚠️ 색인 대상이다 (D-109 — D-078 을 부분 폐기)
+ * D-078 은 홈을 `noindex` 로 뒀다. 그 결과 **"나의 방"으로 검색해도 서비스가
+ * 안 나왔고** 유입이 도감·마켓 딥링크뿐이었다. D-109 로 열었다.
+ *
+ * **무엇이 색인되는지 알고 있어야 한다**: 아이템 명칭 · 카테고리 · **소유자
+ * 방 이름** · 대표 사진. 즉 "누가 무엇을 가졌는가"가 피드 단위로 색인된다.
+ * 방 상세(S-02·S-03)와 일기는 여전히 `noindex` 지만, **방만 막고 피드를 여는
+ * 것은 절반만 막는 것**이다 — PM 이 유입을 우선해 수용했다 (D-109).
+ *
+ * ⚠️ **D-031 절도 리스크가 다시 커진다.** 카테고리별 비공개 비율을 이 결정
+ * 이후 반드시 관측한다 — 비율이 오르면 유저가 위험을 감지한 신호다.
+ *
+ * 유저 통제 수단은 그대로다 — 아이템별 비공개(D-019)·방 비공개로 피드에서 빠진다.
  */
+export const metadata: Metadata = {
+  // 기본값이 noindex 이므로 여기서 명시적으로 켠다 (D-109)
+  robots: { index: true, follow: true },
+  alternates: { languages: localeAlternates("/") },
+};
 export default async function FeedPage({
   searchParams,
 }: PageProps<"/[locale]">) {

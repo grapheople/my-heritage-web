@@ -71,6 +71,8 @@ export function ItemForm({
   const [unknownKey, setUnknownKey] = useState(false);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
+  /** 유저 별칭(선택) — 명칭을 대체하지 않는다 (D-112) */
+  const [nickname, setNickname] = useState(initialValues?.__nickname ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<
@@ -167,6 +169,7 @@ export function ItemForm({
           itemId,
           values,
           photoUrls: photos,
+          nickname,
           unknownMatchingKey: unknownKey,
         });
         if (res.ok) {
@@ -181,6 +184,7 @@ export function ItemForm({
         category,
         values,
         photoUrls: photos,
+        nickname,
         unknownMatchingKey: unknownKey,
       });
       if (res.ok) {
@@ -310,6 +314,22 @@ export function ItemForm({
           </span>
         </label>
       )}
+
+      {/* 별칭 — 선택. 같은 도감 아이템을 2개 가졌을 때 구분용 (D-112) */}
+      <div>
+        <label className="text-sm font-semibold" htmlFor="item-nickname">
+          {t("reg.nickname")}{" "}
+          <span className="font-normal text-muted-foreground">{t("diary.optional")}</span>
+        </label>
+        <input
+          id="item-nickname"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm"
+        />
+        {/* 명칭을 대체하지 않는다 — 명칭은 도감·브랜드에서 파생된다 (D-073) */}
+        <p className="mt-1 text-xs text-muted-foreground">{t("reg.nicknameHint")}</p>
+      </div>
 
       {/* 사진 — 2단계 하단 (FR-05-A-10). 1장 필수 (D-037) */}
       <div>

@@ -35,6 +35,8 @@ export default async function EditItemPage({
   // ⚠️ 속성 key 는 `referenceUrl` 이다. `refUrl` 로 넣으면 폼이 못 찾아
   // 빈 값으로 저장돼 링크가 사라진다
   if (item.refUrl) initial.referenceUrl = item.refUrl;
+  // 별칭은 속성이 아니라 별개 컬럼이다 (D-112) — `__` 로 구분한다
+  if (item.nickname) initial.__nickname = item.nickname;
 
   return (
     <div className="px-4 py-5 lg:px-0">

@@ -55,17 +55,27 @@ export function SanctionForm({
   targets,
   query,
   preselected,
+  reportContent,
 }: {
   targets: SanctionTarget[];
   query: string;
   /** 신고 처리에서 넘어온 경우 미리 골라둔다 (FR-05-A-09) */
   preselected?: SanctionTarget;
+  /**
+   * 신고에서 넘어온 콘텐츠 (D-111).
+   *
+   * ⚠️ **직권 제재(FR-07-A-03)에는 대상 콘텐츠가 없다** — 그때는 체크박스를
+   * 노출하지 않는다. 없는 것을 조치하겠다고 물으면 안 된다.
+   */
+  reportContent?: { targetType: string; targetId: string; label: string };
 }) {
   const [target, setTarget] = useState<SanctionTarget | null>(preselected ?? null);
   const [level, setLevel] = useState<(typeof LEVELS)[number]["value"]>("WARNING");
   const [reasonCode, setReasonCode] = useState<SanctionReason>("FAKE");
   const [detail, setDetail] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  // ⚠️ 기본값은 **꺼짐**이다 (D-111). 켜두면 경고인데 콘텐츠까지 내려간다
+  const [hideContent, setHideContent] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [pending, startTransition] = useTransition();
@@ -143,6 +153,10 @@ export function SanctionForm({
                 reasonCode,
                 detail: detail.trim() || undefined,
                 expiresAt: level === "SUSPENDED" ? expiresAt : undefined,
+                hideContent:
+                  hideContent && reportContent
+                    ? { targetType: reportContent.targetType, targetId: reportContent.targetId }
+                    : undefined,
               });
               if (res.ok) setDone(`${target.roomName} 에 ${levelInfo.label} 을 부과했습니다.`);
               else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
@@ -218,6 +232,27 @@ export function SanctionForm({
               어드민이 쓴 원문 그대로 보입니다(번역되지 않음). 기타를 고르면 필수입니다.
             </span>
           </label>
+
+          {/* 신고에서 넘어온 경우에만 (D-111). 직권 제재에는 대상이 없다 */}
+          {reportContent && (
+            <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={hideContent}
+                onChange={(e) => setHideContent(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                이 신고의 <b>{reportContent.label}</b>도 비공개 처리
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {/* 비공개 처리는 삭제가 아니다 — 유저 기록을 운영이 지우면
+                      원칙 1이 무너진다 */}
+                  삭제가 아니라 비공개 전환입니다. 경고 단계에서도 선택할 수
+                  있습니다 — 콘텐츠 조치를 잊지 않기 위한 항목입니다 (D-111).
+                </span>
+              </span>
+            </label>
+          )}
 
           {level !== "WARNING" && (
             <p className="rounded-md border border-warn bg-warn-bg p-3 text-xs text-warn">
