@@ -84,7 +84,13 @@ export async function getBlocks(
 
 export type SanctionState = {
   level: "WARNING" | "SUSPENDED" | "BANNED";
-  reason: string;
+  /**
+   * 사유 코드 (D-103). **라벨은 3개 언어 i18n 리소스에 있다** —
+   * 유저가 자기 언어로 읽어야 한다. S-21 은 제재를 알리는 유일한 경로다(D-066)
+   */
+  reasonCode: string;
+  /** 보조 설명. `OTHER` 일 때만 사실상 필수다 — **이 값은 번역되지 않는다** */
+  detail?: string;
   /** 일시 정지에만 존재. 만료 시 자동 해제 (FR-07-A-09) */
   expiresAt?: string;
 };
@@ -108,14 +114,15 @@ export async function getActiveSanction(
       // 만료 없음(경고·영구) 또는 아직 안 지난 것
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
     },
-    select: { level: true, reason: true, expiresAt: true },
+    select: { level: true, reasonCode: true, detail: true, expiresAt: true },
     orderBy: { issuedAt: "desc" },
   });
   if (!s) return null;
 
   return {
     level: s.level,
-    reason: s.reason,
+    reasonCode: s.reasonCode,
+    detail: s.detail ?? undefined,
     expiresAt: s.expiresAt?.toISOString().slice(0, 10),
   };
 }

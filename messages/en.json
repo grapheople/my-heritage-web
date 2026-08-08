@@ -92,7 +92,20 @@
     "appealTitle": "Want to appeal?",
     "appealBody": "Write to the address below and we'll take a look.",
     "leaveService": "Delete account",
-    "seeDetail": "See details"
+    "seeDetail": "See details",
+    "reasonCode": {
+      "FAKE": "Counterfeit",
+      "STOLEN": "Stolen goods",
+      "WEAPON": "Weapons",
+      "DRUG": "Drugs or medication",
+      "ALCOHOL": "Alcohol",
+      "NON_PHYSICAL": "Non-physical item",
+      "PHISHING": "Scam or phishing link",
+      "INAPPROPRIATE": "Inappropriate content",
+      "WRONG_INFO": "Incorrect information",
+      "REPEATED": "Repeated violation",
+      "OTHER": "Other"
+    }
   },
   "auth": {
     "login": "Log in",
@@ -332,7 +345,8 @@
     "codexLinked": "Linked to a codex entry — you'll appear under “collectors with this item”",
     "codexCreated": "A new codex entry was created — others can now find this item",
     "codexNotLinked": "Not linked to a codex entry. Add the reference number to link it",
-    "viewItem": "View the item"
+    "viewItem": "View the item",
+    "photoMax": "Up to {max} photos"
   },
   "opt": {
     "auto": "Automatic",

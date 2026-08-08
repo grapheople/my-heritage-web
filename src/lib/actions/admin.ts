@@ -1,5 +1,6 @@
 "use server";
 
+import { getAdmin } from "@/lib/auth/admin";
 import { fail, revalidate, type ActionResult } from "@/lib/actions/shared";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
@@ -15,14 +16,36 @@ import { prisma } from "@/lib/prisma";
  * 특히 **제재 통지가 전달되지 않으면 D-066("제재 시 로그인을 막지 않는다")의
  * 근거가 무너진다** — 로그인을 열어둔 이유가 "앱 안에서 사유를 알리려고"였다.
  *
- * ## ⚠️ 어드민 인증이 아직 없다 (OI-61)
- * `issuedBy`·`verifiedBy` 같은 조치자 필드는 문자열이고, 지금은 상수를 쓴다.
- * 어드민 계정 모델이 정해지면 세션에서 가져온다. **이력 보존(FR-07-A-05)의
- * 요구는 지금 충족되지 않는다** — 누가 했는지가 전부 같은 값이다.
+ * ## ⚠️ 모든 액션이 어드민 인가를 다시 확인한다 (D-102)
+ * 레이아웃 가드는 **화면**을 막을 뿐이다. Server Action 은 직접 호출될 수
+ * 있으므로 **각 액션이 스스로 확인해야 한다.** 화면만 막고 액션을 열어두면
+ * 가드가 없는 것과 같다.
+ *
+ * 조치자(`issuedBy`·`verifiedBy`·`handledBy`)에는 **`AdminUser.id`** 가 들어간다 —
+ * `FR-07-A-05`(제재 이력 보존)가 요구하는 것이 이것이다. 제재는 이의 제기
+ * 대상이라(D-067) "누가 조치했는지"가 없으면 답할 수 없다.
+ *
+ * ## 제재 사유는 enum 이다 (D-103)
+ * 어드민은 ko 단일(D-030)이지만 **유저는 자기 언어로 읽어야 한다** — S-21 이
+ * 제재를 알리는 유일한 경로다(D-066). 라벨은 3개 언어 i18n 리소스에 있다.
  */
 
-/** 어드민 계정 모델 미확정 (OI-61). 정해지면 세션에서 가져온다 */
-const ADMIN_ACTOR = "admin";
+/**
+ * 제재 사유 (D-103). **신고 사유와 같은 축**이라 A-08 → A-10 이동 시 매핑된다.
+ */
+export type SanctionReason =
+  | "FAKE" | "STOLEN" | "WEAPON" | "DRUG" | "ALCOHOL" | "NON_PHYSICAL"
+  | "PHISHING" | "INAPPROPRIATE" | "WRONG_INFO" | "REPEATED" | "OTHER";
+
+const SANCTION_REASONS: SanctionReason[] = [
+  "FAKE", "STOLEN", "WEAPON", "DRUG", "ALCOHOL", "NON_PHYSICAL",
+  "PHISHING", "INAPPROPRIATE", "WRONG_INFO", "REPEATED", "OTHER",
+];
+
+/** 인가 확인 + 조치자 id. **모든 액션의 첫 줄이다** */
+async function actor(): Promise<string | null> {
+  return (await getAdmin())?.id ?? null;
+}
 
 /* ────────────────────────────────────────────
    A-01 카테고리 — 비활성화만. 생성·삭제 없음 (D-007, D-036)
@@ -32,6 +55,8 @@ export async function setCategoryActive(
   key: string,
   active: boolean,
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   // ⚠️ **비활성화는 신규 등록만 막는다.** 기존 아이템은 그대로 조회된다
   // (D-036, M-09) — 그래서 아이템을 건드리지 않는다
   await prisma.category.update({ where: { key }, data: { active } });
@@ -56,6 +81,8 @@ export async function setCategoryAttribute(input: {
   active?: boolean;
   displayOrder?: number;
 }): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const [category, def] = await Promise.all([
     prisma.category.findUnique({ where: { key: input.categoryKey }, select: { id: true } }),
     prisma.attributeDefinition.findUnique({
@@ -110,6 +137,8 @@ export async function setMatchingKey(input: {
   categoryKey: string;
   attributeKeys: string[];
 }): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const category = await prisma.category.findUnique({
     where: { key: input.categoryKey },
     select: { id: true, matchingKey: { select: { id: true, attributeKeys: true } } },
@@ -165,6 +194,8 @@ export async function setCodexVerification(
   codexId: string,
   verified: boolean,
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   await prisma.codexItem.update({
     where: { id: codexId },
     data: {
@@ -190,6 +221,8 @@ export async function setCodexDescriptions(
   codexId: string,
   descriptions: { ko?: string; ja?: string; en?: string },
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const codex = await prisma.codexItem.findUnique({
     where: { id: codexId },
     select: { verification: true },
@@ -219,6 +252,8 @@ export async function setCodexAliases(
   codexId: string,
   aliases: { ko?: string[]; ja?: string[]; en?: string[] },
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const clean = (list?: string[]) =>
     [...new Set((list ?? []).map((a) => a.trim()).filter(Boolean))];
 
@@ -270,6 +305,8 @@ export async function mergeCodex(input: {
   survivorId: string;
   absorbedIds: string[];
 }): Promise<ActionResult<{ movedItems: number; notified: number }>> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const { survivorId, absorbedIds } = input;
   if (absorbedIds.includes(survivorId)) {
     return fail({}, "자기 자신에 병합할 수 없습니다");
@@ -347,6 +384,8 @@ export async function mergeCodex(input: {
  * **불완전한 복구임을 호출부가 알려야 한다.**
  */
 export async function undoMergeCodex(absorbedId: string): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const codex = await prisma.codexItem.findUnique({
     where: { id: absorbedId },
     select: { mergedIntoId: true },
@@ -383,6 +422,8 @@ export async function resolveReport(input: {
   action: "hide" | "reject";
   resolution: string;
 }): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const report = await prisma.report.findUnique({
     where: { id: input.reportId },
     select: { id: true, reporterId: true, targetType: true, targetId: true, status: true },
@@ -448,6 +489,8 @@ export async function resolveReport(input: {
 export async function setLevelTable(
   rows: { level: number; requiredExp: number }[],
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const sorted = [...rows].sort((a, b) => a.level - b.level);
   // 단조 증가가 아니면 어떤 총량에서도 도달할 수 없는 레벨이 생긴다
   for (let i = 1; i < sorted.length; i++) {
@@ -493,10 +536,21 @@ export async function setLevelTable(
 export async function issueSanction(input: {
   userId: string;
   level: "WARNING" | "SUSPENDED" | "BANNED";
-  reason: string;
+  /** 목록에서 고른다 (D-103) — 3개 언어 라벨이 따라온다 */
+  reasonCode: SanctionReason;
+  /** 보조 설명. **`OTHER` 는 필수** — 아니면 유저에게 아무 정보도 안 간다 */
+  detail?: string;
   expiresAt?: string;
 }): Promise<ActionResult> {
-  if (!input.reason.trim()) return fail({ reason: "사유를 입력해주세요" });
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  if (!SANCTION_REASONS.includes(input.reasonCode)) {
+    return fail({ reasonCode: "사유를 선택해주세요" });
+  }
+  // OTHER 는 enum 이 정보를 주지 못한다. 상세가 없으면 유저는 이유를 모른다
+  if (input.reasonCode === "OTHER" && !input.detail?.trim()) {
+    return fail({ detail: "기타를 고르면 상세 사유가 필요합니다" });
+  }
   // 일시 정지는 기간이 필수다 (FR-07-A-02)
   if (input.level === "SUSPENDED" && !input.expiresAt) {
     return fail({ expiresAt: "일시 정지는 기간을 지정해야 합니다" });
@@ -516,7 +570,8 @@ export async function issueSanction(input: {
       data: {
         userId: user.id,
         level: input.level,
-        reason: input.reason.trim(),
+        reasonCode: input.reasonCode,
+        detail: input.detail?.trim() || null,
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
         // ⚠️ **강제 전환 전의 값**을 저장한다. 이걸 빠뜨리면 해제 시
         // 원래 비공개였던 방이 공개로 열린다 (M-12)
@@ -552,6 +607,8 @@ export async function issueSanction(input: {
  * 원래 비공개였던 유저의 방이 열린다.
  */
 export async function liftSanction(sanctionId: string): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const s = await prisma.sanction.findUnique({
     where: { id: sanctionId },
     select: {
@@ -594,6 +651,8 @@ export async function setBrandAliases(
   brandId: string,
   aliases: { ko?: string[]; ja?: string[]; en?: string[] },
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const clean = (list?: string[]) =>
     [...new Set((list ?? []).map((a) => a.trim()).filter(Boolean))];
 
@@ -610,6 +669,8 @@ export async function setBrandActive(
   brandId: string,
   active: boolean,
 ): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   await prisma.brand.update({ where: { id: brandId }, data: { active } });
   revalidate("/admin/brands");
   return { ok: true };
@@ -632,6 +693,8 @@ export async function resolveBrandRequest(input: {
   aliases?: { ko?: string[]; ja?: string[]; en?: string[] };
   note?: string;
 }): Promise<ActionResult<{ notified: number }>> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const req = await prisma.brandRequest.findUnique({
     where: { id: input.requestId },
     select: { id: true, requestedName: true, categoryKey: true, status: true },

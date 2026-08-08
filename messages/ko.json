@@ -92,7 +92,20 @@
     "appealTitle": "이의가 있으신가요",
     "appealBody": "아래 주소로 보내주시면 확인하겠습니다.",
     "leaveService": "탈퇴하기",
-    "seeDetail": "자세히 보기"
+    "seeDetail": "자세히 보기",
+    "reasonCode": {
+      "FAKE": "위조품",
+      "STOLEN": "도난품",
+      "WEAPON": "무기류",
+      "DRUG": "의약품·마약류",
+      "ALCOHOL": "주류",
+      "NON_PHYSICAL": "실물 없는 상품",
+      "PHISHING": "사기·피싱 링크",
+      "INAPPROPRIATE": "부적절한 콘텐츠",
+      "WRONG_INFO": "정보 오류",
+      "REPEATED": "반복 위반",
+      "OTHER": "기타"
+    }
   },
   "auth": {
     "login": "로그인",
@@ -332,7 +345,8 @@
     "codexLinked": "도감에 연결됐어요 — ‘같은 물건 가진 사람’에 나타납니다",
     "codexCreated": "새 도감이 등록됐어요 — 다른 사람도 이 물건을 찾을 수 있게 됩니다",
     "codexNotLinked": "도감에 연결되지 않았어요. 고유번호를 넣으면 연결됩니다",
-    "viewItem": "등록한 아이템 보기"
+    "viewItem": "등록한 아이템 보기",
+    "photoMax": "사진은 최대 {max}장이에요"
   },
   "opt": {
     "auto": "오토",
