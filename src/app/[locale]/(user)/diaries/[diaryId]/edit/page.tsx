@@ -35,6 +35,7 @@ export default async function EditDiaryPage({
       <h1 className="text-lg font-bold tracking-tight">{t("diary.editTitle")}</h1>
       <div className="mt-5">
         <DiaryForm
+          diaryId={diary.id}
           items={items}
           initial={{
             body: diary.body,

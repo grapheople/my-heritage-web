@@ -2,7 +2,8 @@
 
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { convertToSale } from "@/lib/actions/sell";
 import type { CurrencyCode } from "@/lib/format";
 
 /**
@@ -24,11 +25,13 @@ const CURRENCY_BY_LOCALE: Record<string, CurrencyCode> = {
 const CURRENCIES: CurrencyCode[] = ["KRW", "JPY", "USD"];
 
 export function SellForm({
+  itemId,
   locale,
   isPrivate,
   onSale,
   initial,
 }: {
+  itemId: string;
   locale: string;
   isPrivate: boolean;
   onSale: boolean;
@@ -46,6 +49,7 @@ export function SellForm({
   const [agreePublic, setAgreePublic] = useState(!isPrivate);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
@@ -70,11 +74,23 @@ export function SellForm({
 
   function submit(ev: React.FormEvent) {
     ev.preventDefault();
+    // 즉시 피드백용. 진짜 검증은 Server Action 이 한다
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) return;
-    // 서버 액션은 인증·DB 가 붙은 뒤에 연결한다 (OI-45)
-    setDone(true);
+
+    startTransition(async () => {
+      const res = await convertToSale({
+        itemId,
+        price,
+        currency,
+        url,
+        // 비공개면 공개 전환 동의가 함께 간다 (FR-01-A-05, FR-02-B-04)
+        agreePublic,
+      });
+      if (res.ok) setDone(true);
+      else setErrors(res.fieldErrors ?? {});
+    });
   }
 
   return (
@@ -148,7 +164,8 @@ export function SellForm({
 
       <button
         type="submit"
-        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+        disabled={pending}
+        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
       >
         {onSale ? t("common.save") : t("sell.convert")}
       </button>

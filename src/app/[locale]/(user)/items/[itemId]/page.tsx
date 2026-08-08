@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { SaleStatusActions } from "@/components/domain/sale-status-actions";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { ExternalLinkWarning } from "@/components/common/external-link-warning";
 import { Link } from "@/i18n/navigation";
@@ -131,17 +132,21 @@ export default async function ItemDetailPage({
         </section>
       )}
 
-      {/* 소유자 액션 — 판매 전환 (market FR-01-A-01) */}
+      {/* 소유자 액션 — 판매 전환·취소·완료 (market F-01) */}
       {isOwner && (
-        <section className="border-t px-4 py-4 lg:px-0">
-          <Link
-            href={`/items/${item.id}/sell`}
-            className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
-          >
-            {item.saleStatus === "ON_SALE"
-              ? t("sell.editListing")
-              : t("sell.convert")}
-          </Link>
+        <section className="flex flex-col gap-2 border-t px-4 py-4 lg:px-0">
+          {/* 떠난 아이템은 다시 팔 수 없다 (D-023) — 되돌리기만 제공한다 */}
+          {item.saleStatus !== "SOLD" && (
+            <Link
+              href={`/items/${item.id}/sell`}
+              className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
+            >
+              {item.saleStatus === "ON_SALE"
+                ? t("sell.editListing")
+                : t("sell.convert")}
+            </Link>
+          )}
+          <SaleStatusActions itemId={item.id} saleStatus={item.saleStatus} />
         </section>
       )}
 

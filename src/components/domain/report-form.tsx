@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { submitReport } from "@/lib/actions/social";
 import { REPORT_REASONS, type ReportTarget } from "@/lib/constants";
 
 /**
@@ -33,6 +34,7 @@ export function ReportForm({
   const [detail, setDetail] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   if (done) {
     return (
@@ -51,8 +53,15 @@ export function ReportForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!reason) return setError(t("report.errNoReason"));
+        if (!targetId) return setError(t("report.errNoTarget"));
         setError("");
-        setDone(true); // 큐 적재는 DB 연동 후 (FR-05-A-03)
+        startTransition(async () => {
+          // 어드민 큐에 적재된다. **콘텐츠는 자동으로 숨겨지지 않는다**
+          // (FR-05-A-03·04) — 결과는 인앱 알림으로 온다 (FR-05-A-08)
+          const res = await submitReport({ target, targetId, reason, detail });
+          if (res.ok) setDone(true);
+          else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+        });
       }}
       className="flex flex-col gap-5"
     >
@@ -101,7 +110,8 @@ export function ReportForm({
 
       <button
         type="submit"
-        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+        disabled={pending}
+        className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
       >
         {t("report.submit")}
       </button>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { unblockUserByRoom } from "@/lib/actions/social";
 
 /**
  * S-19 차단 관리 (D-051).
@@ -23,6 +24,7 @@ export function BlockList({
 }) {
   const t = useTranslations();
   const [unblocked, setUnblocked] = useState<string[]>([]);
+  const [pending, startTransition] = useTransition();
 
   const active = blocks.filter((b) => !unblocked.includes(b.roomId));
 
@@ -48,7 +50,15 @@ export function BlockList({
           </div>
           <button
             type="button"
-            onClick={() => setUnblocked((prev) => [...prev, b.roomId])}
+            onClick={() =>
+              startTransition(async () => {
+                // ⚠️ **내가 건 차단만 푼다.** 상대가 나를 차단한 것은
+                // 풀 수 없다 (D-051)
+                const res = await unblockUserByRoom(b.roomId);
+                if (res.ok) setUnblocked((prev) => [...prev, b.roomId]);
+              })
+            }
+            disabled={pending}
             className="shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
           >
             {t("settings.unblock")}

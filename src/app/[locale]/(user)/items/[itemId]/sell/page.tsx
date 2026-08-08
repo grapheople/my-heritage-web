@@ -54,6 +54,7 @@ export default async function SellPage({
       </div>
 
       <SellForm
+        itemId={item.id}
         locale={locale}
         isPrivate={item.visibility === "PRIVATE"}
         onSale={item.saleStatus === "ON_SALE"}

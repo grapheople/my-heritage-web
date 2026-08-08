@@ -110,7 +110,8 @@
     "close": "Close",
     "retry": "Try again",
     "loading": "Loading",
-    "back": "Back"
+    "back": "Back",
+    "saving": "Saving…"
   },
   "empty": {
     "feed": "No items on display yet",
@@ -213,7 +214,8 @@
       "phishing": "Scam or phishing link",
       "inappropriate": "Inappropriate content",
       "wrongInfo": "Incorrect information"
-    }
+    },
+    "errNoTarget": "No report target"
   },
   "sell": {
     "convert": "List for sale",
@@ -231,7 +233,11 @@
     "errUrlFormat": "That link doesn't look valid",
     "errUrlScheme": "Must start with http or https",
     "errNeedsPublic": "Agree to make it public to list it",
-    "notWired": "Validation verified. Saving will work once the backend is wired."
+    "notWired": "Validation verified. Saving will work once the backend is wired.",
+    "markSold": "Mark as sold",
+    "cancel": "Cancel listing",
+    "undoSold": "Undo sold",
+    "markSoldConfirm": "Marking it sold moves it to “items you've let go” and removes it from codex owner counts. You can undo this."
   },
   "settings": {
     "title": "Profile settings",
