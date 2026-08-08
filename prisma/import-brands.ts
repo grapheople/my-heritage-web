@@ -3,6 +3,9 @@ import "./env";
 import { readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  describeDatabase, migrationDatabaseUrl, pgSslConfig, stripSslMode,
+} from "../src/lib/db-url";
 
 /**
  * 브랜드 마스터 CSV 일괄 import (D-045).
@@ -166,10 +169,25 @@ function validate(rows: string[][]): { rows: Row[]; errors: string[] } {
 
 /* ────────────────────────── 실행 ────────────────────────── */
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+/**
+ * ⚠️ **마이그레이션과 같은 DB 를 봐야 한다.**
+ *
+ * `DATABASE_URL` 을 그대로 쓰면 안 된다 — 로컬 개발에서 그 값은 docker 를
+ * 가리키는데, 시드·import 는 **마이그레이션과 같은 대상**(원격)이어야 한다.
+ * 실제로 이 차이 때문에 `prisma migrate deploy` 는 Supabase 에, 시드는
+ * 로컬 docker 에 들어간 적이 있다 (`import` 가 "신규 0건 · 갱신 290건" 을
+ * 냈다 — 깨끗한 DB 라면 신규 290 이어야 했다).
+ */
+const adapter = new PrismaPg({
+  // ⚠️ `sslmode` 를 떼야 아래 `ssl` 이 반영된다 (D-115)
+  connectionString: stripSslMode(migrationDatabaseUrl()),
+  ssl: pgSslConfig(migrationDatabaseUrl()),
+});
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // ⚠️ 어느 DB 에 쓰는지 항상 보여준다 — 시드가 조용히 엉뚱한 DB 로 간 적이 있다
+  console.log(`  대상 DB: ${describeDatabase(migrationDatabaseUrl())}`);
   const args = process.argv.slice(2);
   const csvPath = args.find((a) => !a.startsWith("--"));
   const dryRun = args.includes("--dry-run");

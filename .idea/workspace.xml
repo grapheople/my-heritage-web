@@ -5,18 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b2086a7-bdd5-46a9-ad0c-db99337ec5fb" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DEPLOY.md" beforeDir="false" afterPath="$PROJECT_DIR$/DEPLOY.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/next.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/next.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pnpm-lock.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/(admin)/admin/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(admin)/admin/layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/[locale]/(user)/codex/[codexId]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/[locale]/(user)/codex/[codexId]/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/api/health/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/api/health/route.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/sitemap.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/sitemap.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib/storage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/storage.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prisma/add-admin.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/add-admin.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prisma/import-brands.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/import-brands.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prisma/seed-dev.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/seed-dev.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/prisma/seed.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/seed.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/db-url.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/db-url.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/prisma.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/prisma.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,6 +28,65 @@
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.1156685425951411" />
+      <entry key="MS500" value="2.37738711194038" />
+      <entry key="S2" value="5.620110135477861" />
+      <entry key="S5" value="9.020442852371046" />
+      <entry key="S10" value="12.822557033720008" />
+      <entry key="S30" value="21.730645108376763" />
+      <entry key="S60" value="26.449019996097157" />
+      <entry key="M2" value="29.707929498033575" />
+      <entry key="M5" value="32.41552819000477" />
+      <entry key="M10" value="33.59193547522756" />
+      <entry key="M15" value="34.03147949196641" />
+      <entry key="M30" value="34.499647425279925" />
+      <entry key="H1" value="34.74555989818544" />
+      <entry key="H2" value="34.871682197055485" />
+      <entry key="H4" value="34.93556257383755" />
+      <entry key="D1" value="34.98922139279276" />
+      <entry key="W1" value="34.99845923835338" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.0704497791150598" />
+      <entry key="MS500" value="2.356225332292065" />
+      <entry key="S2" value="5.602807826797128" />
+      <entry key="S5" value="9.005696812616357" />
+      <entry key="S10" value="12.8111695298301" />
+      <entry key="S30" value="21.72424427821224" />
+      <entry key="S60" value="26.445176693881578" />
+      <entry key="M2" value="29.70579851613339" />
+      <entry key="M5" value="32.41461374818709" />
+      <entry key="M10" value="33.59146611895205" />
+      <entry key="M15" value="34.03116369784288" />
+      <entry key="M30" value="34.499488026276346" />
+      <entry key="H1" value="34.74547981155343" />
+      <entry key="H2" value="34.871642055409545" />
+      <entry key="H4" value="34.9355424782326" />
+      <entry key="D1" value="34.98921804006611" />
+      <entry key="W1" value="34.99845875930748" />
+    </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1,
@@ -103,7 +157,7 @@
       <updated>1786028199107</updated>
       <workItem from="1786028200910" duration="4107000" />
       <workItem from="1786126872201" duration="2632000" />
-      <workItem from="1786190890076" duration="1963000" />
+      <workItem from="1786190890076" duration="2884000" />
     </task>
     <servers />
   </component>

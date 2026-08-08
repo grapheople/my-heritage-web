@@ -1,6 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import { runtimeDatabaseUrl } from "./db-url";
+import { pgSslConfig, runtimeDatabaseUrl, stripSslMode } from "./db-url";
 
 /**
  * Prisma 7은 SQL provider에서 driver adapter를 요구한다.
@@ -33,7 +33,10 @@ function createClient() {
   }
   return new PrismaClient({
     adapter: new PrismaPg({
-      connectionString,
+      // ⚠️ `sslmode` 를 떼야 아래 `ssl` 이 반영된다 (D-115)
+      connectionString: stripSslMode(connectionString),
+      // Supabase 는 자체 CA 를 쓴다 — 검증을 끄지 않고 CA 를 추가한다 (D-115)
+      ssl: pgSslConfig(connectionString),
       // 인스턴스당 상한. 서버리스에서는 인스턴스가 많으므로 작게 잡는다 —
       // 풀러를 쓰면 풀러가 실제 상한을 관리한다
       max: process.env.NODE_ENV === "production" ? 3 : 10,
