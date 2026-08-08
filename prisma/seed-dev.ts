@@ -1,7 +1,9 @@
-import "dotenv/config";
+// .env.local 을 먼저 읽는다 — Next.js 와 순서를 맞춘다 (prisma/env.ts)
+import "./env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { AuthProvider } from "../src/generated/prisma/enums";
+import { describeDatabase, isLocalDatabase } from "../src/lib/db-url";
 
 /**
  * 로컬 개발용 시드 — **프로덕션에서 실행되지 않는다** (D-097).
@@ -28,6 +30,25 @@ import { AuthProvider } from "../src/generated/prisma/enums";
 
 if (process.env.NODE_ENV === "production") {
   console.error("❌ seed-dev 는 프로덕션에서 실행할 수 없습니다 (D-097).");
+  process.exit(1);
+}
+
+/**
+ * ⚠️ **`NODE_ENV` 만으로는 부족하다.**
+ *
+ * `.env.local` 이 원격 DB(Supabase 등)를 가리키면 **`NODE_ENV` 는 development
+ * 인데 원격을 건드린다.** 개발용 유저·조합을 프로덕션에 밀어넣는 사고가 된다 —
+ * D-097 이 "운영 판단을 개발 데이터가 덮어쓰면 안 된다"고 한 그 상황이다.
+ *
+ * 호스트를 직접 보는 것이 유일하게 확실한 판정이다.
+ */
+if (!isLocalDatabase()) {
+  console.error(
+    `❌ 로컬 DB 가 아닙니다: ${describeDatabase()}\n` +
+      "   seed-dev 는 localhost 에서만 실행됩니다 (D-097).\n" +
+      "   원격에 마스터 데이터를 넣으려면 `pnpm prisma db seed` 를 쓰고,\n" +
+      "   카테고리별 속성 조합은 어드민 A-02 에서 구성하세요.",
+  );
   process.exit(1);
 }
 
