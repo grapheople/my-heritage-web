@@ -32,13 +32,16 @@ export default async function EditItemPage({
   for (const a of item.attrs) initial[a.labelKey.replace(/^attr\./, "")] = a.value;
   if (item.owner.purchasedFrom) initial.purchasedFrom = item.owner.purchasedFrom;
   if (item.owner.purchaseDate) initial.purchaseDate = item.owner.purchaseDate;
-  if (item.refUrl) initial.refUrl = item.refUrl;
+  // ⚠️ 속성 key 는 `referenceUrl` 이다. `refUrl` 로 넣으면 폼이 못 찾아
+  // 빈 값으로 저장돼 링크가 사라진다
+  if (item.refUrl) initial.referenceUrl = item.refUrl;
 
   return (
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">{t("reg.editTitle")}</h1>
       <div className="mt-4">
-        <ItemForm fixedCategory={category} initialValues={initial} />
+        {/* itemId 를 넘겨야 수정이 된다 — 안 넘기면 아이템이 하나 더 생긴다 */}
+        <ItemForm itemId={item.id} fixedCategory={category} initialValues={initial} />
       </div>
     </div>
   );

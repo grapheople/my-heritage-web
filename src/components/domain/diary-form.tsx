@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createDiary, updateDiary } from "@/lib/actions/diary";
 import { StatusBadge } from "./status-badge";
 import { DIARY_MAX_LENGTH, MAX_PHOTOS as DIARY_MAX_PHOTOS } from "@/lib/constants";
 
@@ -32,6 +33,7 @@ export type LinkableItem = {
 export function DiaryForm({
   items,
   initial,
+  diaryId,
 }: {
   /** 본인 소유 아이템 — 비공개 포함 (FR-02-A-05) */
   items: LinkableItem[];
@@ -41,6 +43,8 @@ export function DiaryForm({
     photoCount: number;
     itemIds: string[];
   };
+  /** 있으면 수정, 없으면 신규 — **수정은 경험치를 주지 않는다** (FR-01-C-03) */
+  diaryId?: string;
 }) {
   const t = useTranslations();
   const [body, setBody] = useState(initial?.body ?? "");
@@ -51,6 +55,7 @@ export function DiaryForm({
   const [linked, setLinked] = useState<string[]>(initial?.itemIds ?? []);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   // 유니코드 문자 수 — 이모지를 1로 센다
   const length = [...body].length;
@@ -65,9 +70,19 @@ export function DiaryForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    // 클라이언트 검증은 **즉시 피드백용**이다. 진짜 검증은 Server Action 이
+    // 한다 — 클라이언트만 믿으면 요청을 직접 보내는 것으로 우회된다
     if (empty) return setError(t("diary.errEmpty"));
     setError("");
-    setDone(true); // 서버 액션은 DB 연동 후 (OI-45)
+
+    startTransition(async () => {
+      const payload = { body, visibility, photoCount: photos, itemIds: linked };
+      const res = diaryId
+        ? await updateDiary(diaryId, payload)
+        : await createDiary(payload);
+      if (res.ok) setDone(true);
+      else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+    });
   }
 
   return (
@@ -188,10 +203,10 @@ export function DiaryForm({
 
       <button
         type="submit"
-        disabled={empty}
+        disabled={empty || pending}
         className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
       >
-        {t("common.save")}
+        {pending ? t("common.saving") : t("common.save")}
       </button>
 
       {done && (

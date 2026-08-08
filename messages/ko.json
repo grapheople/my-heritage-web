@@ -110,7 +110,8 @@
     "close": "닫기",
     "retry": "다시 시도",
     "loading": "불러오는 중",
-    "back": "뒤로"
+    "back": "뒤로",
+    "saving": "저장 중…"
   },
   "empty": {
     "feed": "아직 전시된 아이템이 없습니다",
@@ -213,7 +214,8 @@
       "phishing": "사기·피싱 링크",
       "inappropriate": "부적절한 콘텐츠",
       "wrongInfo": "정보 오류"
-    }
+    },
+    "errNoTarget": "신고 대상이 없습니다"
   },
   "sell": {
     "convert": "판매중으로 전환",
@@ -231,7 +233,11 @@
     "errUrlFormat": "링크 형식이 올바르지 않아요",
     "errUrlScheme": "http 또는 https 로 시작해야 해요",
     "errNeedsPublic": "공개 전환에 동의해야 판매할 수 있어요",
-    "notWired": "입력값 검증까지 확인했습니다. 저장은 개발 연동 후 동작합니다."
+    "notWired": "입력값 검증까지 확인했습니다. 저장은 개발 연동 후 동작합니다.",
+    "markSold": "판매완료 처리",
+    "cancel": "판매 취소",
+    "undoSold": "판매완료 되돌리기",
+    "markSoldConfirm": "판매완료로 바꾸면 방의 ‘떠난 아이템’으로 이동하고 도감 보유자 수에서 빠집니다. 되돌릴 수 있어요."
   },
   "settings": {
     "title": "프로필 설정",

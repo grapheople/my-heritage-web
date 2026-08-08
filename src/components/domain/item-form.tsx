@@ -3,7 +3,7 @@
 import { Check, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
-import { createItem } from "@/lib/actions/item";
+import { createItem, updateItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
 import { StatusBadge } from "./status-badge";
@@ -44,9 +44,17 @@ export function ItemForm({
   /** 수정 모드 — 카테고리 고정 (FR-05-B-02) */
   fixedCategory,
   initialValues,
+  /**
+   * 있으면 **수정**이다. 없으면 신규.
+   *
+   * ⚠️ 이걸 안 넘기면 수정 화면에서 `createItem` 이 불려 **아이템이 하나 더
+   * 생긴다.** 수정은 경험치도 주지 않는다 (FR-05-B-05).
+   */
+  itemId,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
+  itemId?: string;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -148,6 +156,17 @@ export function ItemForm({
     if (Object.keys(next).length > 0) return;
 
     startTransition(async () => {
+      if (itemId) {
+        // 수정 — 경험치도 도감 자동 생성도 없다 (FR-05-B-05)
+        const res = await updateItem({ itemId, values, unknownMatchingKey: unknownKey });
+        if (res.ok) {
+          setSaved({ itemId, expGranted: false, codexLinked: false, codexCreated: false });
+        } else {
+          setErrors(res.fieldErrors);
+          setFormError(res.formError ?? "");
+        }
+        return;
+      }
       const res = await createItem({
         category,
         values,

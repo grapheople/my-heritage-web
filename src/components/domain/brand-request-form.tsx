@@ -2,7 +2,8 @@
 
 import { Info } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { submitBrandRequest } from "@/lib/actions/social";
 
 /**
  * S-17 브랜드 추가 요청 (D-046 · D-047).
@@ -32,6 +33,8 @@ export function BrandRequestForm() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>("watch");
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
 
   /**
    * 중복 검사는 **서버가 한다** — 정규화 규칙(D-014)이 import·검색·등록과
@@ -90,7 +93,17 @@ export function BrandRequestForm() {
 
   return (
     <form
-      onSubmit={(e) => { e.preventDefault(); if (!existing && name.trim()) setDone(true); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (existing || !name.trim()) return;
+        startTransition(async () => {
+          // 마스터에 즉시 등재되지 않는다 (FR-09-A-03). 같은 요청이 이미
+          // 대기 중이면 합쳐진다 (FR-09-A-06)
+          const res = await submitBrandRequest({ name, categoryKey: category });
+          if (res.ok) setDone(true);
+          else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+        });
+      }}
       className="flex flex-col gap-5"
     >
       <div>
@@ -141,11 +154,13 @@ export function BrandRequestForm() {
 
       <button
         type="submit"
-        disabled={Boolean(existing) || !name.trim()}
+        disabled={Boolean(existing) || !name.trim() || pending}
         className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
       >
         {t("brand.submit")}
       </button>
+      {/* 서버가 막은 경우 — 마스터에 이미 있거나 카테고리 누락 (FR-09-A-07) */}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );
 }

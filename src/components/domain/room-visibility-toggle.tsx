@@ -2,7 +2,8 @@
 
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { setRoomVisibility } from "@/lib/actions/settings";
 
 /**
  * 방 공개/비공개 전환 (D-019 · D-071).
@@ -30,6 +31,7 @@ export function RoomVisibilityToggle({
   const t = useTranslations();
   const [isPublic, setIsPublic] = useState(initialPublic);
   const [pending, setPending] = useState<boolean | null>(null);
+  const [saving, startTransition] = useTransition();
 
   const next = pending;
 
@@ -77,7 +79,17 @@ export function RoomVisibilityToggle({
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              onClick={() => { setIsPublic(next); setPending(null); }}
+              onClick={() => {
+                startTransition(async () => {
+                  // ⚠️ 아이템의 판매 상태는 **건드리지 않는다.** 방 상태만
+                  // 바꾸고 노출 여부는 조회가 판정한다 — 그래서 공개로
+                  // 돌아오면 판매중이 자동 복귀한다 (D-071, FR-02-A-06·08)
+                  const res = await setRoomVisibility(next ? "PUBLIC" : "PRIVATE");
+                  if (res.ok) setIsPublic(next);
+                  setPending(null);
+                });
+              }}
+              disabled={saving}
               className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
             >
               {t("common.confirm")}

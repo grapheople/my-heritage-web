@@ -2,7 +2,8 @@
 
 import { AlertTriangle, Bell, Layers, Tag } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { markNotificationRead } from "@/lib/actions/settings";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { NotificationItem, NotificationKind } from "@/lib/data/types";
@@ -32,6 +33,7 @@ const ICON: Record<NotificationKind, typeof Bell> = {
 export function NotificationList({ items }: { items: NotificationItem[] }) {
   const t = useTranslations();
   const [read, setRead] = useState<string[]>([]);
+  const [, startTransition] = useTransition();
 
   return (
     <ul className="divide-y">
@@ -67,7 +69,12 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
             {n.href ? (
               <Link
                 href={n.href}
-                onClick={() => setRead((p) => [...p, n.id])}
+                onClick={() => {
+                  // 낙관적으로 먼저 지운다 — 서버 왕복을 기다리면 뱃지가
+                  // 늦게 꺼져 "안 눌린 것" 처럼 보인다 (FR-08-A-05)
+                  setRead((p) => [...p, n.id]);
+                  startTransition(() => void markNotificationRead(n.id));
+                }}
                 className="block px-4 py-4 hover:bg-accent lg:px-3"
               >
                 {inner}
@@ -75,7 +82,12 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
             ) : (
               <button
                 type="button"
-                onClick={() => setRead((p) => [...p, n.id])}
+                onClick={() => {
+                  // 낙관적으로 먼저 지운다 — 서버 왕복을 기다리면 뱃지가
+                  // 늦게 꺼져 "안 눌린 것" 처럼 보인다 (FR-08-A-05)
+                  setRead((p) => [...p, n.id]);
+                  startTransition(() => void markNotificationRead(n.id));
+                }}
                 className="block w-full px-4 py-4 text-left hover:bg-accent lg:px-3"
               >
                 {inner}

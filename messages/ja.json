@@ -110,7 +110,8 @@
     "close": "閉じる",
     "retry": "再試行",
     "loading": "読み込み中",
-    "back": "戻る"
+    "back": "戻る",
+    "saving": "保存中…"
   },
   "empty": {
     "feed": "まだ展示されたアイテムがありません",
@@ -213,7 +214,8 @@
       "phishing": "詐欺・フィッシングリンク",
       "inappropriate": "不適切なコンテンツ",
       "wrongInfo": "情報の誤り"
-    }
+    },
+    "errNoTarget": "報告対象がありません"
   },
   "sell": {
     "convert": "販売中に変更",
@@ -231,7 +233,11 @@
     "errUrlFormat": "リンクの形式が正しくありません",
     "errUrlScheme": "http または https で始まる必要があります",
     "errNeedsPublic": "公開への切り替えに同意すると販売できます",
-    "notWired": "入力値の検証まで確認しました。保存は開発連携後に動作します。"
+    "notWired": "入力値の検証まで確認しました。保存は開発連携後に動作します。",
+    "markSold": "売却済みにする",
+    "cancel": "販売を取り消す",
+    "undoSold": "売却済みを取り消す",
+    "markSoldConfirm": "売却済みにすると「手放したアイテム」に移動し、図鑑の所有者数から外れます。元に戻せます。"
   },
   "settings": {
     "title": "プロフィール設定",

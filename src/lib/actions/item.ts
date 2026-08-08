@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getViewer, type Viewer } from "@/lib/auth/viewer";
+import { fail, grantExperience, ownItem, type ActionResult } from "@/lib/actions/shared";
 import { normalizeBrandToken } from "@/lib/brand-search";
-import { userLocalDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -171,9 +171,14 @@ export async function createItemAs(
         // ⚠️ **매칭 실패 = 도감 자동 생성** (D-015, FR-03-B-01). 연결만 하고
         // 말면 도감이 영원히 비어 있어 "같은 물건 가진 사람"이 성립하지 않는다.
         // 검증 상태는 **미검증**이고 보너스 경험치는 없다 (D-033, FR-03-B-03)
-        const displayName = [brandName, input.values.model?.trim(), raw]
-          .filter(Boolean)
-          .join(" ");
+        // 브랜드 + 모델이 기본이다. 모델이 없을 때만 고유값을 붙인다 —
+        // 둘 다 넣으면 `YETI Tundra 45 TUNDRA45` 처럼 같은 정보가 두 번 나온다.
+        // 어차피 어드민이 검증하며 정리할 값이라 정교하게 만들지 않는다
+        const model = input.values.model?.trim();
+        const displayName =
+          [brandName, model].filter(Boolean).join(" ") ||
+          [brandName, raw].filter(Boolean).join(" ") ||
+          raw;
         try {
           const made = await prisma.codexItem.create({
             data: {
@@ -243,22 +248,8 @@ export async function createItemAs(
     select: { id: true },
   });
 
-  /* ── 경험치 (D-026 · D-056) ── */
-  // 1일 경계는 유저 타임존 기준이다. 운영 지표는 UTC(createdAt)로 집계하므로
-  // 두 기준이 공존한다 — 섞지 말 것 (FR-01-B-07)
-  const localDate = userLocalDate(viewer.timezone ?? "UTC");
-  let expGranted = false;
-  try {
-    // @@unique([userId, reason, localDate]) 가 1일 1회의 **유일한 보장**이다.
-    // 애플리케이션에서 세는 방식은 동시 요청에 뚫린다
-    await prisma.experienceLog.create({
-      data: { userId: viewer.userId, reason: "ITEM_CREATE", amount: EXP_ITEM, localDate },
-    });
-    expGranted = true;
-  } catch {
-    // 유니크 위반 = 오늘 이미 받았다. 정상 흐름이다 (FR-01-A-04)
-    expGranted = false;
-  }
+  /* ── 경험치 (D-026 · D-056) — 1일 1회 판정은 DB 제약이 유일한 보장이다 ── */
+  const expGranted = await grantExperience(viewer, "ITEM_CREATE", EXP_ITEM);
 
   return {
     ok: true,
@@ -267,4 +258,172 @@ export async function createItemAs(
     codexLinked: codexItemId !== null,
     codexCreated,
   };
+}
+
+/**
+ * 아이템 수정 (S-16, item-catalog F-05 B).
+ *
+ * | 규칙 | 근거 |
+ * |---|---|
+ * | 소유자만 | D-019, FR-05-B-01 |
+ * | **카테고리 변경 불가** — 속성 집합이 통째로 달라진다 | FR-05-B-02 |
+ * | 매칭 키가 바뀌면 **도감 재조회·연결 갱신** | FR-05-B-03, codex FR-03-A-05 |
+ * | 수정 시점에 필수로 전환된 속성이 비면 요구한다 | FR-05-B-04 |
+ * | 수정으로 **경험치를 주지 않는다** | D-026, FR-05-B-05 |
+ *
+ * ⚠️ **등록과 코드를 합치지 않았다.** 겹치는 것은 검증뿐이고 다른 것이 많다 —
+ * 카테고리 고정, 경험치 없음, 도감 **재**연결(끊는 경우 포함), 사진 개수 유지.
+ * 합치면 분기가 함수 전체에 퍼져 두 흐름 모두 읽기 어려워진다.
+ */
+export type UpdateItemInput = {
+  itemId: string;
+  values: Record<string, string>;
+  unknownMatchingKey: boolean;
+};
+
+export async function updateItem(input: UpdateItemInput): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const result = await updateItemAs(viewer, input);
+  if (result.ok) {
+    revalidatePath("/[locale]/me", "page");
+    revalidatePath("/[locale]/items/[itemId]", "page");
+  }
+  return result;
+}
+
+export async function updateItemAs(
+  viewer: Viewer,
+  input: UpdateItemInput,
+): Promise<ActionResult> {
+  const owned = await ownItem(viewer, input.itemId);
+  if (!owned) return fail({}, "아이템을 찾을 수 없습니다");
+
+  // ⚠️ 카테고리는 **기존 값을 쓴다.** 입력으로 받지 않는 것이 FR-05-B-02 의
+  // 구현이다 — 받아놓고 무시하면 언젠가 누가 반영해버린다
+  const categoryId = owned.categoryId;
+
+  const attrs = await prisma.categoryAttribute.findMany({
+    where: { categoryId, active: true },
+    select: {
+      id: true,
+      required: true,
+      attributeDefinition: { select: { key: true, type: true } },
+    },
+    orderBy: { displayOrder: "asc" },
+  });
+
+  const matchingKey = await prisma.matchingKeyDefinition.findUnique({
+    where: { categoryId },
+    select: { attributeKeys: true },
+  });
+  const matchingKeys = new Set(matchingKey?.attributeKeys ?? ["uniqueId"]);
+
+  /* ── 검증 — 수정 시점에 필수로 바뀐 속성도 요구한다 (FR-05-B-04) ── */
+  const fieldErrors: Record<string, string> = {};
+  for (const a of attrs) {
+    const key = a.attributeDefinition.key;
+    const exempt = matchingKeys.has(key) && input.unknownMatchingKey;
+    if (a.required && !exempt && !input.values[key]?.trim()) {
+      fieldErrors[key] = "필수 항목이에요";
+    }
+  }
+  if (Object.keys(fieldErrors).length > 0) return fail(fieldErrors);
+
+  /* ── 브랜드 (D-043) ── */
+  let brandId: string | null = null;
+  const brandName = input.values.brand?.trim();
+  if (brandName) {
+    const brand = await prisma.brand.findFirst({
+      where: { name: brandName, active: true },
+      select: { id: true },
+    });
+    if (!brand) return fail({ brand: "목록에서 브랜드를 선택해주세요" });
+    brandId = brand.id;
+  }
+
+  /* ── 도감 재연결 (FR-05-B-03) ── */
+  // ⚠️ **연결을 끊는 경우도 있다.** 고유번호를 지우거나 "모르겠어요"로 바꾸면
+  // null 이 되어야 한다. 기존 연결을 유지하면 다른 물건에 붙은 채로 남는다
+  let codexItemId: string | null = null;
+  if (!input.unknownMatchingKey) {
+    const keyAttr = [...matchingKeys][0];
+    const raw = keyAttr ? input.values[keyAttr]?.trim() : undefined;
+    if (raw) {
+      const hit = await prisma.codexItem.findFirst({
+        where: {
+          categoryId,
+          normalizedKey: normalizeBrandToken(raw),
+          mergedIntoId: null,
+        },
+        select: { id: true },
+      });
+      codexItemId = hit?.id ?? null;
+      // 수정에서는 도감을 **자동 생성하지 않는다.** 오타를 고치는 중일 수
+      // 있는데 그때마다 미검증 도감이 하나씩 생기면 병합 큐가 오염된다
+    }
+  }
+
+  const attrByKey = new Map(attrs.map((a) => [a.attributeDefinition.key, a]));
+  await prisma.$transaction(async (tx) => {
+    await tx.item.update({
+      where: { id: owned.id },
+      data: {
+        brandId,
+        model: input.values.model?.trim() || null,
+        codexItemId,
+      },
+    });
+    // 값은 upsert 한다. 비운 값은 지운다 — 빈 문자열을 남기면 조회 계층이
+    // "값이 있다"로 보고 렌더한다 (FR-06-A-02)
+    for (const [key, a] of attrByKey) {
+      const raw = input.values[key];
+      const type = a.attributeDefinition.type;
+      if (!raw?.trim()) {
+        await tx.itemAttributeValue.deleteMany({
+          where: { itemId: owned.id, categoryAttributeId: a.id },
+        });
+        continue;
+      }
+      const value =
+        type === "multiselect"
+          ? raw.split(";").map((x) => x.trim()).filter(Boolean)
+          : type === "boolean"
+            ? raw === "true"
+            : raw.trim();
+      await tx.itemAttributeValue.upsert({
+        where: {
+          itemId_categoryAttributeId: { itemId: owned.id, categoryAttributeId: a.id },
+        },
+        create: { itemId: owned.id, categoryAttributeId: a.id, value },
+        update: { value },
+      });
+    }
+  });
+
+  // 경험치 없음 (D-026, FR-05-B-05)
+  return { ok: true };
+}
+
+/**
+ * 아이템 공개·비공개 전환 (FR-02-B-02·05).
+ *
+ * ⚠️ **판매중인 아이템을 비공개로 돌리면 마켓에서 내려간다.** 방 비공개 전환과
+ * 같은 성격이라 호출부가 사전 안내를 해야 한다 (FR-02-A-05 계열).
+ */
+export async function setItemVisibility(
+  itemId: string,
+  visibility: "PUBLIC" | "PRIVATE",
+): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+
+  const owned = await ownItem(viewer, itemId);
+  if (!owned) return fail({}, "아이템을 찾을 수 없습니다");
+
+  await prisma.item.update({ where: { id: owned.id }, data: { visibility } });
+  revalidatePath("/[locale]/me", "page");
+  revalidatePath("/[locale]/market", "page");
+  revalidatePath("/[locale]", "page");
+  return { ok: true };
 }
