@@ -8,8 +8,10 @@ const REASON_LABEL: Record<string, string> = {
   drug: "의약품·마약류", alcohol: "주류·담배", nonphysical: "실물 없는 상품",
   phishing: "사기·피싱 링크", inappropriate: "부적절한 콘텐츠", wrongInfo: "정보 오류",
 };
+/** DB enum 그대로 키를 쓴다 — 변환을 끼우면 한쪽만 고쳤을 때 빈칸이 된다 */
 const TARGET_LABEL: Record<string, string> = {
-  item: "아이템", diary: "기록", room: "방", codex: "도감", link: "외부 링크",
+  ITEM: "아이템", DIARY: "기록", ROOM: "방",
+  CODEX: "도감", EXTERNAL_LINK: "외부 링크",
 };
 
 /**
@@ -43,7 +45,7 @@ export default async function AdminReportsPage() {
       <Table head={["대상", "내용", "사유", "누적", "상태", "접수일", "조치"]}>
         {rows.map((r) => (
           <tr key={r.id} className={r.status === "PENDING" ? "" : "text-muted-foreground"}>
-            <Td><Pill>{TARGET_LABEL[r.target]}</Pill></Td>
+            <Td><Pill>{TARGET_LABEL[r.target] ?? r.target}</Pill></Td>
             <Td className="max-w-[280px] truncate">{r.targetName}</Td>
             <Td>{REASON_LABEL[r.reason]}</Td>
             <Td className={r.count >= 3 ? "font-bold text-warn" : ""}>{r.count}</Td>
@@ -57,9 +59,14 @@ export default async function AdminReportsPage() {
               {r.status === "PENDING" && (
                 <span className="flex items-start gap-2 whitespace-nowrap">
                   <ReportActions reportId={r.id} />
-                  {/* 유저 제재로 이동 (FR-05-A-09, D-064) */}
-                  <Link href="/admin/sanctions"
-                    className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
+                  {/* 유저 제재로 이동 (FR-05-A-09, D-064).
+                      ⚠️ **대상을 들고 간다** — 안 넘기면 어드민이 방 이름을
+                      다시 찾아야 하고, 그러다 엉뚱한 유저를 제재할 수 있다.
+                      도감·외부 링크는 특정 유저의 콘텐츠가 아니라 풀리지 않는다 */}
+                  <Link
+                    href={`/admin/sanctions?targetType=${r.target}&targetId=${r.targetId}`}
+                    className="rounded-md border px-2 py-1 text-xs hover:bg-accent"
+                  >
                     제재 →
                   </Link>
                 </span>
