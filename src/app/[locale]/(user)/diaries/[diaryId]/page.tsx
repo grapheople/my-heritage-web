@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { DiaryBody } from "@/components/domain/diary-body";
@@ -56,10 +57,13 @@ export default async function DiaryDetailPage({
       </header>
 
       {/* 사진 — 최대 10장, 없을 수 있다 (FR-01-A-05·06) */}
-      {diary.photoCount > 0 && (
+      {diary.photos.length > 0 && (
         <div className="grid grid-cols-2 gap-1 border-b p-1 lg:grid-cols-3">
-          {Array.from({ length: diary.photoCount }).map((_, i) => (
-            <div key={i} className="aspect-square rounded-sm bg-muted" />
+          {diary.photos.map((url) => (
+            <div key={url} className="relative aspect-square overflow-hidden rounded-sm bg-muted">
+              {/* 일기 사진에는 캡션이 없다 — alt 를 비워 스크린리더가 건너뛰게 한다 */}
+              <Image src={url} alt="" fill sizes="(min-width:1024px) 33vw, 50vw" className="object-cover" />
+            </div>
           ))}
         </div>
       )}

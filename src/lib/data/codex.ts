@@ -4,6 +4,7 @@ import { normalizeBrandToken } from "@/lib/brand-search";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 
 /** 소유자 목록·보유자 수 집계에 공통으로 쓰는 아이템 조건 */
@@ -312,6 +313,7 @@ export async function getCodexListings(codexId: string): Promise<MarketListing[]
       currency: true,
       category: { select: { key: true } },
       room: { select: { id: true, name: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" }, take: 1 },
       ...NAME_SELECT,
     },
     orderBy: [{ onSaleAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
@@ -329,6 +331,7 @@ export async function getCodexListings(codexId: string): Promise<MarketListing[]
             roomName: r.room.name,
             price: Number(r.price),
             currency: r.currency,
+            photoUrl: realPhotoUrl(r.photos[0]?.url),
           },
         ],
   );

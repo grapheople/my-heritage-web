@@ -346,7 +346,8 @@
     "codexCreated": "A new codex entry was created — others can now find this item",
     "codexNotLinked": "Not linked to a codex entry. Add the reference number to link it",
     "viewItem": "View the item",
-    "photoMax": "Up to {max} photos"
+    "photoMax": "Up to {max} photos",
+    "photoMoveLeft": "Move earlier"
   },
   "opt": {
     "auto": "Automatic",

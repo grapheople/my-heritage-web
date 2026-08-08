@@ -28,7 +28,8 @@ import { prisma } from "@/lib/prisma";
 export type DiaryInput = {
   body: string;
   visibility: "PUBLIC" | "PRIVATE";
-  photoCount: number;
+  /** 업로드된 사진 URL. **순서가 표시 순서**다. 필수가 아니다 (FR-01-A-06) */
+  photoUrls: string[];
   /** 연결할 아이템 id. 필수가 아니다 (FR-02-A-03) */
   itemIds: string[];
 };
@@ -46,11 +47,11 @@ function validate(input: DiaryInput): Record<string, string> {
   if (chars > DIARY_MAX_LENGTH) {
     errors.body = `${DIARY_MAX_LENGTH}자를 넘을 수 없어요`;
   }
-  if (input.photoCount > MAX_PHOTOS) {
+  if (input.photoUrls.length > MAX_PHOTOS) {
     errors.__photos = `사진은 최대 ${MAX_PHOTOS}장입니다`;
   }
   // 본문과 사진이 둘 다 비면 남길 것이 없다 (FR-01-A-07)
-  if (body.trim() === "" && input.photoCount === 0) {
+  if (body.trim() === "" && input.photoUrls.length === 0) {
     errors.body = "내용이나 사진 중 하나는 있어야 해요";
   }
   return errors;
@@ -94,11 +95,8 @@ export async function createDiaryAs(
       body: input.body,
       visibility: input.visibility,
       photos: {
-        // 업로드는 OI-47 대기. 지금은 순서만 만든다
-        create: Array.from({ length: input.photoCount }, (_, i) => ({
-          url: `placeholder://diary/${i}`,
-          displayOrder: i,
-        })),
+        // 순서가 곧 표시 순서다
+        create: input.photoUrls.map((url, i) => ({ url, displayOrder: i })),
       },
       items: { create: itemIds.map((itemId) => ({ itemId })) },
     },
@@ -144,23 +142,13 @@ export async function updateDiary(
         data: itemIds.map((itemId) => ({ diaryId, itemId })),
       });
     }
-    // 사진도 개수에 맞춘다. 실제 업로드가 붙으면 여기가 바뀐다 (OI-47)
-    const current = await tx.diaryPhoto.count({ where: { diaryId } });
-    if (input.photoCount < current) {
-      const drop = await tx.diaryPhoto.findMany({
-        where: { diaryId },
-        orderBy: { displayOrder: "desc" },
-        take: current - input.photoCount,
-        select: { id: true },
-      });
-      await tx.diaryPhoto.deleteMany({ where: { id: { in: drop.map((d) => d.id) } } });
-    } else if (input.photoCount > current) {
+    // 사진은 통째로 다시 만든다 — 순서 변경까지 한 번에 반영된다.
+    // ⚠️ 스토리지에서 실제 파일을 지우지는 않는다. 지우면 되돌릴 수 없고,
+    // 정리는 나중에 미참조 blob 을 훑는 배치의 몫이다 (OI-66)
+    await tx.diaryPhoto.deleteMany({ where: { diaryId } });
+    if (input.photoUrls.length > 0) {
       await tx.diaryPhoto.createMany({
-        data: Array.from({ length: input.photoCount - current }, (_, i) => ({
-          diaryId,
-          url: `placeholder://diary/${current + i}`,
-          displayOrder: current + i,
-        })),
+        data: input.photoUrls.map((url, i) => ({ diaryId, url, displayOrder: i })),
       });
     }
   });

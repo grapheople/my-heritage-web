@@ -2,6 +2,7 @@ import type { FeedItem } from "@/components/domain/feed-card";
 import type { Viewer } from "@/lib/auth/viewer";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -55,6 +56,7 @@ export async function getFeed(
       saleStatus: true,
       category: { select: { key: true } },
       room: { select: { id: true, name: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" as const }, take: 1 },
       ...NAME_SELECT,
     },
     orderBy: { createdAt: "desc" },
@@ -68,5 +70,6 @@ export async function getFeed(
     roomId: i.room.id,
     roomName: i.room.name,
     onSale: i.saleStatus === "ON_SALE",
+    photoUrl: realPhotoUrl(i.photos[0]?.url),
   }));
 }

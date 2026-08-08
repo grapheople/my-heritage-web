@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "./status-badge";
@@ -46,8 +47,10 @@ export function DiaryList({
               className="flex gap-3 border-b px-4 py-4 hover:bg-accent lg:px-3"
             >
               {/* 첫 사진. 없으면 자리를 비운다 — 사진은 필수가 아니다 (FR-01-A-06) */}
-              {d.photoCount > 0 && (
-                <span className="size-18 shrink-0 rounded-md border bg-muted" />
+              {d.photos.length > 0 && (
+                <span className="relative size-18 shrink-0 overflow-hidden rounded-md border bg-muted">
+                  <Image src={d.photos[0]} alt="" fill sizes="72px" className="object-cover" />
+                </span>
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -61,8 +64,8 @@ export function DiaryList({
                 {/* 본문 일부. 번역하지 않는다 */}
                 <p className="mt-1 line-clamp-2 text-sm leading-snug">{d.body}</p>
                 <p className="mt-1.5 flex gap-2 text-xs text-muted-foreground">
-                  {d.photoCount > 0 && (
-                    <span>{t("diary.photoCount", { count: d.photoCount })}</span>
+                  {d.photos.length > 0 && (
+                    <span>{t("diary.photoCount", { count: d.photos.length })}</span>
                   )}
                   {d.items.length > 0 && (
                     <span>{t("diary.itemCount", { count: d.items.length })}</span>

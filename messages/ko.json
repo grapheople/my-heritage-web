@@ -346,7 +346,8 @@
     "codexCreated": "새 도감이 등록됐어요 — 다른 사람도 이 물건을 찾을 수 있게 됩니다",
     "codexNotLinked": "도감에 연결되지 않았어요. 고유번호를 넣으면 연결됩니다",
     "viewItem": "등록한 아이템 보기",
-    "photoMax": "사진은 최대 {max}장이에요"
+    "photoMax": "사진은 최대 {max}장이에요",
+    "photoMoveLeft": "앞으로 이동"
   },
   "opt": {
     "auto": "오토",
