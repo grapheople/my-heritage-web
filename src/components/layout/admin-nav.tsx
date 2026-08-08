@@ -1,11 +1,13 @@
 "use client";
 
+import type { Route } from "next";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * 어드민 화면 13개 (myroom-service §6). ko 단일 — i18n 대상 아님 (D-030).
+ * 어드민 화면 14개 (myroom-service §6). ko 단일 — i18n 대상 아님 (D-030).
  * 하드코딩 문자열은 의도된 것이다. 어드민 UI 문구를 messages/*.json에 넣지 않는다.
  */
 const SECTIONS = [
@@ -40,6 +42,11 @@ const SECTIONS = [
     title: "레벨",
     items: [{ href: "/admin/levels", label: "레벨 테이블", id: "A-09" }],
   },
+  {
+    title: "시스템",
+    // ⚠️ 권한 상승 경로다. 잠금 방지·이력이 함께 있다 (D-104)
+    items: [{ href: "/admin/admins", label: "어드민 계정", id: "A-14" }],
+  },
 ] as const;
 
 export function AdminNav() {
@@ -58,7 +65,9 @@ export function AdminNav() {
               {section.items.map((item) => (
                 <li key={item.href}>
                   <Link
-                    href={item.href}
+                    // typedRoutes 는 유니온 href 를 좁히지 못한다.
+                    // 값 자체는 `as const` 로 라우트 리터럴이 보장된다
+                    href={item.href as Route}
                     aria-current={pathname === item.href ? "page" : undefined}
                     className={cn(
                       "flex items-center justify-between rounded-md px-2 py-1.5 text-sm",

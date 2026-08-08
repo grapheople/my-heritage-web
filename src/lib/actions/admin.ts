@@ -763,3 +763,123 @@ export async function resolveBrandRequest(input: {
   revalidate("/admin/brands/requests", "/admin/brands");
   return { ok: true, notified: [...new Set(group.map((g) => g.requesterId))].length };
 }
+
+/* ────────────────────────────────────────────
+   A-14 어드민 계정 관리 (D-104)
+   ──────────────────────────────────────────── */
+
+/**
+ * 어드민 초대 (D-104).
+ *
+ * ## ⚠️ 이 화면은 권한 상승 경로다
+ * D-102 에서 화면을 만들지 않기로 했던 이유가 그것이다. 만들기로 뒤집었으므로
+ * (D-104) **경로 자체의 이력**을 남긴다 — `invitedBy` 에 초대한 어드민 id.
+ *
+ * 로그인은 기존 소셜(D-021)을 쓰므로 **이메일만 등록하면 된다.** 비밀번호를
+ * 만들지 않는 것이 이 설계의 이점이다 — 어드민 비밀번호 관리가 통째로 없다.
+ */
+export async function inviteAdmin(input: {
+  email: string;
+  name: string;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim();
+  if (!email || !email.includes("@")) return fail({ email: "이메일을 입력해주세요" });
+  if (!name) return fail({ name: "이름을 입력해주세요" });
+
+  const existing = await prisma.adminUser.findUnique({
+    where: { email },
+    select: { id: true, active: true },
+  });
+  if (existing?.active) return fail({ email: "이미 등록된 어드민입니다" });
+
+  if (existing) {
+    // 회수됐던 계정을 되살린다. 새로 만들면 과거 이력이 두 행으로 갈린다
+    await prisma.adminUser.update({
+      where: { id: existing.id },
+      data: {
+        name,
+        active: true,
+        invitedBy: ADMIN_ACTOR,
+        deactivatedBy: null,
+        deactivatedAt: null,
+      },
+    });
+  } else {
+    await prisma.adminUser.create({
+      data: { email, name, invitedBy: ADMIN_ACTOR },
+    });
+  }
+
+  revalidate("/admin/admins");
+  return { ok: true };
+}
+
+/**
+ * 어드민 권한 회수·복구 (D-104).
+ *
+ * ## ⚠️ 잠금 방지가 이 함수의 존재 이유다
+ *
+ * | 막는 것 | 왜 |
+ * |---|---|
+ * | **자기 자신 비활성화** | 실수로 자기를 끄면 즉시 잠긴다 |
+ * | **마지막 활성 어드민 비활성화** | 전원이 꺼지면 **아무도 `/admin` 에 못 들어간다.** 프로덕션은 개발 우회로도 꺼져 있어 복구가 DB 직접 조작뿐이다 |
+ *
+ * **삭제는 제공하지 않는다** (D-102). 지우면 그 사람이 한 과거 조치의
+ * `issuedBy`·`verifiedBy` 가 가리킬 곳이 사라진다.
+ */
+export async function setAdminActive(
+  adminId: string,
+  active: boolean,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  return setAdminActiveAs(ADMIN_ACTOR, adminId, active);
+}
+
+/**
+ * 본체 — 조치자를 주입받는다.
+ *
+ * ⚠️ **분리한 이유가 검증이다.** 진입점은 세션을 요구해서 스크립트로 부를 수
+ * 없고, 그러면 **잠금 방지 로직을 한 번도 실행해보지 못한다.** 검증할 수 없는
+ * 안전장치는 없는 것과 같다 — 개발 우회로가 D-078·D-096 을 가렸던 일이 그렇게
+ * 생겼다. §6-2 의 분리 패턴과 같은 이유다.
+ */
+export async function setAdminActiveAs(
+  actorId: string,
+  adminId: string,
+  active: boolean,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = actorId;
+
+  const target = await prisma.adminUser.findUnique({
+    where: { id: adminId },
+    select: { id: true, active: true },
+  });
+  if (!target) return fail({}, "어드민을 찾을 수 없습니다");
+
+  if (!active) {
+    if (target.id === ADMIN_ACTOR) {
+      return fail({}, "자기 자신은 비활성화할 수 없습니다");
+    }
+    const remaining = await prisma.adminUser.count({
+      where: { active: true, id: { not: adminId } },
+    });
+    if (remaining === 0) {
+      return fail({}, "마지막 어드민은 비활성화할 수 없습니다 — 아무도 들어올 수 없게 됩니다");
+    }
+  }
+
+  await prisma.adminUser.update({
+    where: { id: adminId },
+    data: active
+      ? { active: true, invitedBy: ADMIN_ACTOR, deactivatedBy: null, deactivatedAt: null }
+      : { active: false, deactivatedBy: ADMIN_ACTOR, deactivatedAt: new Date() },
+  });
+
+  revalidate("/admin/admins");
+  return { ok: true };
+}

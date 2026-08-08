@@ -153,6 +153,14 @@ model AdminUser {
   /// 퇴사·권한 회수. 행을 지우지 않는다 — 과거 조치 이력의 참조가 끊긴다
   active Boolean @default(true)
 
+  /// D-104 — **누가 권한을 줬는가.** `AdminUser.id`.
+  /// 권한 상승 경로에는 경로 자체의 이력이 필요하다.
+  /// 최초 어드민은 시드로 들어오므로 `null` 이다 (화면으로 만들 수 없다)
+  invitedBy String?
+  /// 회수도 조치다 (D-104)
+  deactivatedBy String?
+  deactivatedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
