@@ -86,7 +86,7 @@ outbound Postgres 를 차단**한다.
 | `DATABASE_URL` · `DIRECT_URL` | 앱이 뜨지 않는다 |
 | `AUTH_SECRET` | 세션 서명 불가 |
 | `AUTH_GOOGLE_ID` · `AUTH_GOOGLE_SECRET` | **로그인 불가.** 그리고 개발 우회로가 프로덕션에서 꺼져 있어 어드민도 못 들어간다 |
-| `BLOB_READ_WRITE_TOKEN` | **사진 업로드가 던진다** (D-101 — 프로덕션에서 로컬 저장으로 대체하지 않는다) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **사진 업로드가 던진다** (D-114 — 프로덕션에서 로컬 저장으로 대체하지 않는다). ⚠️ `NEXT_PUBLIC_` 을 붙이지 말 것 — RLS 를 우회하는 키다 |
 | `NEXT_PUBLIC_SITE_URL` | sitemap·hreflang 이 `*.vercel.app` 을 가리킨다 |
 
 `AUTH_APPLE_*` 은 일본 시장용이다 (D-092). 없으면 Apple 버튼만 실패한다.
@@ -100,6 +100,10 @@ Google 콘솔에 `https://<도메인>/api/auth/callback/google` 을 등록한다
 ## 4. 배포 순서 (D-097)
 
 ```bash
+# ⓪ 스토리지 버킷 (D-114) — 없으면 업로드가 전부 실패하고,
+#    사진이 필수라 아이템 등록이 막힌다
+pnpm storage:init
+
 # ① 마이그레이션 — DIRECT_URL 로
 pnpm db:deploy
 
@@ -141,7 +145,7 @@ Vercel Edge Network 가 정적 자산·이미지 최적화를 자동으로 캐�
 | `/api/brands` | `public, max-age=60, s-maxage=300` | 마스터 데이터. 어드민 변경이 5분 내 반영 |
 | `/api/categories/[key]/attributes` | 같음 | 같은 성격 |
 | `/api/codex/[id]/owners` | **`private, no-store`** | **차단 관계로 유저마다 값이 다르다** (E-07-07, D-051). 공용 캐시에 올리면 남의 결과가 노출된다 |
-| 업로드 이미지 | Blob CDN + `next/image` | `next.config.ts` `remotePatterns` 에 Blob 호스트만 허용 |
+| 업로드 이미지 | Supabase Storage CDN + `next/image` | `remotePatterns` 를 **호스트 + 경로**(`/storage/v1/object/public/**`)로 좁혔다 — 호스트만 열면 우리 최적화기가 남의 이미지를 서빙하는 통로가 된다 |
 
 ### ⚠️ 페이지는 대부분 CDN 캐시가 걸리지 않는다
 
@@ -159,4 +163,22 @@ curl -s https://<도메인>/robots.txt
 curl -s https://<도메인>/sitemap.xml | grep -c '<url>'
 ```
 
-`/api/health` 가 `ready: false` 를 내면 4단계 중 무엇이 빠졌는지 알려준다.
+`/api/health` 가 `ready: false` 를 내면 **어느 단계가 빠졌는지** 알려준다 (⓪~⑤).
+
+**DB 에 닿지 못하면 5초 안에 `503`** 을 낸다. 타임아웃을 두지 않으면 "DB 가
+안 된다"를 알려야 하는 엔드포인트가 정작 그 상황에서 **침묵한다** — 실제로
+76초를 매달린 적이 있다.
+
+## 8. ⚠️ 로컬 개발은 docker DB 로
+
+사내 네트워크가 Postgres 포트를 막으므로(§2) **로컬에서 Supabase DB 를 쓸 수
+없다.** `.env` 의 `DATABASE_URL` 은 docker(`localhost:5434`)로 두고, Supabase
+값은 `.env.local` 에만 둔다.
+
+```bash
+pnpm db:up        # docker Postgres
+pnpm db:which     # 지금 어느 DB 를 보는지
+```
+
+**스토리지는 예외다** — HTTPS 443 이라 차단되지 않으므로 로컬에서도 실제
+Supabase Storage 에 올라간다. 즉 **업로드 경로는 로컬에서 그대로 검증된다.**

@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { put } from "@vercel/blob";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 /**
- * 이미지 스토리지 (D-101).
+ * 이미지 스토리지 — **Supabase Storage** (D-114, 규칙은 D-101).
  *
  * ## ⚠️ EXIF 를 저장 전에 제거한다 — 이 파일에서 가장 중요한 부분
  *
@@ -14,13 +14,23 @@ import sharp from "sharp";
  * D-078 로 도감 소유자 목록을 검색엔진에서 가린 것과 **같은 위험의 더 직접적인
  * 형태**다 — 목록은 "누가 가졌나"지만 EXIF 는 "어디 있나"다.
  *
+ * **버킷이 공개 읽기라 접근 통제가 없다** (색인 대상 화면에 이미지가 나와야
+ * 하므로, D-098·D-109). 그래서 **파일 자체에 위치정보가 없어야 한다.**
+ *
  * `sharp` 는 기본적으로 메타데이터를 버린다. `.withMetadata()` 를 **부르지
  * 않는 것**이 제거다. 그 함수를 쓰고 싶어지면 이 주석을 다시 읽을 것.
  *
- * ## 어댑터로 감싼 이유
- * 토큰이 없어도 개발·검증이 되어야 한다. OAuth 자격증명이 없어서 비로그인
- * 경로를 몇 주간 검증하지 못했던 일(D-096 참조)을 반복하지 않는다.
+ * ## ⚠️ 서버 전용이다
+ * `SUPABASE_SERVICE_ROLE_KEY` 는 RLS 를 우회한다. 브라우저에 닿으면 **누구나
+ * 스토리지를 읽고 쓸 수 있다.** 그래서 아래 가드를 둔다 — 클라이언트 컴포넌트가
+ * 이 모듈을 import 하면 빌드가 아니라 **런타임에** 터지므로, 실수를 조용히
+ * 넘기지 않는다.
  */
+if (typeof window !== "undefined") {
+  throw new Error(
+    "lib/storage.ts 는 서버 전용입니다. 서비스 롤 키가 클라이언트로 나가면 안 됩니다 (D-114).",
+  );
+}
 
 /** 입력 형식 (D-101). HEIC 를 빼면 iPhone 기본 촬영본이 막힌다 */
 export const ACCEPTED_TYPES = [
@@ -38,7 +48,47 @@ export const MAX_EDGE = 2000;
 /** 사진 최대 장수 (D-037) */
 export const MAX_PHOTOS = 10;
 
+/**
+ * 버킷 이름.
+ *
+ * 아이템·일기 사진을 **한 버킷에** 둔다. 나누면 정책(공개 읽기·용량)을 두 곳에
+ * 맞춰야 하는데 정책이 같다. 경로로 구분한다 — `<userId>/<timestamp>-<n>.webp`
+ */
+export const BUCKET = "photos";
+
 export type StoredImage = { url: string; width: number; height: number };
+
+/** 서비스 롤 키 — 새 형식(`sb_secret_…`)과 기존 JWT 를 모두 받는다 */
+function serviceKey(): string | undefined {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+}
+
+function supabaseUrl(): string | undefined {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+}
+
+/** 설정돼 있는가 — 없으면 개발 모드에서 파일시스템으로 떨어진다 */
+export function isRemoteStorageConfigured(): boolean {
+  return Boolean(supabaseUrl() && serviceKey());
+}
+
+let cached: SupabaseClient | undefined;
+
+export function storageClient(): SupabaseClient {
+  if (cached) return cached;
+  const url = supabaseUrl();
+  const key = serviceKey();
+  if (!url || !key) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL 과 SUPABASE_SERVICE_ROLE_KEY 가 필요합니다 (D-114).",
+    );
+  }
+  cached = createClient(url, key, {
+    // 스토리지만 쓴다. 세션을 유지할 이유가 없다 (인증은 Auth.js, D-021)
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return cached;
+}
 
 /**
  * 업로드된 이미지를 **WebP 로 정규화**하고 저장한다.
@@ -72,26 +122,30 @@ export async function storeImage(
  *
  * | 조건 | 백엔드 |
  * |---|---|
- * | `BLOB_READ_WRITE_TOKEN` 있음 | **Vercel Blob** (D-101) |
- * | 없음 + 개발 모드 | `public/uploads` — 토큰 없이도 전 경로를 검증한다 |
+ * | Supabase 설정됨 | **Supabase Storage** (D-114) |
+ * | 없음 + 개발 모드 | `public/uploads` — 설정 없이도 전 경로를 검증한다 |
  * | 없음 + 프로덕션 | **던진다.** 조용히 로컬에 쓰면 배포마다 사진이 사라진다 |
  */
 async function putBytes(name: string, bytes: Buffer): Promise<string> {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const blob = await put(name, bytes, {
-      access: "public",
+  if (isRemoteStorageConfigured()) {
+    const client = storageClient();
+    const { error } = await client.storage.from(BUCKET).upload(name, bytes, {
       contentType: "image/webp",
-      // 키에 이미 아이템 id 와 순번이 들어 있다 — 덮어쓰기를 막지 않으면
-      // 같은 아이템을 다시 저장할 때 파일이 쌓인다
-      addRandomSuffix: false,
-      allowOverwrite: true,
+      // 키에 유저 id 와 타임스탬프가 들어 있다. 같은 키를 다시 쓰면 덮어쓰는 것이
+      // 맞다 — 막으면 재시도가 실패한다
+      upsert: true,
     });
-    return blob.url;
+    if (error) {
+      // 버킷이 없으면 여기서 터진다 — 출시 순서에 `storage:init` 이 있는 이유다
+      throw new Error(`Supabase Storage 업로드 실패: ${error.message}`);
+    }
+    const { data } = client.storage.from(BUCKET).getPublicUrl(name);
+    return data.publicUrl;
   }
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "BLOB_READ_WRITE_TOKEN 이 없습니다. 프로덕션에서는 로컬 저장으로 대체하지 않습니다 (D-101).",
+      "Supabase Storage 설정이 없습니다. 프로덕션에서는 로컬 저장으로 대체하지 않습니다 (D-114).",
     );
   }
 

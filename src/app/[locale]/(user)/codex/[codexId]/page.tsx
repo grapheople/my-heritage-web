@@ -6,7 +6,6 @@ import { CodexOwners } from "@/components/domain/codex-owners";
 import { MarketCard } from "@/components/domain/market-card";
 import { StatusBadge } from "@/components/domain/status-badge";
 import {
-  allCodexIds,
   getCodexAttrs,
   getCodexDesc,
   getCodexListings,
@@ -64,9 +63,21 @@ export async function generateMetadata({
  */
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
-  return (await allCodexIds()).map((codexId) => ({ codexId }));
-}
+/**
+ * ⚠️ **`generateStaticParams` 를 두지 않는다** (2026-08-08 제거).
+ *
+ * 이 페이지는 이미 **동적 렌더**다 — 레이아웃이 쿠키를 읽어서다 (OI-60).
+ * 그래서 사전 생성 목록은 **아무 효과가 없는데 빌드를 DB 에 묶는다.**
+ * 실제로 DB 에 못 닿는 네트워크에서 **빌드가 이것 때문에 실패했다** (D-113).
+ *
+ * OI-60 을 해소해 ISR 이 살아나면 그때 되살린다:
+ *
+ *     export async function generateStaticParams() {
+ *       return (await allCodexIds()).map((codexId) => ({ codexId }));
+ *     }
+ *
+ * `allCodexIds()` 는 sitemap 이 계속 쓴다 — 함수 자체는 남겨둔다.
+ */
 
 export default async function CodexDetailPage({
   params,
