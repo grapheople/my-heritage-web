@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
+import { CodexCreateForm } from "@/components/admin/codex-create-form";
+import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { setCodexVerification } from "@/lib/actions/admin";
 import { getAdminCodex } from "@/lib/data/admin";
 
@@ -25,9 +27,7 @@ export default async function AdminCodexPage() {
       id="A-04" title="도감 목록"
       desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02)."
       action={
-        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
-          도감 직접 등록
-        </button>
+        <CodexCreateForm />
       }
     >
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
@@ -47,7 +47,12 @@ export default async function AdminCodexPage() {
                   confirm={c.verified ? "검증 일시와 검증자 기록이 지워집니다." : undefined}
                   action={setCodexVerification.bind(null, c.id, !c.verified)}
                 />
-                <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
+                <CodexEditForm
+                  codexId={c.id}
+                  displayName={c.displayName}
+                  uniqueId={c.uniqueId}
+                  verified={c.verified}
+                />
                 <Link href="/admin/codex/aliases"
                   className="rounded-md border px-2 py-1 text-xs hover:bg-accent">alias</Link>
               </span>

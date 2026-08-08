@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
+import { AttributeCreateForm } from "@/components/admin/attribute-create-form";
 import { setCategoryAttribute } from "@/lib/actions/admin";
 import { getAdminCategoryAttributes } from "@/lib/data/admin";
 
@@ -42,9 +43,7 @@ export default async function AdminAttributesPage({
       id="A-02" title="동적 속성 관리"
       desc="카테고리별 속성 8종. 삭제는 없고 비활성화만 됩니다 (D-036)."
       action={
-        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
-          속성 추가
-        </button>
+        <AttributeCreateForm />
       }
     >
       <div className="mb-4 flex gap-2">
