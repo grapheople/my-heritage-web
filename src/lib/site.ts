@@ -21,7 +21,10 @@ export function absolute(path: string): string {
 export function localeAlternates(
   pathWithoutLocale: string,
 ): Record<string, string> {
+  // ⚠️ 홈(`"/"`)이면 `/ko/` 가 되어 sitemap 의 `/ko` 와 어긋난다.
+  // 같은 화면이 두 URL 로 보이면 검색엔진이 중복으로 취급한다 (D-109)
+  const path = pathWithoutLocale === "/" ? "" : pathWithoutLocale;
   return Object.fromEntries(
-    routing.locales.map((l) => [l, absolute(`/${l}${pathWithoutLocale}`)]),
+    routing.locales.map((l) => [l, absolute(`/${l}${path}`)]),
   );
 }

@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
@@ -40,7 +41,12 @@ export function CodexRow({
       href={`/codex/${entry.id}`}
       className="flex items-center gap-3 border-b px-4 py-3 hover:bg-accent lg:px-3"
     >
-      <div className="size-14 shrink-0 rounded-md border bg-muted" />
+      <span className="relative size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+        {/* 연결된 공개 아이템의 사진 (D-110). 없으면 빈 자리 */}
+        {entry.imageUrl && (
+          <Image src={entry.imageUrl} alt="" fill sizes="56px" className="object-cover" />
+        )}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-semibold">{entry.displayName}</p>

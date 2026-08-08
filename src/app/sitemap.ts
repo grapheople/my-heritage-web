@@ -11,13 +11,14 @@ import { absolute, localeAlternates } from "@/lib/site";
  *
  * | 대상 | 근거 |
  * |---|---|
+ * | **홈 (NEW 피드)** | **D-109** — D-078 을 부분 폐기하고 열었다 |
  * | 도감 상세 | D-078 — 색인 대상 |
  * | 마켓 목록 | D-078 — 색인 대상 |
  * | **판매중 + 아이템 공개 + 방 공개** 아이템 상세 | D-093 — 조건부 |
  *
  * ## 들어가지 않는 것
  *
- * 방·일기·검색·NEW 피드·설정·알림함·어드민. `[locale]/layout.tsx` 의 기본
+ * 방·일기·검색·설정·알림함·어드민. `[locale]/layout.tsx` 의 기본
  * noindex 와 짝을 이룬다 — **sitemap 에 넣으면서 noindex 를 거는 것은 모순**이라
  * 두 곳의 목록이 항상 같아야 한다.
  *
@@ -34,6 +35,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // 색인 판정은 조회 계층 한 곳에서 한다 (D-093) — 여기서 다시 세지 않는다
     indexableItemIds(),
   ]);
+
+  // 홈 — 색인 대상이다 (D-109). 브랜드 검색 유입의 진입점이라 우선순위가 가장 높다
+  for (const locale of routing.locales) {
+    entries.push({
+      url: absolute(`/${locale}`),
+      changeFrequency: "hourly",
+      priority: 1,
+      alternates: { languages: localeAlternates("/") },
+    });
+  }
 
   // 마켓 목록 — 로케일별
   for (const locale of routing.locales) {

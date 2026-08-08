@@ -347,7 +347,9 @@
     "codexNotLinked": "図鑑に紐づきませんでした。固有番号を入力すると紐づきます",
     "viewItem": "登録したアイテムを見る",
     "photoMax": "写真は最大{max}枚です",
-    "photoMoveLeft": "前に移動"
+    "photoMoveLeft": "前に移動",
+    "nickname": "自分用の呼び名",
+    "nicknameHint": "同じアイテムを2つ以上持っているときの区別用です。例: 通勤用"
   },
   "opt": {
     "auto": "オート",

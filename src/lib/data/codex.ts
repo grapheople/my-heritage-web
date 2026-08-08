@@ -71,7 +71,51 @@ async function ownerCounts(
  */
 export type CodexPublic = Omit<CodexEntry, "ownerCount">;
 
-function toPublic(c: CodexRow): CodexPublic {
+/**
+ * 도감 대표 이미지 (D-110).
+ *
+ * ⚠️ **연결된 아이템의 사진을 빌려 쓴다.** 도감에는 사진 필드가 없다 —
+ * 별도 필드를 두면 도감마다 사진 1장을 운영이 넣어야 하고, 도감은 유저 등록으로
+ * 자동 생성되므로(D-015) 큐가 무한히 쌓인다.
+ *
+ * ## ⚠️ 후보 조건을 좁게 잡는 것이 D-019 충돌을 막는다
+ * **공개 아이템 + 공개 방 + 판매완료 아님**만 후보다 — 보유자 수 집계와
+ * **같은 조건**이다 (FR-07-B-01·02·06).
+ *
+ * **조회 시점에 매번 고른다.** 값을 저장하면 아이템이 비공개로 바뀌거나
+ * 삭제됐을 때 **사라진 사진을 가리킨다.** 쿼리로 두면 자동으로 빠진다.
+ *
+ * ⚠️ **차단 관계는 적용하지 않는다.** 도감 상세는 비로그인·크롤러도 보는
+ * 경로이고(D-098), 유저별로 다른 이미지를 내면 캐시할 수 없다.
+ */
+async function codexImages(codexIds: string[]): Promise<Map<string, string>> {
+  if (codexIds.length === 0) return new Map();
+  const rows = await prisma.item.findMany({
+    where: {
+      codexItemId: { in: codexIds },
+      visibility: "PUBLIC",
+      saleStatus: { not: "SOLD" },
+      room: { visibility: "PUBLIC", user: { deletedAt: null } },
+      photos: { some: {} },
+    },
+    select: {
+      codexItemId: true,
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" }, take: 1 },
+    },
+    // 오래된 것부터 — 같은 도감을 여러 번 열어도 같은 사진이 나와야 한다.
+    // 최신순이면 새 아이템이 등록될 때마다 도감 대표가 바뀐다
+    orderBy: { createdAt: "asc" },
+  });
+  const out = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.codexItemId || out.has(r.codexItemId)) continue;
+    const url = realPhotoUrl(r.photos[0]?.url);
+    if (url) out.set(r.codexItemId, url);
+  }
+  return out;
+}
+
+function toPublic(c: CodexRow, imageUrl?: string): CodexPublic {
   return {
     id: c.id,
     displayName: c.displayName,
@@ -79,6 +123,8 @@ function toPublic(c: CodexRow): CodexPublic {
     uniqueId: c.uniqueId ?? "",
     verified: c.verification === "VERIFIED",
     aliases: aliasList(c.aliases),
+    // 연결된 공개 아이템의 사진. 후보가 없으면 이미지 없이 렌더한다 (D-110)
+    imageUrl,
   };
 }
 
@@ -145,12 +191,15 @@ export async function searchCodex(
   }
   scored.sort((a, b) => a.rank - b.rank || a.row.displayName.localeCompare(b.row.displayName));
 
-  const counts = opts.withOwnerCount
-    ? await ownerCounts(scored.map((s) => s.row.id), await blockedUserIds(opts.viewer))
-    : new Map<string, number>();
+  const [counts, images] = await Promise.all([
+    opts.withOwnerCount
+      ? ownerCounts(scored.map((s) => s.row.id), await blockedUserIds(opts.viewer))
+      : Promise.resolve(new Map<string, number>()),
+    codexImages(scored.map((s) => s.row.id)),
+  ]);
 
   return scored.map((s) => ({
-    entry: toPublic(s.row),
+    entry: toPublic(s.row, images.get(s.row.id)),
     // ⚠️ 비로그인이면 **키 자체가 없다.** 0 을 넣으면 "0명 보유"가 렌더된다
     ownerCount: opts.withOwnerCount ? (counts.get(s.row.id) ?? 0) : undefined,
     matchedAlias: s.alias,
@@ -168,7 +217,9 @@ export async function getCodexPublic(codexId: string): Promise<CodexPublic | nul
     where: { id: codexId },
     select: CODEX_SELECT,
   });
-  return c ? toPublic(c) : null;
+  if (!c) return null;
+  const images = await codexImages([c.id]);
+  return toPublic(c, images.get(c.id));
 }
 
 /** 보유자 수 — 로그인 유저에게만. 인증된 경로에서만 호출한다 (D-096) */

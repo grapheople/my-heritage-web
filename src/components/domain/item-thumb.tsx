@@ -17,6 +17,8 @@ export type ItemThumbData = {
   id: string;
   /** 파생된 아이템 명칭 (D-073) */
   name: string;
+  /** 유저 별칭 (D-112). 명칭 아래에 붙는다 — 대체하지 않는다 */
+  nickname?: string;
   /**
    * 대표 사진. 아이템은 사진 1장 이상이 필수이므로(D-037) 실데이터에서는 항상 있다.
    * 비어 있으면 결정적 그라디언트로 대체한다 — 스토리지가 붙기 전(OI-47)
@@ -89,6 +91,13 @@ export function ItemThumb({
       >
         {item.name}
       </p>
+      {/* 별칭은 명칭 **아래**에 붙는다 (D-112). 대체하지 않는다 —
+          명칭은 도감 병합·alias 정리 때 갱신되어야 하는 파생값이다 */}
+      {item.nickname && (
+        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+          {item.nickname}
+        </p>
+      )}
     </Link>
   );
 }

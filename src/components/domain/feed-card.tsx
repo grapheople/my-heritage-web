@@ -18,6 +18,7 @@ export type FeedItem = {
   categoryKey: string;
   roomId: string;
   roomName: string;
+  nickname?: string;
   onSale?: boolean;
   /** 대표 사진 = 첫 장 (FR-07-A-04). 없으면 그라디언트로 대체한다 */
   photoUrl?: string;

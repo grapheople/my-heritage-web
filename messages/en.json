@@ -347,7 +347,9 @@
     "codexNotLinked": "Not linked to a codex entry. Add the reference number to link it",
     "viewItem": "View the item",
     "photoMax": "Up to {max} photos",
-    "photoMoveLeft": "Move earlier"
+    "photoMoveLeft": "Move earlier",
+    "nickname": "Your nickname",
+    "nicknameHint": "To tell apart two of the same item. e.g. “daily”"
   },
   "opt": {
     "auto": "Automatic",
