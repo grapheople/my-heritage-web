@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { runtimeDatabaseUrl } from "./db-url";
 
 /**
  * Prisma 7은 SQL provider에서 driver adapter를 요구한다.
@@ -23,9 +24,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createClient() {
-  const connectionString = process.env.DATABASE_URL;
+  // Supabase/Vercel 이 주입하는 이름까지 인식한다 (`db-url.ts`)
+  const connectionString = runtimeDatabaseUrl();
   if (!connectionString) {
-    throw new Error("DATABASE_URL이 설정되지 않았습니다 (.env 참조)");
+    throw new Error(
+      "DATABASE_URL(또는 POSTGRES_PRISMA_URL)이 설정되지 않았습니다 (.env.example 참조)",
+    );
   }
   return new PrismaClient({
     adapter: new PrismaPg({

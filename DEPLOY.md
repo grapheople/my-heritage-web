@@ -18,6 +18,56 @@ Vercel Marketplace 에서 Postgres(Neon 등)를 붙이면 두 종류의 연결 �
 | `DATABASE_URL` | **풀링됨** (`...-pooler.<region>...`) | 런타임 (`lib/prisma.ts`) |
 | `DIRECT_URL` | 직접 연결 | 마이그레이션·시드 (`prisma.config.ts`) |
 
+### Supabase 를 쓰는 경우 — 어떤 값을 어디에
+
+Supabase(또는 Vercel 연동)는 변수를 **자기 이름으로** 주입한다. 코드가 그 이름을
+그대로 읽으므로 **옮겨 적을 필요가 없다** (`src/lib/db-url.ts`).
+
+| 주입된 이름 | 포트 | 쓰이는 곳 | 판별법 |
+|---|:---:|---|---|
+| `POSTGRES_PRISMA_URL` | **6543** | **런타임** (= `DATABASE_URL`) | `pgbouncer=true` 가 붙어 있다 |
+| `POSTGRES_URL_NON_POOLING` | **5432** | **마이그레이션** (= `DIRECT_URL`) | 파라미터에 `pgbouncer` 가 없다 |
+| ~~`POSTGRES_URL`~~ | 6543 | **쓰지 않는다** | 6543 인데 `pgbouncer=true` 가 없다 |
+
+> ⚠️ **`POSTGRES_URL` 이 가장 헷갈리는 값이다.** 이름이 "기본 URL" 처럼 보이는데
+> transaction 풀러(6543)이면서 `pgbouncer=true` 플래그가 없다. 마이그레이션에
+> 쓰면 advisory lock 을 못 잡고, 런타임에 써도 Prisma 가 풀러임을 모른다.
+>
+> Supabase 의 5432 는 "직접 연결"이 아니라 **session 모드 풀러**다. advisory lock
+> 과 prepared statement 를 지원하므로 마이그레이션에 쓸 수 있다. `db.<ref>.supabase.co`
+> (진짜 직접 연결)는 신규 프로젝트에서 IPv6 전용이라 대개 쓸 수 없다.
+
+**지금 설정이 맞는지 확인**:
+
+```bash
+pnpm db:which
+```
+
+런타임/마이그레이션이 각각 어느 호스트·포트를 보는지 낸다. 풀링 여부가 잘못되면
+경고한다. **`.env.local` 과 `.env` 가 다른 DB 를 가리키면 앱과 Prisma CLI 가
+서로 다른 DB 를 보는데**, 증상이 "마이그레이션했는데 화면에 반영이 안 된다" 로
+나타나 원인을 찾기 어렵다. 그래서 이 스크립트를 만들었다.
+
+> `.env.local` → `.env` 순으로 읽고 **앞의 것이 이긴다** (Next.js 와 같은 순서).
+> 스크립트도 같게 맞췄다 (`prisma/env.ts`) — `dotenv/config` 는 `.env` 만 읽어서
+> 그 차이가 위의 사고를 만들었다.
+
+### ⚠️ 사내 네트워크가 Postgres 포트를 막을 수 있다
+
+**2026-08-08 확인**: 이 개발 머신에서 `5432`·`6543` 이 **둘 다 타임아웃**이다.
+Supabase 프로젝트는 살아 있다 (REST `443` 은 응답). DNS 도 정상. 즉 **네트워크가
+outbound Postgres 를 차단**한다.
+
+그래서 **이 머신에서는 마이그레이션을 돌릴 수 없다.** 선택지:
+
+| 방법 | 비고 |
+|---|---|
+| **CI 에서 실행** (GitHub Actions 등) | 권장. 배포 파이프라인에 넣으면 절차가 한 곳에 모인다 |
+| 차단 없는 네트워크 | 테더링 등. 일회성으로는 가장 빠르다 |
+| Supabase SQL Editor 에 SQL 붙여넣기 | **`_prisma_migrations` 기록이 남지 않아** 이후 마이그레이션이 어긋난다. 권하지 않는다 |
+
+**Vercel 런타임은 영향받지 않는다** — Vercel 네트워크는 막지 않는다.
+
 ### ⚠️ 왜 둘 다 필요한가
 
 - **풀링이 없으면 DB 가 마비된다.** Vercel Functions 는 요청마다 인스턴스가 생기므로

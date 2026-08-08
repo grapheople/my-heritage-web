@@ -1,4 +1,5 @@
-import "dotenv/config";
+// .env.local 을 먼저 읽는다 — Next.js 와 순서를 맞춘다 (prisma/env.ts)
+import "./env";
 import { readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";

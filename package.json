@@ -22,7 +22,8 @@
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v",
     "db:seed-dev": "tsx prisma/seed-dev.ts",
-    "admin:add": "tsx prisma/add-admin.ts"
+    "admin:add": "tsx prisma/add-admin.ts",
+    "db:which": "tsx prisma/which-db.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

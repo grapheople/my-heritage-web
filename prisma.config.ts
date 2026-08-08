@@ -1,4 +1,5 @@
-import "dotenv/config";
+// ⚠️ `.env.local` 도 읽어야 한다 — 앱과 다른 DB 를 보면 안 된다
+import "./prisma/env";
 import { defineConfig } from "prisma/config";
 
 /**
@@ -28,6 +29,11 @@ export default defineConfig({
   },
   datasource: {
     // 직접 연결이 있으면 그것을 쓴다. 로컬은 풀러가 없어 DATABASE_URL 하나뿐이다
-    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
+    // Supabase/Vercel 이 주입하는 이름까지 인식한다 (src/lib/db-url.ts 와 같은 규칙)
+    url:
+      process.env["DIRECT_URL"] ||
+      process.env["POSTGRES_URL_NON_POOLING"] ||
+      process.env["DATABASE_URL"] ||
+      process.env["POSTGRES_PRISMA_URL"],
   },
 });
