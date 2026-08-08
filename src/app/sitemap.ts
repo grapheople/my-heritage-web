@@ -28,6 +28,18 @@ import { absolute, localeAlternates } from "@/lib/site";
  *
  * 각 항목에 3개 로케일 `hreflang` 을 상호 선언한다 (D-091).
  */
+/**
+ * ⚠️ **정적으로 굳으면 안 된다.**
+ *
+ * sitemap 은 DB 를 읽는다(도감 id · 색인 대상 아이템 id). 기본값대로 빌드
+ * 시점에 프리렌더되면 **새 도감·새 매물이 재배포까지 sitemap 에 안 들어간다.**
+ * 도감은 유저 등록으로 계속 생기므로(D-015) 그 사이 색인이 밀린다.
+ *
+ * 부수 효과가 하나 더 있다: 프리렌더는 **빌드 타임에 DB 연결을 요구**한다.
+ * DB 가 잠깐 안 되면 배포가 실패한다. 재검증으로 두면 빌드가 DB 에서 분리된다.
+ */
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
   const [codexIds, itemIds] = await Promise.all([
