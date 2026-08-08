@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["icn1"],
+  "functions": {
+    "src/app/api/upload/route.ts": {
+      "memory": 2048,
+      "maxDuration": 60
+    }
+  }
+}
