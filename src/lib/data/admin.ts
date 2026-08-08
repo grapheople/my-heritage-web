@@ -298,3 +298,34 @@ export async function getAdminLevels() {
   const rows = await prisma.levelDefinition.findMany({ orderBy: { level: "asc" } });
   return rows.map((l) => ({ level: l.level, required: l.requiredExp }));
 }
+
+/**
+ * A-14 어드민 계정 목록 (D-104).
+ *
+ * `invitedBy`·`deactivatedBy` 는 `AdminUser.id` 라서 이름으로 풀어준다 —
+ * id 를 그대로 보여주면 **누가 권한을 줬는지 화면에서 읽을 수 없다.**
+ */
+export async function getAdminUsers() {
+  const rows = await prisma.adminUser.findMany({
+    orderBy: [{ active: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true, email: true, name: true, active: true,
+      invitedBy: true, deactivatedBy: true, deactivatedAt: true, createdAt: true,
+    },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r.name]));
+  const nameOf = (id: string | null) =>
+    // 시드로 들어온 최초 어드민은 invitedBy 가 없다 (D-104 — 부트스트랩)
+    id ? (byId.get(id) ?? id) : "—";
+
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    active: r.active,
+    invitedBy: nameOf(r.invitedBy),
+    deactivatedBy: nameOf(r.deactivatedBy),
+    deactivatedAt: r.deactivatedAt?.toISOString().slice(0, 10) ?? null,
+    createdAt: r.createdAt.toISOString().slice(0, 10),
+  }));
+}
