@@ -190,6 +190,8 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       verified: c.verification === "VERIFIED",
       ownerCount: c._count.items,
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
+      // 편집 폼은 언어별로 나눠 받아야 한다 (D-009)
+      aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
     };
   });
 }
@@ -415,4 +417,19 @@ export async function resolveReportTargetUser(
   }
   // CODEX·EXTERNAL_LINK 는 특정 유저의 콘텐츠가 아니다
   return null;
+}
+
+/**
+ * A-03 매칭 키 후보 — **쓸 수 있는 타입만** (D-041, FR-01-A-06).
+ *
+ * `multiselect`·`boolean`·`textarea`·`url` 은 정규화가 성립하지 않는다.
+ * 서버도 검증하지만 목록에서 애초에 빼는 것이 낫다.
+ */
+export async function getMatchingKeyCandidates() {
+  const rows = await prisma.attributeDefinition.findMany({
+    where: { type: { in: ["text", "number", "select", "date"] } },
+    orderBy: { key: "asc" },
+    select: { key: true, labelKo: true, type: true },
+  });
+  return rows.map((r) => ({ key: r.key, label: r.labelKo, type: r.type }));
 }

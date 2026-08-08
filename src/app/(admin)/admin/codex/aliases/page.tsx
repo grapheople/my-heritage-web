@@ -1,4 +1,5 @@
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
+import { CodexAliasEditor } from "@/components/admin/codex-alias-editor";
 import { getAdminCodex } from "@/lib/data/admin";
 
 /**
@@ -36,7 +37,7 @@ export default async function AdminCodexAliasesPage() {
               )}
             </Td>
             <Td>
-              <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
+              <CodexAliasEditor codexId={c.id} displayName={c.displayName} initial={c.aliasesByLang} />
             </Td>
           </tr>
         ))}

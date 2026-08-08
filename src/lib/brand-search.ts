@@ -14,8 +14,8 @@
  *    그 카테고리 브랜드만 넘기면 `Anchor`(자전거)/`Anker`(데스크테리어)는 애초에
  *    후보에 없다
  *
- * 정규화는 D-014 규칙을 따른다 — NFKC + 공백·하이픈 제거 + 소문자.
- * 검색·매칭·import 가 **같은 규칙**을 써야 한다.
+ * 정규화는 **D-014 규칙 그대로**다 — NFKC + 공백·하이픈·**언더스코어** 제거
+ * + 대소문자 통일. 검색·매칭·import 가 **같은 규칙**을 써야 한다.
  */
 export type BrandAliases = { ko?: string[]; ja?: string[]; en?: string[] };
 
@@ -30,8 +30,24 @@ export type BrandHit<T extends SearchableBrand = SearchableBrand> = {
   matchedAlias?: string;
 };
 
+/**
+ * D-014 정규화. **검색·도감 매칭·CSV import 가 이 함수 하나만 쓴다.**
+ *
+ * | 제거 | 보존 |
+ * |---|---|
+ * | 공백 · 하이픈 · **언더스코어** | **점 · 슬래시** |
+ *
+ * ⚠️ **점·슬래시를 지우지 않는 것이 의도다** (D-014). 오메가 레퍼런스
+ * `310.30.42.50.01.002` 처럼 구분자가 의미를 갖는 체계가 있다. 지우면
+ * 서로 다른 제품이 **오병합**되고, 되돌리기 비용이 갈라짐 비용보다 크다 (R2).
+ *
+ * ⚠️ 유사 문자 치환(`O`↔`0`)도 하지 않는다 — 실제 코드 체계에 둘 다 쓰인다.
+ *
+ * D-014 는 "대문자 변환"이라고 적었지만 방향은 무관하다. **한 방향으로
+ * 일관되면 된다** — 여기서는 소문자로 모은다.
+ */
 export function normalizeBrandToken(s: string): string {
-  return s.normalize("NFKC").toLowerCase().replace(/[\s-]/g, "");
+  return s.normalize("NFKC").toLowerCase().replace(/[\s\-_]/g, "");
 }
 
 function aliasList(a: BrandAliases): string[] {

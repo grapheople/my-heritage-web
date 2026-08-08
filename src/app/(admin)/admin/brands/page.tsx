@@ -1,4 +1,5 @@
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
+import { BrandAliasEditor, BrandCreateForm } from "@/components/admin/brand-forms";
 import { getAdminBrands } from "@/lib/data/admin";
 
 /**
@@ -22,9 +23,7 @@ export default async function AdminBrandsPage() {
       id="A-11" title="브랜드 마스터"
       desc="원문 1개 + 언어별 alias. 자유 텍스트가 아닌 이유는 도감이 언어별로 쪼개지기 때문입니다 (D-043)."
       action={
-        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
-          브랜드 추가
-        </button>
+        <BrandCreateForm />
       }
     >
       <div className="mb-4 rounded-lg border border-warn bg-warn-bg p-3 text-sm text-warn">
@@ -45,7 +44,7 @@ export default async function AdminBrandsPage() {
             </Td>
             <Td className="text-muted-foreground">시계</Td>
             <Td>
-              <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
+              <BrandAliasEditor brandId={b.id} brandName={b.name} initial={b.aliasesByLang} />
             </Td>
           </tr>
         ))}

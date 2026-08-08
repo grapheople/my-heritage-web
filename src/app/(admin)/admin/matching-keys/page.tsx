@@ -1,5 +1,6 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { getAdminMatchingKeys } from "@/lib/data/admin";
+import { MatchingKeyEditor } from "@/components/admin/matching-key-editor";
+import { getAdminMatchingKeys, getMatchingKeyCandidates } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
   watch: "시계", shoes: "신발", bicycle: "자전거",
@@ -23,7 +24,10 @@ const CAT: Record<string, string> = {
  * 의미가 달라지기 때문이다.
  */
 export default async function AdminMatchingKeysPage() {
-  const keys = await getAdminMatchingKeys();
+  const [keys, candidates] = await Promise.all([
+    getAdminMatchingKeys(),
+    getMatchingKeyCandidates(),
+  ]);
   return (
     <AdminPage
       id="A-03" title="매칭 키 정의"
@@ -51,7 +55,12 @@ export default async function AdminMatchingKeysPage() {
               {m.verified ? <Pill tone="sale">검증됨</Pill> : <Pill tone="warn">미검증</Pill>}
             </Td>
             <Td>
-              <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-md border px-2 py-1 text-xs hover:bg-accent opacity-40">편집</button>
+              <MatchingKeyEditor
+                  categoryKey={m.category}
+                  categoryLabel={CAT[m.category] ?? m.category}
+                  current={m.keys}
+                  candidates={candidates}
+                />
             </Td>
           </tr>
         ))}

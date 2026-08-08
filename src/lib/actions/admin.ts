@@ -883,3 +883,295 @@ export async function setAdminActiveAs(
   revalidate("/admin/admins");
   return { ok: true };
 }
+
+/* ────────────────────────────────────────────
+   A-04 도감 직접 등록 (codex FR-04-A)
+   ──────────────────────────────────────────── */
+
+/**
+ * 어드민 도감 직접 등록 (FR-04-A-01~04).
+ *
+ * | 규칙 | 근거 |
+ * |---|---|
+ * | 초기 검증 상태 = **검증됨** | D-015, FR-04-A-02 |
+ * | `normalizedKey` 중복이면 **차단 + 기존 도감을 보여준다** | D-014, FR-04-A-03 |
+ * | 매칭 키 구성 속성을 **필수 입력** | FR-04-A-04 |
+ *
+ * ## ⚠️ 유저 자동 생성과 초기 상태가 반대다
+ * 유저 등록이 만드는 도감은 **미검증**(D-015, FR-03-B-01)이고, 어드민이 직접
+ * 만든 것은 **검증됨**이다. 운영자가 확인해서 넣은 것이므로 다시 검증 큐에
+ * 올릴 이유가 없다.
+ */
+export async function createCodexItem(input: {
+  categoryKey: string;
+  displayName: string;
+  uniqueId: string;
+  descriptions?: { ko?: string; ja?: string; en?: string };
+}): Promise<ActionResult<{ codexId: string }>> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const displayName = input.displayName.trim();
+  const uniqueId = input.uniqueId.trim();
+  if (!displayName) return fail({ displayName: "명칭을 입력해주세요" });
+  // 매칭 키 값이 없으면 어떤 아이템에도 연결되지 않는다 (FR-04-A-04)
+  if (!uniqueId) return fail({ uniqueId: "고유값을 입력해주세요" });
+
+  const category = await prisma.category.findUnique({
+    where: { key: input.categoryKey },
+    select: { id: true },
+  });
+  if (!category) return fail({}, "카테고리를 찾을 수 없습니다");
+
+  const normalizedKey = normalizeBrandToken(uniqueId);
+  const dup = await prisma.codexItem.findFirst({
+    where: { categoryId: category.id, normalizedKey },
+    select: { id: true, displayName: true },
+  });
+  // 차단하고 **기존 도감을 알려준다** — 그냥 막으면 어드민이 왜 막혔는지 모른다
+  if (dup) {
+    return fail({ uniqueId: `이미 있는 도감입니다 — "${dup.displayName}"` });
+  }
+
+  const made = await prisma.codexItem.create({
+    data: {
+      categoryId: category.id,
+      displayName,
+      uniqueId,
+      normalizedKey,
+      // 운영자가 확인해서 넣은 것이다 (FR-04-A-02)
+      verification: "VERIFIED",
+      verifiedBy: ADMIN_ACTOR,
+      verifiedAt: new Date(),
+      descriptions: input.descriptions
+        ? Object.fromEntries(
+            Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
+          )
+        : undefined,
+    },
+    select: { id: true },
+  });
+
+  revalidate("/admin/codex", "/admin/codex/verification");
+  return { ok: true, codexId: made.id };
+}
+
+/* ────────────────────────────────────────────
+   A-02 속성 정의 추가 (item-catalog F-02)
+   ──────────────────────────────────────────── */
+
+/**
+ * 커스텀 속성 정의 추가 (FR-02-A-xx, D-010·D-038).
+ *
+ * | 규칙 | 근거 |
+ * |---|---|
+ * | 커스텀 속성은 **ko/ja/en 3개 필수** | D-010, `policies/i18n` Case 8 |
+ * | `number` 단위도 **3개 언어** | D-038, FR-02-A-08 |
+ * | `select`·`multiselect` 는 **선택지 최소 1개**, 선택지도 3개 언어 | E-02-07, `policies/i18n` §3 |
+ * | key 가 공통 라이브러리와 충돌하면 차단 | E-02-09 |
+ *
+ * ## ⚠️ 3개 언어를 강제하는 이유
+ * 여기서 ko 만 받으면 **일본어·영어 유저 화면에 한국어 라벨이 나온다.**
+ * 어드민 UI 가 ko 단일인 것(D-030)과 **별개다** — 이 값들은 유저에게 보인다.
+ * `policies/i18n` 이 "가장 흔한 누락 지점"으로 지목한 곳이다.
+ */
+const ATTR_TYPES = [
+  "text", "textarea", "number", "select", "multiselect", "date", "boolean", "url",
+] as const;
+
+export async function createAttributeDefinition(input: {
+  key: string;
+  type: (typeof ATTR_TYPES)[number];
+  label: { ko: string; ja: string; en: string };
+  unit?: { ko?: string; ja?: string; en?: string };
+  /** `select`·`multiselect` 전용. `key` 는 불변, 라벨만 3개 언어 (A-05 규칙) */
+  options?: { key: string; ko: string; ja: string; en: string }[];
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const key = input.key.trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(key)) {
+    return fail({ key: "key 는 영문으로 시작하는 영숫자여야 합니다" });
+  }
+  if (!ATTR_TYPES.includes(input.type)) return fail({ type: "타입을 선택해주세요" });
+
+  // 3개 언어 전부 (D-010). 하나라도 비면 그 언어 유저가 다른 언어를 본다
+  for (const l of ["ko", "ja", "en"] as const) {
+    if (!input.label[l]?.trim()) {
+      return fail({ [`label.${l}`]: `라벨(${l})을 입력해주세요` });
+    }
+  }
+
+  const needsOptions = input.type === "select" || input.type === "multiselect";
+  const options = (input.options ?? []).filter((o) => o.key.trim());
+  if (needsOptions) {
+    // 선택지가 0개면 유저가 아무것도 고를 수 없다 (E-02-07)
+    if (options.length === 0) return fail({ options: "선택지를 최소 1개 넣어주세요" });
+    for (const o of options) {
+      for (const l of ["ko", "ja", "en"] as const) {
+        if (!o[l]?.trim()) {
+          return fail({ options: `선택지 "${o.key}" 의 ${l} 라벨이 비었습니다` });
+        }
+      }
+    }
+  }
+
+  // key 충돌 — 공통 라이브러리든 커스텀이든 (E-02-09)
+  const dup = await prisma.attributeDefinition.findUnique({
+    where: { key },
+    select: { key: true, isCommon: true },
+  });
+  if (dup) {
+    return fail({
+      key: dup.isCommon
+        ? `공통 속성 "${key}" 가 이미 있습니다. 그것을 쓰세요`
+        : `"${key}" 가 이미 있습니다`,
+    });
+  }
+
+  await prisma.attributeDefinition.create({
+    data: {
+      key,
+      type: input.type,
+      labelKo: input.label.ko.trim(),
+      labelJa: input.label.ja.trim(),
+      labelEn: input.label.en.trim(),
+      // `number` 가 아니면 단위를 저장하지 않는다 — 의미 없는 값이 남는다
+      unitKo: input.type === "number" ? input.unit?.ko?.trim() || null : null,
+      unitJa: input.type === "number" ? input.unit?.ja?.trim() || null : null,
+      unitEn: input.type === "number" ? input.unit?.en?.trim() || null : null,
+      // 어드민이 만든 것은 카테고리 전용 커스텀이다 (D-010)
+      isCommon: false,
+      ...(needsOptions
+        ? {
+            options: {
+              create: options.map((o, i) => ({
+                key: o.key.trim(),
+                labelKo: o.ko.trim(),
+                labelJa: o.ja.trim(),
+                labelEn: o.en.trim(),
+                displayOrder: i,
+              })),
+            },
+          }
+        : {}),
+    },
+  });
+
+  revalidate("/admin/attributes");
+  return { ok: true };
+}
+
+/* ────────────────────────────────────────────
+   A-11 브랜드 추가 (item-catalog F-04)
+   ──────────────────────────────────────────── */
+
+/**
+ * 브랜드 마스터 추가 (D-043 · D-047).
+ *
+ * ⚠️ **alias 를 함께 받는다.** alias 가 없으면 한국 유저가 "롤렉스"로 검색해도
+ * 안 나와서 **브랜드가 없는 것으로 오인**하고 추가 요청을 보낸다. 어드민이
+ * 그걸 또 처리하는 순환이 생긴다 (D-047).
+ *
+ * ⚠️ 중복 검사는 **정규화**로 한다 (D-014). `Snow Peak` 과 `snowpeak` 이 따로
+ * 쌓이면 도감이 언어별로 쪼개진다 — D-043 이 막으려던 바로 그 상황이다.
+ */
+export async function createBrand(input: {
+  name: string;
+  categoryKeys: string[];
+  aliases?: { ko?: string[]; ja?: string[]; en?: string[] };
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const name = input.name.trim();
+  if (!name) return fail({ name: "브랜드명을 입력해주세요" });
+  if (input.categoryKeys.length === 0) {
+    return fail({ categories: "카테고리를 최소 1개 선택해주세요" });
+  }
+
+  const nq = normalizeBrandToken(name);
+  const brands = await prisma.brand.findMany({ select: { name: true, aliases: true } });
+  const dup = brands.find((b) => {
+    if (normalizeBrandToken(b.name) === nq) return true;
+    const a = (b.aliases ?? {}) as Record<string, unknown>;
+    return (["ko", "ja", "en"] as const).some((k) =>
+      Array.isArray(a[k])
+        ? (a[k] as unknown[]).some(
+            (v) => typeof v === "string" && normalizeBrandToken(v) === nq,
+          )
+        : false,
+    );
+  });
+  if (dup) return fail({ name: `이미 있는 브랜드입니다 — "${dup.name}"` });
+
+  const categories = await prisma.category.findMany({
+    where: { key: { in: input.categoryKeys } },
+    select: { id: true },
+  });
+
+  const clean = (list?: string[]) =>
+    [...new Set((list ?? []).map((a) => a.trim()).filter(Boolean))];
+
+  await prisma.brand.create({
+    data: {
+      name,
+      aliases: {
+        ko: clean(input.aliases?.ko),
+        ja: clean(input.aliases?.ja),
+        en: clean(input.aliases?.en),
+      },
+      categories: { connect: categories.map((c) => ({ id: c.id })) },
+    },
+  });
+
+  revalidate("/admin/brands");
+  return { ok: true };
+}
+
+/**
+ * 도감 명칭·설명 편집 (A-04, FR-04-A).
+ *
+ * ⚠️ **`uniqueId`·`normalizedKey` 는 바꾸지 않는다.** 바꾸면 이미 연결된
+ * 아이템들이 다른 제품의 도감에 붙은 채로 남는다. 고유값을 잘못 넣었으면
+ * **새로 만들고 병합**(A-06)하는 것이 맞는 경로다 — 그래야 이력이 남는다.
+ *
+ * ⚠️ **검증된 도감은 유저가 수정할 수 없다** (FR-03-C-01). 그래서 오류
+ * 신고(D-035)가 여기로 들어오고, 어드민이 이 폼으로 고친다.
+ */
+export async function updateCodexItem(input: {
+  codexId: string;
+  displayName: string;
+  descriptions?: { ko?: string; ja?: string; en?: string };
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const displayName = input.displayName.trim();
+  if (!displayName) return fail({ displayName: "명칭을 입력해주세요" });
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: input.codexId },
+    select: { verification: true },
+  });
+  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+
+  await prisma.codexItem.update({
+    where: { id: input.codexId },
+    data: {
+      displayName,
+      // 미검증본에는 다국어 설명을 넣지 않는다 (FR-07-A-05) — 원문 1개가 맞다
+      ...(codex.verification === "VERIFIED" && input.descriptions
+        ? {
+            descriptions: Object.fromEntries(
+              Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
+            ),
+          }
+        : {}),
+    },
+  });
+
+  revalidate("/admin/codex", "/[locale]/codex/[codexId]");
+  return { ok: true };
+}
