@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ItemGrid } from "@/components/domain/item-grid";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findRoom } from "@/lib/dev-fixture";
+import { getRoomCategory } from "@/lib/data/room";
 import { formatNumber } from "@/lib/format";
 
 /**
@@ -22,10 +22,11 @@ export default async function MyRoomCategoryPage({
     return null;
   }
 
-  const section = viewer.roomId
-    ? findRoom(viewer.roomId)?.sections.find((s) => s.slug === category)
-    : undefined;
-  if (!section) notFound();
+  const found = viewer.roomId
+    ? await getRoomCategory(viewer.roomId, category, viewer)
+    : null;
+  if (!found) notFound();
+  const { section } = found;
 
   return (
     <div>

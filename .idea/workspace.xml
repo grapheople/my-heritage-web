@@ -4,20 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b2086a7-bdd5-46a9-ad0c-db99337ec5fb" name="변경" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/[locale]/(user)/items/[itemId]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/[locale]/(user)/items/[itemId]/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/[locale]/(user)/items/[itemId]/sell/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/[locale]/(user)/items/[itemId]/sell/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib/dev-fixture.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/dev-fixture.ts" afterDir="false" />
-    </list>
+    <list default="true" id="8b2086a7-bdd5-46a9-ad0c-db99337ec5fb" name="변경" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="1" />
+    <option name="cachedIndexableFilesCount" value="460" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
@@ -27,10 +21,10 @@
     <commands />
     <urls />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 1,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3HXxQXaESTDZBtJ5JV11r0ygYKW" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -45,6 +39,8 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "git-widget-placeholder": "main",
+    "js.debugger.nextJs.config.created.client": "true",
+    "js.debugger.nextJs.config.created.server": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/pax/Documents/GitHub/my-heritage-web",
     "node.js.detected.package.eslint": "true",
@@ -56,6 +52,21 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager" selected="npm.Next.js: 서버 측">
+    <configuration name="Next.js: 클라이언트 측에서 디버그" type="JavascriptDebugType" uri="http://localhost:3002/">
+      <method v="2" />
+    </configuration>
+    <configuration name="Next.js: 서버 측" type="js.build_tools.npm">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -72,6 +83,7 @@
       <option name="presentableId" value="Default" />
       <updated>1786028199107</updated>
       <workItem from="1786028200910" duration="4107000" />
+      <workItem from="1786126872201" duration="2632000" />
     </task>
     <servers />
   </component>

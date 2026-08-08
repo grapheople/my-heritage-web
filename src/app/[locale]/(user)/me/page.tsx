@@ -3,7 +3,7 @@ import { RoomProfile } from "@/components/domain/room-profile";
 import { RoomTabs } from "@/components/domain/room-tabs";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findRoom } from "@/lib/dev-fixture";
+import { getRoom } from "@/lib/data/room";
 
 /**
  * S-02 마이룸 (본인).
@@ -28,18 +28,18 @@ export default async function MyRoomPage({
     return null;
   }
 
-  // 방 조회는 아직 픽스처다. Prisma 로 바꿀 때 이 한 줄만 바뀐다
-  const room = viewer.roomId ? findRoom(viewer.roomId) : undefined;
-  if (!room) {
+  const access = viewer.roomId
+    ? await getRoom(viewer.roomId, viewer)
+    : ({ status: "none" } as const);
+  if (access.status !== "ok") {
     // 방 이름 미설정 신규 가입은 설정으로 유도한다 (FR-05-A-05 — 전용 화면 없음)
     redirect({ href: "/me/settings", locale });
     return null;
   }
 
-  // 개수 내림차순 (D-075, FR-01-A-10). 떠난 아이템은 집계 제외 (FR-01-A-07)
-  const sections = [...room.sections].sort(
-    (a, b) => b.items.length - a.items.length,
-  );
+  const room = access.room;
+  // 정렬(D-075)·떠난 아이템 제외(FR-01-A-07)는 조회 계층에서 끝난다
+  const sections = room.sections;
   const total = sections.reduce((n, s) => n + s.items.length, 0);
 
   return (

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { REPORT_REASONS, type ReportTarget } from "@/lib/dev-fixture";
+import { REPORT_REASONS, type ReportTarget } from "@/lib/constants";
 
 /**
  * S-15 신고 폼 (D-029 · D-035 · D-052).

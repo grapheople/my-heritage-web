@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { DiaryForm, type LinkableItem } from "@/components/domain/diary-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findRoom } from "@/lib/dev-fixture";
+import { ownItemsForDiary } from "@/lib/data/diary";
 
 /**
  * S-06 일기 작성.
@@ -24,14 +24,7 @@ export default async function NewDiaryPage({
   }
 
   // 본인 소유 아이템만. 비공개도 포함한다 (FR-02-A-04·05)
-  const room = viewer.roomId ? findRoom(viewer.roomId) : undefined;
-  const items: LinkableItem[] = (room?.sections ?? []).flatMap((s) =>
-    s.items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      visibility: i.isPrivate ? ("PRIVATE" as const) : ("PUBLIC" as const),
-    })),
-  );
+  const items: LinkableItem[] = await ownItemsForDiary(viewer);
 
   return (
     <div className="px-4 py-5 lg:px-0">

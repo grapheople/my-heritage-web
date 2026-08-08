@@ -3,7 +3,8 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { FilterBar } from "@/components/domain/filter-bar";
 import { Link } from "@/i18n/navigation";
-import { DEV_FEED } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { getFeed } from "@/lib/data/feed";
 
 /**
  * S-01 NEW 피드 — 최초 진입 화면. 온보딩은 없다 (D-069).
@@ -27,11 +28,9 @@ export default async function FeedPage({
   const category = typeof sp.category === "string" ? sp.category : undefined;
   const lang = typeof sp.lang === "string" ? sp.lang : "all";
 
-  const items = DEV_FEED.filter(
-    (i) =>
-      (!category || i.categoryKey === `category.${category}`) &&
-      (lang === "all" || i.lang === lang),
-  );
+  // 필터는 **조회 조건**이다 — 다 가져와서 걸러내면 비공개·차단이 응답에
+  // 실린 뒤 화면에서만 사라진다 (D-083)
+  const items = await getFeed({ category, lang }, await getViewer());
 
   return (
     <div>

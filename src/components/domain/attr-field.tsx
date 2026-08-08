@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import type { AttrDef } from "@/lib/dev-fixture";
+import type { AttrDef } from "@/lib/data/attributes";
 
 /**
  * 동적 속성 렌더러 — **8종 전부** (D-038).
@@ -21,6 +21,10 @@ import type { AttrDef } from "@/lib/dev-fixture";
  * ⚠️ **속성명·단위·선택지는 번역 대상이고, 속성값은 아니다.**
  * 선택지(enum) 번역 누락이 가장 흔하다 (`policies/i18n`).
  * 유저가 입력한 값(`Rolex`, `명동 백화점`)은 원문 그대로 둔다.
+ *
+ * ⚠️ **라벨은 이미 해석돼서 온다** — 여기서 `t()` 를 부르지 않는다. 어드민이
+ * 추가한 카테고리 전용 속성은 메시지 파일에 없어서 번역할 수가 없다 (D-010).
+ * 라벨의 3개 언어는 DB 가 들고 있고 서버가 로케일로 골라 내린다.
  *
  * 자동 채워진 값도 **유저가 수정할 수 있다** (FR-03-A-03, 원칙 3) —
  * readonly 로 잠그지 않는다.
@@ -53,8 +57,8 @@ export function AttrField({
   return (
     <div>
       <label className="flex items-center gap-1.5 text-sm font-semibold" htmlFor={id}>
-        {/* 속성명은 번역 대상 (D-010) */}
-        {t(def.labelKey)}
+        {/* 서버가 로케일로 해석해 보낸 라벨이다 (D-010) */}
+        {def.label}
         {def.required && <span className="text-destructive">*</span>}
         {autoFilled && (
           /* 자동 채움이지만 수정 가능함을 밝힌다 (FR-03-A-03) */
@@ -75,25 +79,24 @@ export function AttrField({
           <input id={id} type="number" inputMode="decimal" value={value}
             onChange={(e) => onChange(e.target.value)}
             className={cn(base, "mt-0 flex-1")} />
-          {/* 단위도 번역 대상 (D-010) */}
+          {/* 단위도 3개 언어다 (D-010) — 이미 해석돼 있다 */}
           {def.unit && (
-            <span className="shrink-0 text-sm text-muted-foreground">
-              {def.unit.includes(".") ? t(def.unit) : def.unit}
-            </span>
+            <span className="shrink-0 text-sm text-muted-foreground">{def.unit}</span>
           )}
         </div>
       ) : def.type === "select" ? (
         <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
           className={base}>
           <option value="">{t("reg.choose")}</option>
-          {/* 선택지도 번역 대상 — 가장 흔한 누락 */}
-          {def.optionKeys?.map((k) => (
-            <option key={k} value={k}>{t(k)}</option>
+          {/* 선택지도 번역 대상 — 가장 흔한 누락. DB 가 3개 언어를 강제한다 */}
+          {def.options?.map((o) => (
+            <option key={o.key} value={o.key}>{o.label}</option>
           ))}
         </select>
       ) : def.type === "multiselect" ? (
         <ul className="mt-1.5 flex flex-wrap gap-2">
-          {def.optionKeys?.map((k) => {
+          {def.options?.map((o) => {
+            const k = o.key;
             const on = value.split(",").filter(Boolean).includes(k);
             return (
               <li key={k}>
@@ -110,7 +113,7 @@ export function AttrField({
                       ? "border-foreground bg-foreground font-semibold text-background"
                       : "text-muted-foreground hover:text-foreground",
                   )}>
-                  {t(k)}
+                  {o.label}
                 </button>
               </li>
             );

@@ -443,6 +443,10 @@ model Item {
   price       Decimal?  @db.Decimal(14, 2)
   currency    Currency?
   externalUrl String?
+  /// 판매 전환 시각 — 마켓 기본 정렬 기준 (D-048, market FR-02-A-03).
+  /// ⚠️ createdAt·updatedAt 로 대신할 수 없다: createdAt 은 등록 시각이라
+  /// 오래된 물건을 지금 올려도 뒤로 가고, updatedAt 은 사진만 고쳐도 앞으로 온다
+  onSaleAt    DateTime?
   soldAt      DateTime?
 
   /// FR-03-A-01/09 — NEW 피드 정렬 기준. 비공개→공개 전환으로 갱신하지 않는다 (D-070)
@@ -454,6 +458,8 @@ model Item {
   diaries         DiaryItem[]
 
   @@index([visibility, saleStatus, createdAt])
+  /// 마켓 기본 정렬 (D-048) — 판매중만 훑는다
+  @@index([saleStatus, onSaleAt])
   @@index([roomId, categoryId])
   @@index([codexItemId])
 }

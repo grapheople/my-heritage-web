@@ -1,5 +1,6 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_LEVELS, EXP_RULES, DAILY_EXP_CAP } from "@/lib/dev-fixture";
+import { getAdminLevels } from "@/lib/data/admin";
+import { DAILY_EXP_CAP, EXP_RULES } from "@/lib/data/level";
 
 const REASON: Record<string, string> = {
   login: "로그인", item: "아이템 등록", diary: "기록 쓰기",
@@ -22,7 +23,8 @@ const REASON: Record<string, string> = {
  *
  * ⚠️ 현재 seed 값은 **자리만 잡은 것**이다. 확정 곡선으로 교체해야 한다.
  */
-export default function AdminLevelsPage() {
+export default async function AdminLevelsPage() {
+  const levels = await getAdminLevels();
   return (
     <AdminPage
       id="A-09" title="레벨 테이블 관리"
@@ -39,8 +41,8 @@ export default function AdminLevelsPage() {
         <div>
           <h2 className="mb-2 text-sm font-bold">레벨 테이블</h2>
           <Table head={["레벨", "누적 요구 경험치", "구간 폭", "조치"]}>
-            {DEV_LEVELS.map((l, i) => {
-              const prev = i > 0 ? DEV_LEVELS[i - 1].required : 0;
+            {levels.map((l, i) => {
+              const prev = i > 0 ? levels[i - 1].required : 0;
               return (
                 <tr key={l.level}>
                   <Td className="font-semibold">Lv.{l.level}</Td>
@@ -69,7 +71,7 @@ export default function AdminLevelsPage() {
           <Table head={["사유", "경험치", "빈도"]}>
             {EXP_RULES.map((r) => (
               <tr key={r.reason}>
-                <Td className="font-semibold">{REASON[r.reason]}</Td>
+                <Td className="font-semibold">{REASON[r.key]}</Td>
                 <Td className="font-mono">+{r.amount}</Td>
                 <Td><Pill>1일 1회</Pill></Td>
               </tr>

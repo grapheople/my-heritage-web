@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "./status-badge";
-import type { DiaryEntry } from "@/lib/dev-fixture";
+import type { DiaryEntry } from "@/lib/data/types";
 
 /**
  * 기록(일기) 목록 — **세로 1열 카드 + 날짜(월) 헤더** (D-084).

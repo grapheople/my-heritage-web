@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import type { NotificationItem, NotificationKind } from "@/lib/dev-fixture";
+import type { NotificationItem, NotificationKind } from "@/lib/data/types";
 
 /**
  * S-22 알림함 목록 (D-087).

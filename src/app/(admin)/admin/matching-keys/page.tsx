@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_MATCHING_KEYS } from "@/lib/dev-fixture";
+import { getAdminMatchingKeys } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
   watch: "시계", shoes: "신발", bicycle: "자전거",
@@ -22,7 +22,8 @@ const CAT: Record<string, string> = {
  * 변경 이력을 남긴다 (`MatchingKeyChangeLog`) — 키가 바뀌면 기존 연결의
  * 의미가 달라지기 때문이다.
  */
-export default function AdminMatchingKeysPage() {
+export default async function AdminMatchingKeysPage() {
+  const keys = await getAdminMatchingKeys();
   return (
     <AdminPage
       id="A-03" title="매칭 키 정의"
@@ -34,7 +35,7 @@ export default function AdminMatchingKeysPage() {
       </div>
 
       <Table head={["카테고리", "매칭 키", "검증", "조치"]}>
-        {DEV_MATCHING_KEYS.map((m) => (
+        {keys.map((m) => (
           <tr key={m.category}>
             <Td className="font-semibold">{CAT[m.category]}</Td>
             <Td>

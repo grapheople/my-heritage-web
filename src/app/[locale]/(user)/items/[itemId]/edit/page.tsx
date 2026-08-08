@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findItem } from "@/lib/dev-fixture";
+import { getItemDetail } from "@/lib/data/item";
 
 /**
  * S-04 아이템 수정.
@@ -23,7 +23,7 @@ export default async function EditItemPage({
     return null;
   }
 
-  const item = findItem(itemId);
+  const item = await getItemDetail(itemId, viewer);
   if (!item) notFound();
   if (viewer.roomId !== item.roomId) notFound();
 

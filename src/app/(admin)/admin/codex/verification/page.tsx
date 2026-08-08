@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
-import { DEV_CODEX } from "@/lib/dev-fixture";
+import { getAdminCodex } from "@/lib/data/admin";
 
 /**
  * A-05 도감 검증 큐 (codex F-04, D-033).
@@ -13,8 +13,8 @@ import { DEV_CODEX } from "@/lib/dev-fixture";
  * 검증 시 **설명을 3개 언어로 입력**한다 (D-010) — 검증본은 번역해서 보여주고
  * 미검증본은 원문 그대로 두기 때문이다 (FR-07-A-05).
  */
-export default function AdminCodexVerificationPage() {
-  const queue = DEV_CODEX.filter((c) => !c.verified);
+export default async function AdminCodexVerificationPage() {
+  const queue = await getAdminCodex({ unverifiedOnly: true });
   return (
     <AdminPage
       id="A-05" title="도감 검증 큐"

@@ -1,5 +1,5 @@
 import { AdminPage, StatCard } from "@/components/admin/ui";
-import { DEV_ADMIN_QUEUES } from "@/lib/dev-fixture";
+import { getAdminQueues } from "@/lib/data/admin";
 
 /**
  * A-13 운영 대시보드 (D-072).
@@ -12,8 +12,8 @@ import { DEV_ADMIN_QUEUES } from "@/lib/dev-fixture";
  *
  * 이 화면이 없으면 "관측만"이라고 적어둔 큐 5종을 **볼 곳이 없다.**
  */
-export default function AdminDashboardPage() {
-  const q = DEV_ADMIN_QUEUES;
+export default async function AdminDashboardPage() {
+  const q = await getAdminQueues();
   return (
     <AdminPage
       id="A-13"

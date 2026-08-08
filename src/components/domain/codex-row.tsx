@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
-import type { CodexEntry } from "@/lib/dev-fixture";
+import type { CodexEntry } from "@/lib/data/types";
 
 /**
  * 도감 검색 결과 행.

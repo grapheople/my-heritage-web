@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { ReportForm } from "@/components/domain/report-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { REPORT_TARGETS, type ReportTarget } from "@/lib/dev-fixture";
+import { REPORT_TARGETS, type ReportTarget } from "@/lib/constants";
 
 /**
  * S-15 신고.
