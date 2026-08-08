@@ -324,6 +324,7 @@
     "expGranted": "First item today — you earned 30 XP",
     "expAlready": "You already earned item XP today",
     "codexLinked": "Linked to a codex entry — you'll appear under “collectors with this item”",
+    "codexCreated": "A new codex entry was created — others can now find this item",
     "codexNotLinked": "Not linked to a codex entry. Add the reference number to link it",
     "viewItem": "View the item"
   },

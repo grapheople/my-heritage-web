@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
-import type { CodexOwner } from "@/lib/dev-fixture";
+import type { CodexOwner } from "@/lib/data/types";
 
 /**
  * 도감 소유자 목록 — **반드시 클라이언트 컴포넌트여야 한다** (D-078, FR-07-A-08).

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { StatusBadge } from "./status-badge";
-import { DIARY_MAX_LENGTH, DIARY_MAX_PHOTOS } from "@/lib/dev-fixture";
+import { DIARY_MAX_LENGTH, MAX_PHOTOS as DIARY_MAX_PHOTOS } from "@/lib/constants";
 
 /**
  * 일기 작성·수정 폼 (S-06).

@@ -5,12 +5,12 @@ import { CodexOwners } from "@/components/domain/codex-owners";
 import { MarketCard } from "@/components/domain/market-card";
 import { StatusBadge } from "@/components/domain/status-badge";
 import {
-  codexListings,
-  DEV_CODEX,
-  DEV_CODEX_ATTRS,
-  findCodex,
-  resolveCodexDesc,
-} from "@/lib/dev-fixture";
+  allCodexIds,
+  getCodexAttrs,
+  getCodexDesc,
+  getCodexListings,
+  getCodexPublic,
+} from "@/lib/data/codex";
 import { localeAlternates } from "@/lib/site";
 
 /**
@@ -20,8 +20,8 @@ import { localeAlternates } from "@/lib/site";
  *
  * | 영역 | 렌더 | 크롤러가 보는가 |
  * |---|---|:---:|
- * | 제품 정보 (명칭·고유값·속성·설명·검증 배지) | 서버 (ISR) | **O** |
- * | 이 도감의 판매중 매물 | 서버 (ISR) | O |
+ * | 제품 정보 (명칭·고유값·속성·설명·검증 배지) | 서버 | **O** |
+ * | 이 도감의 판매중 매물 | 서버 | O |
  * | **소유자 방 목록 · 보유자 수** | **클라이언트 fetch** | **✕** |
  *
  * **소유자 목록을 서버에서 조회하면 안 된다.** HTML 응답에 실려 크롤러가
@@ -38,7 +38,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/[locale]/codex/[codexId]">): Promise<Metadata> {
   const { codexId } = await params;
-  const entry = findCodex(codexId);
+  const entry = await getCodexPublic(codexId);
   if (!entry) return {};
   return {
     title: entry.displayName,
@@ -47,11 +47,24 @@ export async function generateMetadata({
   };
 }
 
-/** ISR — 콘텐츠가 거의 안 바뀌고 색인 대상이다. 병합·검증 시 revalidate */
+/**
+ * ⚠️ **이 값은 지금 효과가 없다 — 실제로는 SSR 이다** (OI-60).
+ *
+ * `(user)/layout.tsx` 가 `isLoggedIn()` 을 부르고 그게 쿠키를 읽어서
+ * **세그먼트 전체가 동적 렌더로 떨어진다.** `pnpm build` 의 라우트 표에서
+ * `ƒ (Dynamic)` 로 확인된다.
+ *
+ * 레이아웃이 `loggedIn` 을 쓰는 곳은 **알림 벨 노출 하나뿐**이다
+ * (FR-08-A-07). 그것만 클라이언트로 내리면 ISR 이 살아나지만 벨이 늦게
+ * 나타난다 — 어느 쪽이 나은지는 기획 판단이라 OI 로 둔다.
+ *
+ * 값을 지우지 않고 남긴 이유: 레이아웃이 정리되는 순간 의도했던 캐시 정책이
+ * 바로 적용되게 하려는 것이다. 병합·검증 시 revalidate 하는 전제도 그대로다.
+ */
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return DEV_CODEX.map((c) => ({ codexId: c.id }));
+export async function generateStaticParams() {
+  return (await allCodexIds()).map((codexId) => ({ codexId }));
 }
 
 export default async function CodexDetailPage({
@@ -60,13 +73,16 @@ export default async function CodexDetailPage({
   const { locale, codexId } = await params;
   const t = await getTranslations();
 
-  const entry = findCodex(codexId);
+  // ⚠️ 뷰어를 넘기지 않는다 — 이 경로에서 보유자 수를 계산할 길을 막는다 (D-078)
+  const entry = await getCodexPublic(codexId);
   if (!entry) notFound();
 
-  const attrs = DEV_CODEX_ATTRS[codexId] ?? [];
-  // 검증본은 3개 언어 + 폴백, 미검증본은 원문 그대로 (FR-07-A-05)
-  const desc = resolveCodexDesc(codexId, locale as "ko" | "ja" | "en");
-  const listings = codexListings(codexId);
+  const [attrs, desc, listings] = await Promise.all([
+    getCodexAttrs(codexId),
+    // 검증본은 3개 언어 + 폴백, 미검증본은 원문 그대로 (FR-07-A-05)
+    getCodexDesc(codexId, locale as "ko" | "ja" | "en"),
+    getCodexListings(codexId),
+  ]);
 
   return (
     <div>

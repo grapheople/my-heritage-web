@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_ADMIN_REPORTS } from "@/lib/dev-fixture";
+import { getAdminReports } from "@/lib/data/admin";
 
 const REASON_LABEL: Record<string, string> = {
   fake: "가품·모조품", stolen: "도난품", weapon: "무기·위험물",
@@ -26,9 +26,9 @@ const TARGET_LABEL: Record<string, string> = {
  * 콘텐츠 조치가 연동되지 않아 위반물이 남을 수 있다. 지금은 두 액션을
  * 나란히 두는 것으로만 완화한다.
  */
-export default function AdminReportsPage() {
+export default async function AdminReportsPage() {
   // 누적 건수 내림차순, 미처리 우선 (FR-05-A-07)
-  const rows = [...DEV_ADMIN_REPORTS].sort(
+  const rows = [...(await getAdminReports())].sort(
     (a, b) =>
       Number(b.status === "PENDING") - Number(a.status === "PENDING") ||
       b.count - a.count,

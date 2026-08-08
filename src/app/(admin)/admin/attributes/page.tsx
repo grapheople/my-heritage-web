@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
-import { CATEGORY_ATTRS } from "@/lib/dev-fixture";
+import { getAdminCategoryAttributes } from "@/lib/data/admin";
 
 const TYPE_LABEL: Record<string, string> = {
   text: "한 줄", textarea: "여러 줄", number: "숫자", select: "단일 선택",
@@ -20,8 +20,11 @@ const TYPE_LABEL: Record<string, string> = {
  * 속성**명** · `number` **단위** · `select`/`multiselect` **선택지**.
  * 어드민 UI 는 ko 단일이지만 **이 값들은 유저에게 보인다** (D-010, D-030).
  */
-export default function AdminAttributesPage() {
-  const attrs = CATEGORY_ATTRS.watch;
+export default async function AdminAttributesPage() {
+  const all = await getAdminCategoryAttributes();
+  // ⚠️ 카테고리 전환은 아직 클라이언트 상태가 없다 — 첫 카테고리만 보여준다.
+  // 조합이 비어 있으면 **아이템 등록 자체가 막힌다** (D-097)
+  const attrs = all[0]?.attrs ?? [];
   return (
     <AdminPage
       id="A-02" title="동적 속성 관리"
@@ -47,7 +50,7 @@ export default function AdminAttributesPage() {
         {attrs.map((a, i) => (
           <tr key={a.key}>
             <Td>{i + 1}</Td>
-            <Td className="font-semibold">{a.labelKey.replace("attr.", "")}</Td>
+            <Td className="font-semibold">{a.label}</Td>
             <Td className="font-mono text-xs">{a.key}</Td>
             <Td>{TYPE_LABEL[a.type]}</Td>
             <Td>{a.required ? <Pill tone="warn">필수</Pill> : "—"}</Td>

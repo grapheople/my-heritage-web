@@ -1,7 +1,8 @@
 import { Bell } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { unreadCount } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { unreadCount } from "@/lib/data/notification";
 
 /**
  * 알림함 진입점 (FR-08-A-02·03·07).
@@ -15,7 +16,10 @@ import { unreadCount } from "@/lib/dev-fixture";
  */
 export async function NotificationBell() {
   const t = await getTranslations("nav");
-  const unread = unreadCount();
+  // 비로그인에게는 호출부가 이 컴포넌트를 렌더하지 않는다 (FR-08-A-07).
+  // 그래도 방어적으로 0 을 낸다 — 뱃지가 없는 상태다
+  const viewer = await getViewer();
+  const unread = viewer ? await unreadCount(viewer) : 0;
 
   return (
     <Link

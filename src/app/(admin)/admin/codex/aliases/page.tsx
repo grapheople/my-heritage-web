@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
-import { DEV_CODEX } from "@/lib/dev-fixture";
+import { getAdminCodex } from "@/lib/data/admin";
 
 /**
  * A-07 도감 alias 관리 (codex F-05, D-009 · D-047).
@@ -15,14 +15,15 @@ import { DEV_CODEX } from "@/lib/dev-fixture";
  * alias 로 매칭된 경우 검색 결과에 **어떤 alias 로 일치했는지 표기**한다
  * (`policies/i18n` §2) — 원문이 영문이라 왜 나왔는지 알 수 없기 때문이다.
  */
-export default function AdminCodexAliasesPage() {
+export default async function AdminCodexAliasesPage() {
+  const codex = await getAdminCodex();
   return (
     <AdminPage
       id="A-07" title="도감 alias 관리"
       desc="검색 인덱스 전용입니다. 화면에는 원문만 표시됩니다 (D-009)."
     >
       <Table head={["도감 (원문)", "등록된 alias", "조치"]}>
-        {DEV_CODEX.map((c) => (
+        {codex.map((c) => (
           <tr key={c.id}>
             <Td className="font-semibold">{c.displayName}</Td>
             <Td>

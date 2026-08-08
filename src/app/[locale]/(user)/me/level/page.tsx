@@ -2,9 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import {
-  DAILY_EXP_CAP, DEV_EXP, DEV_LEVELS, EXP_RULES, levelProgress,
-} from "@/lib/dev-fixture";
-import { formatNumber } from "@/lib/format";
+  DAILY_EXP_CAP, EXP_RULES, expHistory, expReasonKey, levelProgressOf,
+  levelTableRows,
+} from "@/lib/data/level";
+import { formatNumber, userLocalDate } from "@/lib/format";
 
 /**
  * S-14 레벨 상세 (경험치 내역).
@@ -35,9 +36,16 @@ export default async function LevelPage({
     return null;
   }
 
-  const p = levelProgress(DEV_EXP.total);
+  // ⚠️ "오늘"의 경계는 **유저 타임존**이다 (D-056). 서버 UTC 날짜로 비교하면
+  // 자정 근처에서 "오늘 이미 받았다"가 어긋난다
+  const today = userLocalDate(viewer.timezone ?? "UTC");
+  const [p, exp, levels] = await Promise.all([
+    levelProgressOf(viewer.userId),
+    expHistory(viewer.userId, today),
+    levelTableRows(),
+  ]);
   const todayTotal = EXP_RULES
-    .filter((r) => DEV_EXP.todayEarned.includes(r.reason))
+    .filter((r) => exp.todayEarned.includes(r.reason))
     .reduce((n, r) => n + r.amount, 0);
 
   return (
@@ -83,11 +91,11 @@ export default async function LevelPage({
         </div>
         <ul className="mt-3 flex flex-col gap-2">
           {EXP_RULES.map((r) => {
-            const done = DEV_EXP.todayEarned.includes(r.reason);
+            const done = exp.todayEarned.includes(r.reason);
             return (
               <li key={r.reason} className="flex items-center justify-between text-sm">
                 <span className={done ? "text-muted-foreground line-through" : ""}>
-                  {t(`level.reason.${r.reason}`)}
+                  {t(`level.reason.${r.key}`)}
                 </span>
                 <span
                   className={
@@ -110,10 +118,10 @@ export default async function LevelPage({
       <section className="mt-6">
         <h2 className="text-sm font-bold">{t("level.history")}</h2>
         <ul className="mt-2 divide-y">
-          {DEV_EXP.logs.map((log) => (
+          {exp.logs.map((log) => (
             <li key={log.id} className="flex items-center justify-between py-3 text-sm">
               <span>
-                {t(`level.reason.${log.reason}`)}
+                {t(`level.reason.${expReasonKey(log.reason)}`)}
                 <span className="ml-2 text-xs text-muted-foreground">
                   {log.localDate}
                 </span>
@@ -128,7 +136,7 @@ export default async function LevelPage({
       <section className="mt-6">
         <h2 className="text-sm font-bold">{t("level.table")}</h2>
         <ul className="mt-2 divide-y">
-          {DEV_LEVELS.map((l) => (
+          {levels.map((l) => (
             <li
               key={l.level}
               className={
@@ -138,7 +146,7 @@ export default async function LevelPage({
               }
             >
               <span>{t("myRoom.level", { level: l.level })}</span>
-              <span>{formatNumber(l.required)}</span>
+              <span>{formatNumber(l.requiredExp)}</span>
             </li>
           ))}
         </ul>

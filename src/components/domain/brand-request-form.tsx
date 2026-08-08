@@ -2,8 +2,7 @@
 
 import { Info } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { DEV_BRAND_REQUESTS, DEV_BRANDS } from "@/lib/dev-fixture";
+import { useEffect, useState } from "react";
 
 /**
  * S-17 브랜드 추가 요청 (D-046 · D-047).
@@ -28,28 +27,54 @@ const CATEGORIES = [
   "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
 ] as const;
 
-function normalize(s: string): string {
-  // D-014 정규화 축약판 — NFKC + 공백·하이픈 제거 + 소문자
-  return s.normalize("NFKC").toLowerCase().replace(/[\s-]/g, "");
-}
-
 export function BrandRequestForm() {
   const t = useTranslations();
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>("watch");
   const [done, setDone] = useState(false);
 
-  const n = normalize(name);
+  /**
+   * 중복 검사는 **서버가 한다** — 정규화 규칙(D-014)이 import·검색·등록과
+   * 같아야 하기 때문이다. 여기서 따로 정규화하면 "요청은 됐는데 이미 있는
+   * 브랜드"가 생긴다.
+   *
+   * ⚠️ 검사 대상 이름과 결과를 **한 쌍으로** 담는다. 따로 두면 빠르게 타이핑할
+   * 때 이전 입력의 응답이 나중에 도착해 엉뚱한 경고가 뜬다.
+   */
+  const [checked, setChecked] = useState<{
+    name: string;
+    existing: { name: string } | null;
+    pendingCount: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const q = name.trim();
+    // 비었으면 아무것도 하지 않는다. 이전 결과는 아래 `fresh` 비교에서
+    // 자동으로 무효가 된다 — 여기서 setState 를 부르면 렌더가 연쇄된다
+    if (!q) return;
+    let alive = true;
+    // 타이핑마다 때리지 않는다
+    const timer = setTimeout(() => {
+      fetch(`/api/brand-requests/check?name=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d: { existing: { name: string } | null; pendingCount: number }) => {
+          if (alive) setChecked({ name: q, ...d });
+        })
+        .catch(() => {
+          if (alive) setChecked({ name: q, existing: null, pendingCount: 0 });
+        });
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [name]);
+
+  const fresh = checked?.name === name.trim() ? checked : null;
   // 기존 마스터 원문 또는 alias 와 일치하는가 (FR-09-A-07)
-  const existing = n
-    ? DEV_BRANDS.find(
-        (b) => normalize(b.name) === n || b.aliases.some((a) => normalize(a) === n),
-      )
-    : undefined;
+  const existing = fresh?.existing ?? null;
   // 이미 대기 중인 요청인가 (FR-09-A-06)
-  const pending = n
-    ? DEV_BRAND_REQUESTS.find((r) => normalize(r.name) === n)
-    : undefined;
+  const pendingCount = fresh?.pendingCount ?? 0;
 
   if (done) {
     return (
@@ -87,9 +112,9 @@ export function BrandRequestForm() {
           </div>
         )}
         {/* 같은 요청이 대기 중이면 병합된다 (FR-09-A-06) */}
-        {!existing && pending && (
+        {!existing && pendingCount > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            {t("brand.alreadyRequested", { count: pending.count })}
+            {t("brand.alreadyRequested", { count: pendingCount })}
           </p>
         )}
       </div>

@@ -3,7 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/domain/empty-state";
 import { MarketCard } from "@/components/domain/market-card";
 import { MarketControls } from "@/components/domain/market-controls";
-import { DEV_MARKET } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { getMarketListings } from "@/lib/data/market";
 import { localeAlternates } from "@/lib/site";
 
 /**
@@ -38,16 +39,12 @@ export default async function MarketPage({
   // 통화가 없으면 가격순을 쓸 수 없다 (FR-02-C-01)
   const sort = sp.sort === "price" && currency ? "price" : "recent";
 
-  let listings = DEV_MARKET.filter(
-    (l) =>
-      (!category || l.categoryKey === `category.${category}`) &&
-      (!currency || l.currency === currency),
+  // 정렬·필터 모두 조회 계층에서 끝난다. 가격순은 단일 통화일 때만
+  // 적용된다 — 환율을 쓰지 않기 때문 (D-011, FR-02-C-01)
+  const listings = await getMarketListings(
+    { category, currency, sort },
+    await getViewer(),
   );
-
-  // 환율을 쓰지 않으므로 단일 통화일 때만 가격으로 줄 세운다 (D-011, FR-02-C-03)
-  if (sort === "price") {
-    listings = [...listings].sort((a, b) => a.price - b.price);
-  }
 
   return (
     <div>

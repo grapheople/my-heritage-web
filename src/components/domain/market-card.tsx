@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatPrice } from "@/lib/format";
-import type { MarketListing } from "@/lib/dev-fixture";
+import type { MarketListing } from "@/lib/data/types";
 
 /**
  * 매물 카드 (FR-02-A-04) — 이미지·명칭·가격·통화·카테고리·판매자 방 이름.

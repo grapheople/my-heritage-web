@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_ADMIN_CATEGORIES } from "@/lib/dev-fixture";
+import { getAdminCategories } from "@/lib/data/admin";
 
 const LABEL: Record<string, string> = {
   "category.watch": "시계", "category.shoes": "신발", "category.bicycle": "자전거",
@@ -19,14 +19,15 @@ const LABEL: Record<string, string> = {
  * 카테고리명은 i18n 리소스에서 온다 (FR-01-A-03) — 여기서 편집하지 않는다.
  * 표시 순서만 어드민이 정한다 (FR-01-A-04).
  */
-export default function AdminCategoriesPage() {
+export default async function AdminCategoriesPage() {
+  const categories = await getAdminCategories();
   return (
     <AdminPage
       id="A-01" title="카테고리 관리"
       desc="6개 고정입니다. 추가·삭제할 수 없고 비활성화만 됩니다 (D-007·D-036)."
     >
       <Table head={["순서", "카테고리", "slug", "등록 아이템", "상태", "조치"]}>
-        {DEV_ADMIN_CATEGORIES.map((c) => (
+        {categories.map((c) => (
           <tr key={c.slug} className={c.active ? "" : "text-muted-foreground"}>
             <Td>{c.order}</Td>
             <Td className="font-semibold">{LABEL[c.labelKey]}</Td>

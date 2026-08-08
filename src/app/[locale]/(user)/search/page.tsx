@@ -4,8 +4,9 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { RoomRow } from "@/components/domain/room-row";
 import { SearchBar } from "@/components/domain/search-bar";
-import { isLoggedIn } from "@/lib/auth/viewer";
-import { DEV_CODEX, DEV_FEED, DEV_ROOMS } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { searchCodex } from "@/lib/data/codex";
+import { searchItems, searchRooms } from "@/lib/data/search";
 
 /**
  * S-08 통합 검색 — 아이템 · 도감 · 방 3개 탭 (FR-04-A-01).
@@ -22,11 +23,6 @@ import { DEV_CODEX, DEV_FEED, DEV_ROOMS } from "@/lib/dev-fixture";
  */
 type Tab = "items" | "codex" | "rooms";
 
-function norm(s: string): string {
-  // NFKC + 공백·하이픈 제거 + 소문자 (D-014 정규화 규칙의 축약판)
-  return s.normalize("NFKC").toLowerCase().replace(/[\s-]/g, "");
-}
-
 export default async function SearchPage({
   searchParams,
 }: PageProps<"/[locale]/search">) {
@@ -37,7 +33,6 @@ export default async function SearchPage({
   const tab: Tab =
     sp.tab === "codex" || sp.tab === "rooms" ? sp.tab : "items";
   const category = typeof sp.category === "string" ? sp.category : undefined;
-  const nq = norm(q);
 
   return (
     <div>
@@ -46,24 +41,20 @@ export default async function SearchPage({
       {!q ? (
         <EmptyState title={t("search.prompt")} />
       ) : tab === "items" ? (
-        <ItemResults nq={nq} category={category} />
+        <ItemResults q={q} category={category} />
       ) : tab === "codex" ? (
-        <CodexResults nq={nq} category={category} />
+        <CodexResults q={q} category={category} />
       ) : (
-        <RoomResults nq={nq} />
+        <RoomResults q={q} />
       )}
     </div>
   );
 }
 
-/** 아이템 — 비공개는 DEV_FEED 단계에서 이미 제외돼 있다 (FR-04-A-03) */
-async function ItemResults({ nq, category }: { nq: string; category?: string }) {
+/** 아이템 — 비공개·차단은 **조회 조건**에서 빠진다 (FR-04-A-03, D-083) */
+async function ItemResults({ q, category }: { q: string; category?: string }) {
   const t = await getTranslations();
-  const hits = DEV_FEED.filter(
-    (i) =>
-      norm(i.name).includes(nq) &&
-      (!category || i.categoryKey === `category.${category}`),
-  );
+  const hits = await searchItems(q, { category }, await getViewer());
   if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
   return (
     <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 md:grid-cols-3 lg:grid-cols-4 lg:px-0">
@@ -75,58 +66,42 @@ async function ItemResults({ nq, category }: { nq: string; category?: string }) 
 }
 
 /** 도감 — 원문 명칭·고유값·alias 전부 매칭 (FR-04-A-04) */
-async function CodexResults({ nq, category }: { nq: string; category?: string }) {
+async function CodexResults({ q, category }: { q: string; category?: string }) {
   const t = await getTranslations();
-  // ⚠️ 보유자 수는 로그인 유저에게만 (D-078)
-  const loggedIn = await isLoggedIn();
-  const hits = DEV_CODEX
-    .filter((c) => !category || c.categoryKey === `category.${category}`)
-    .map((c) => {
-      const direct =
-        norm(c.displayName).includes(nq) || norm(c.uniqueId).includes(nq);
-      const alias = c.aliases.find((a) => norm(a).includes(nq));
-      return { c, hit: direct || Boolean(alias), alias: direct ? undefined : alias };
-    })
-    .filter((r) => r.hit);
+  const viewer = await getViewer();
+  // ⚠️ 보유자 수는 로그인 유저에게만 (D-078·D-096). 조회 계층이 판정한다 —
+  // 비로그인이면 `ownerCount` 키 자체가 응답에 없다
+  const hits = await searchCodex(q, {
+    category,
+    viewer,
+    withOwnerCount: viewer !== null,
+  });
 
   if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
   return (
     <div className="py-1 lg:py-2">
-      {hits.map(({ c, alias }) => {
-        // ⚠️ 비로그인에게는 **넘기지 않는다** — 조건부 렌더가 아니다 (D-096)
-        const { ownerCount, ...entry } = c;
-        return (
-          <CodexRow
-            key={c.id}
-            entry={entry}
-            matchedAlias={alias}
-            ownerCount={loggedIn ? ownerCount : undefined}
-          />
-        );
-      })}
+      {hits.map(({ entry, ownerCount, matchedAlias }) => (
+        <CodexRow
+          key={entry.id}
+          entry={entry}
+          matchedAlias={matchedAlias}
+          // ⚠️ 비로그인이면 조회 계층이 **애초에 넣지 않았다** (D-096)
+          ownerCount={ownerCount}
+        />
+      ))}
     </div>
   );
 }
 
 /** 방 — 방 이름만. 비공개 방 제외 (FR-04-A-03·06·07) */
-async function RoomResults({ nq }: { nq: string }) {
+async function RoomResults({ q }: { q: string }) {
   const t = await getTranslations();
-  const hits = DEV_ROOMS.filter(
-    (r) => r.isPublic && norm(r.name).includes(nq),
-  );
+  const hits = await searchRooms(q, await getViewer());
   if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
   return (
     <div className="py-1 lg:py-2">
       {hits.map((r) => (
-        <RoomRow
-          key={r.id}
-          id={r.id}
-          name={r.name}
-          level={r.level}
-          itemCount={r.sections.reduce(
-            (n, s) => n + s.items.filter((i) => !i.isPrivate).length, 0,
-          )}
-        />
+        <RoomRow key={r.id} id={r.id} name={r.name} level={r.level} itemCount={r.itemCount} />
       ))}
     </div>
   );

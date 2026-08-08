@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { DiaryForm, type LinkableItem } from "@/components/domain/diary-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findDiary, findRoom } from "@/lib/dev-fixture";
+import { getDiary, ownItemsForDiary } from "@/lib/data/diary";
 
 /**
  * S-06 일기 수정.
@@ -24,18 +24,11 @@ export default async function EditDiaryPage({
     return null;
   }
 
-  const diary = findDiary(diaryId);
+  const diary = await getDiary(diaryId, viewer);
   if (!diary) notFound();
   if (viewer.roomId !== diary.roomId) notFound(); // 소유자만 (FR-01-C-04)
 
-  const room = findRoom(diary.roomId);
-  const items: LinkableItem[] = (room?.sections ?? []).flatMap((s) =>
-    s.items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      visibility: i.isPrivate ? ("PRIVATE" as const) : ("PUBLIC" as const),
-    })),
-  );
+  const items: LinkableItem[] = await ownItemsForDiary(viewer);
 
   return (
     <div className="px-4 py-5 lg:px-0">

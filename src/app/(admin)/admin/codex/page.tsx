@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_CODEX } from "@/lib/dev-fixture";
+import { getAdminCodex } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
   "category.watch": "시계", "category.shoes": "신발", "category.camping": "캠핑",
@@ -16,7 +16,8 @@ const CAT: Record<string, string> = {
  * 도감 명칭은 **원문 1개 고정**이고 번역하지 않는다 (D-009).
  * 설명은 검증본만 3개 언어다 (FR-07-A-05) — A-05 검증 큐에서 입력한다.
  */
-export default function AdminCodexPage() {
+export default async function AdminCodexPage() {
+  const codex = await getAdminCodex();
   return (
     <AdminPage
       id="A-04" title="도감 목록"
@@ -28,7 +29,7 @@ export default function AdminCodexPage() {
       }
     >
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
-        {DEV_CODEX.map((c) => (
+        {codex.map((c) => (
           <tr key={c.id}>
             <Td className="font-semibold">{c.displayName}</Td>
             <Td>{CAT[c.categoryKey] ?? c.categoryKey}</Td>

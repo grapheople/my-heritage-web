@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { SellForm } from "@/components/domain/sell-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findItem } from "@/lib/dev-fixture";
+import { getItemDetail } from "@/lib/data/item";
 
 /**
  * S-18 판매 전환 (D-050).
@@ -28,7 +28,7 @@ export default async function SellPage({
     return null;
   }
 
-  const item = findItem(itemId);
+  const item = await getItemDetail(itemId, viewer);
   if (!item) notFound();
 
   // 소유자만 (FR-05-B-01, D-019)

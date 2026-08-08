@@ -4,7 +4,8 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { RoomDisplay } from "@/components/domain/room-display";
 import { RoomProfile } from "@/components/domain/room-profile";
 import { RoomTabs } from "@/components/domain/room-tabs";
-import { findRoom } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { getRoom } from "@/lib/data/room";
 
 /**
  * S-03 마이룸 (타인).
@@ -25,11 +26,13 @@ export default async function OtherRoomPage({
   const { roomId } = await params;
   const t = await getTranslations();
 
-  const room = findRoom(roomId);
-  if (!room) notFound();
+  const access = await getRoom(roomId, await getViewer());
 
-  // 비공개 방 — 소유자가 아니면 안내만 (FR-01-B-05)
-  if (!room.isPublic) {
+  // 없음·탈퇴·차단은 구분하지 않는다 — 차단 사실이 드러나면 안 된다 (FR-05-B-04)
+  if (access.status === "none") notFound();
+
+  // 비공개 방은 안내만 낸다 (FR-01-B-05)
+  if (access.status === "private") {
     return (
       <EmptyState
         title={t("error.privateRoom")}
@@ -38,12 +41,9 @@ export default async function OtherRoomPage({
     );
   }
 
-  // ⚠️ 비공개 아이템을 여기서 걸러 응답에 싣지 않는다 (D-083)
-  const sections = room.sections
-    .map((s) => ({ ...s, items: s.items.filter((i) => !i.isPrivate) }))
-    .filter((s) => s.items.length > 0)
-    .sort((a, b) => b.items.length - a.items.length); // 개수 내림차순 (D-075)
-
+  // ⚠️ 비공개 아이템은 **조회에서** 빠져 있다 (D-083). 화면에서 거르지 않는다
+  const room = access.room;
+  const sections = room.sections;
   const publicCount = sections.reduce((n, s) => n + s.items.length, 0);
 
   return (

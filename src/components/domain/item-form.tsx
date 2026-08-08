@@ -1,15 +1,16 @@
 "use client";
 
 import { Check, Info } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useState, useTransition } from "react";
 import { createItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
 import { StatusBadge } from "./status-badge";
-import {
-  CATEGORY_ATTRS, ITEM_MAX_PHOTOS, codexAttrValues, lookupCodexByKey,
-} from "@/lib/dev-fixture";
+import type { AttrDef } from "@/lib/data/attributes";
+
+/** 사진 최대 장수 (D-037, FR-07-A-02) */
+const ITEM_MAX_PHOTOS = 10;
 
 /**
  * S-04 아이템 등록·수정 (D-076).
@@ -48,6 +49,7 @@ export function ItemForm({
   initialValues?: Record<string, string>;
 }) {
   const t = useTranslations();
+  const locale = useLocale();
   const [category, setCategory] = useState<string | null>(fixedCategory ?? null);
   const [values, setValues] = useState<Record<string, string>>(initialValues ?? {});
   const [autoKeys, setAutoKeys] = useState<string[]>([]);
@@ -59,29 +61,70 @@ export function ItemForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<
-    { itemId: string; expGranted: boolean; codexLinked: boolean } | null
+    {
+      itemId: string;
+      expGranted: boolean;
+      codexLinked: boolean;
+      codexCreated: boolean;
+    } | null
   >(null);
   const [pending, startTransition] = useTransition();
 
-  const attrs = category ? (CATEGORY_ATTRS[category] ?? []) : [];
+  /**
+   * 속성 정의는 **어드민이 운영하는 값**이라 코드에 둘 수 없다 (D-036, A-02).
+   *
+   * ⚠️ 불러온 정의를 **어느 카테고리 것인지와 한 쌍으로** 담는다. 따로 두면
+   * 카테고리를 빠르게 바꿀 때 이전 카테고리의 응답이 나중에 도착해 엉뚱한
+   * 폼이 그려진다.
+   */
+  const [loaded, setLoaded] = useState<{ category: string; defs: AttrDef[] } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!category) return;
+    let alive = true;
+    fetch(`/api/categories/${category}/attributes?locale=${locale}`)
+      .then((r) => r.json())
+      .then((d: { attributes: AttrDef[] }) => {
+        if (alive) setLoaded({ category, defs: d.attributes ?? [] });
+      })
+      .catch(() => {
+        if (alive) setLoaded({ category, defs: [] });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [category, locale]);
+
+  const attrs = loaded?.category === category ? loaded.defs : [];
 
   function set(key: string, v: string) {
     setValues((prev) => ({ ...prev, [key]: v }));
     // 매칭 키가 바뀌면 도감을 재조회하고 연결을 갱신한다 (FR-03-A-05)
     const def = attrs.find((a) => a.key === key);
-    if (def?.matchingKey && category) {
-      const hit = lookupCodexByKey(category, v);
-      if (hit) {
-        const filled = codexAttrValues(hit.id);
+    if (!def?.matchingKey || !category) return;
+
+    // ⚠️ 정규화는 서버가 한다 — 폼이 자체 규칙을 들면 "폼에서는 연결됐는데
+    // 저장하니 안 된다"가 생긴다 (D-014)
+    fetch(`/api/codex/lookup?category=${category}&key=${encodeURIComponent(v)}`)
+      .then((r) => r.json())
+      .then((d: { codex: { displayName: string; verified: boolean } | null; values?: Record<string, string> }) => {
+        if (!d.codex) {
+          setAutoKeys([]);
+          setCodexName(null);
+          return;
+        }
+        const filled = d.values ?? {};
+        // 자동 채운 값도 유저가 고칠 수 있다 — 잠그지 않는다 (FR-03-A-03)
         setValues((prev) => ({ ...prev, ...filled, [key]: v }));
         setAutoKeys(Object.keys(filled).filter((k) => k !== key));
-        setCodexName(hit.displayName);
-        setCodexVerified(hit.verified);
-      } else {
+        setCodexName(d.codex.displayName);
+        setCodexVerified(d.codex.verified);
+      })
+      .catch(() => {
         setAutoKeys([]);
         setCodexName(null);
-      }
-    }
+      });
   }
 
   /**
@@ -116,6 +159,7 @@ export function ItemForm({
           itemId: res.itemId,
           expGranted: res.expGranted,
           codexLinked: res.codexLinked,
+          codexCreated: res.codexCreated,
         });
       } else {
         setErrors(res.fieldErrors);
@@ -156,7 +200,13 @@ export function ItemForm({
           </li>
           {/* 도감 미연결이면 "같은 물건 가진 사람"에 안 나타난다 (D-032) */}
           <li className={saved.codexLinked ? "text-sale" : "text-muted-foreground"}>
-            {saved.codexLinked ? t("reg.codexLinked") : t("reg.codexNotLinked")}
+            {/* 도감이 새로 생겼으면 그 사실을 알린다 — 보너스 경험치는 없다
+                (FR-03-B-03, D-033) */}
+            {saved.codexCreated
+              ? t("reg.codexCreated")
+              : saved.codexLinked
+                ? t("reg.codexLinked")
+                : t("reg.codexNotLinked")}
           </li>
         </ul>
         <a

@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
  * | **그날 첫 등록만** 경험치 30 | D-026, FR-01-A-02·04 |
  * | 1일 경계는 **유저 타임존** | D-056, FR-01-B-01 |
  * | 매칭 키로 도감 조회 후 연결 | D-013, FR-03-A-01 |
+ * | **매칭 실패 시 미검증 도감 자동 생성** | D-015, FR-03-B-01 |
  * | 아이템 명칭은 **저장하지 않는다** | D-073, FR-06-A-11 |
  * | 이탈 시 임시 저장 없음 | FR-05-A-07 — 그래서 draft 개념이 없다 |
  */
@@ -31,7 +32,14 @@ export type CreateItemInput = {
 };
 
 export type CreateItemResult =
-  | { ok: true; itemId: string; expGranted: boolean; codexLinked: boolean }
+  | {
+      ok: true;
+      itemId: string;
+      expGranted: boolean;
+      codexLinked: boolean;
+      /** 도감이 새로 만들어졌는가 — 유저에게 알린다 (FR-03-B-03) */
+      codexCreated: boolean;
+    }
   | { ok: false; fieldErrors: Record<string, string>; formError?: string };
 
 const MAX_PHOTOS = 10;
@@ -137,24 +145,61 @@ export async function createItemAs(
     brandId = brand.id;
   }
 
-  /* ── 도감 조회·연결 (D-013, FR-03-A-01) ── */
+  /* ── 도감 조회·연결·자동 생성 (D-013·D-015, FR-03-A-01·FR-03-B-01) ── */
   let codexItemId: string | null = null;
+  let codexCreated = false;
   if (!input.unknownMatchingKey) {
     const keyAttr = [...matchingKeys][0];
     const raw = keyAttr ? input.values[keyAttr]?.trim() : undefined;
     if (raw) {
       // `CodexItem.normalizedKey` 가 이미 정규화된 값을 담는다 — 전수 조회 대신
       // 인덱스로 찾는다. 정규화 규칙은 검색·import 와 공유한다 (D-014)
+      const normalizedKey = normalizeBrandToken(raw);
       const hit = await prisma.codexItem.findFirst({
         where: {
           categoryId: category.id,
-          normalizedKey: normalizeBrandToken(raw),
+          normalizedKey,
           // 병합으로 흡수된 도감에는 연결하지 않는다 — survivor 를 써야 한다
           mergedIntoId: null,
         },
         select: { id: true },
       });
-      codexItemId = hit?.id ?? null;
+
+      if (hit) {
+        codexItemId = hit.id;
+      } else {
+        // ⚠️ **매칭 실패 = 도감 자동 생성** (D-015, FR-03-B-01). 연결만 하고
+        // 말면 도감이 영원히 비어 있어 "같은 물건 가진 사람"이 성립하지 않는다.
+        // 검증 상태는 **미검증**이고 보너스 경험치는 없다 (D-033, FR-03-B-03)
+        const displayName = [brandName, input.values.model?.trim(), raw]
+          .filter(Boolean)
+          .join(" ");
+        try {
+          const made = await prisma.codexItem.create({
+            data: {
+              categoryId: category.id,
+              displayName,
+              uniqueId: raw,
+              normalizedKey,
+              verification: "UNVERIFIED",
+              // 생성자와 생성 일시를 기록한다 (FR-03-B-02)
+              createdByUserId: viewer.userId,
+            },
+            select: { id: true },
+          });
+          codexItemId = made.id;
+          codexCreated = true;
+        } catch {
+          // @@unique([categoryId, normalizedKey]) 위반 = 동시 생성 경합.
+          // **하나만 생성하고 나머지는 기존 것에 연결한다** (FR-03-B-05).
+          // 애플리케이션에서 미리 세는 방식으로는 이 경합을 막을 수 없다
+          const raced = await prisma.codexItem.findFirst({
+            where: { categoryId: category.id, normalizedKey, mergedIntoId: null },
+            select: { id: true },
+          });
+          codexItemId = raced?.id ?? null;
+        }
+      }
     }
   }
 
@@ -215,5 +260,11 @@ export async function createItemAs(
     expGranted = false;
   }
 
-  return { ok: true, itemId: item.id, expGranted, codexLinked: codexItemId !== null };
+  return {
+    ok: true,
+    itemId: item.id,
+    expGranted,
+    codexLinked: codexItemId !== null,
+    codexCreated,
+  };
 }

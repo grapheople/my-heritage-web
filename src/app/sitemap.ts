@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
-import { DEV_CODEX, DEV_ITEMS, isItemIndexable } from "@/lib/dev-fixture";
+import { allCodexIds } from "@/lib/data/codex";
+import { indexableItemIds } from "@/lib/data/item";
 import { absolute, localeAlternates } from "@/lib/site";
 
 /**
@@ -26,8 +27,13 @@ import { absolute, localeAlternates } from "@/lib/site";
  *
  * 각 항목에 3개 로케일 `hreflang` 을 상호 선언한다 (D-091).
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
+  const [codexIds, itemIds] = await Promise.all([
+    allCodexIds(),
+    // 색인 판정은 조회 계층 한 곳에서 한다 (D-093) — 여기서 다시 세지 않는다
+    indexableItemIds(),
+  ]);
 
   // 마켓 목록 — 로케일별
   for (const locale of routing.locales) {
@@ -40,26 +46,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
 
   // 도감 상세 — 콘텐츠가 거의 안 바뀐다 (ISR revalidate 1h)
-  for (const c of DEV_CODEX) {
+  for (const codexId of codexIds) {
     for (const locale of routing.locales) {
       entries.push({
-        url: absolute(`/${locale}/codex/${c.id}`),
+        url: absolute(`/${locale}/codex/${codexId}`),
         changeFrequency: "weekly",
         priority: 0.7,
-        alternates: { languages: localeAlternates(`/codex/${c.id}`) },
+        alternates: { languages: localeAlternates(`/codex/${codexId}`) },
       });
     }
   }
 
   // 판매중 공개 아이템만 (D-093). 판정은 isItemIndexable() 한 곳에서
-  for (const item of Object.values(DEV_ITEMS)) {
-    if (!isItemIndexable(item)) continue;
+  for (const itemId of itemIds) {
     for (const locale of routing.locales) {
       entries.push({
-        url: absolute(`/${locale}/items/${item.id}`),
+        url: absolute(`/${locale}/items/${itemId}`),
         changeFrequency: "daily",
         priority: 0.6,
-        alternates: { languages: localeAlternates(`/items/${item.id}`) },
+        alternates: { languages: localeAlternates(`/items/${itemId}`) },
       });
     }
   }

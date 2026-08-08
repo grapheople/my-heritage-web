@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { RoomVisibilityToggle } from "@/components/domain/room-visibility-toggle";
 import { Link, redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { DEV_PROFILE_SETTINGS } from "@/lib/dev-fixture";
+import { getProfileSettings } from "@/lib/data/settings";
 
 /**
  * S-11 프로필 설정.
@@ -22,7 +22,12 @@ export default async function ProfileSettingsPage({
     redirect({ href: { pathname: "/login", query: { next: "/me/settings" } }, locale });
     return null;
   }
-  const p = DEV_PROFILE_SETTINGS;
+  const p = await getProfileSettings(viewer);
+  if (!p) {
+    // 방이 없는 신규 가입 — 전용 온보딩 화면이 없다 (OI-52)
+    redirect({ href: "/login", locale });
+    return null;
+  }
 
   return (
     <div className="px-4 py-5 lg:px-0">

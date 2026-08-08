@@ -4,7 +4,7 @@ import { DiaryBody } from "@/components/domain/diary-body";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Link } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findDiary, findRoom } from "@/lib/dev-fixture";
+import { getDiary } from "@/lib/data/diary";
 
 /**
  * S-07 일기 상세.
@@ -30,16 +30,12 @@ export default async function DiaryDetailPage({
   const { diaryId } = await params;
   const t = await getTranslations();
 
-  const diary = findDiary(diaryId);
+  const viewer = await getViewer();
+  // 공개 판정(Room AND Diary)·차단은 조회 계층에서 끝난다 (D-019, FR-03-A-03·04)
+  const diary = await getDiary(diaryId, viewer);
   if (!diary) notFound();
 
-  const viewer = await getViewer();
   const isOwner = viewer?.roomId === diary.roomId;
-  const room = findRoom(diary.roomId);
-
-  // 공개 판정은 Room AND Diary (D-019, FR-03-A-03·04)
-  const visible = Boolean(room?.isPublic) && diary.visibility === "PUBLIC";
-  if (!visible && !isOwner) notFound();
 
   return (
     <article>

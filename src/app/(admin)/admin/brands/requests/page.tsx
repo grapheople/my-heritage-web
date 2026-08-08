@@ -1,5 +1,5 @@
 import { AdminPage, Table, Td } from "@/components/admin/ui";
-import { DEV_ADMIN_BRAND_REQUESTS } from "@/lib/dev-fixture";
+import { getAdminBrandRequests } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
   watch: "시계", shoes: "신발", bicycle: "자전거",
@@ -20,8 +20,9 @@ const CAT: Record<string, string> = {
  * 요청했는데 `Rolex` 가 이미 있으면, 새 브랜드를 만들 게 아니라 alias 로
  * 넣어야 한다 (D-047). 새로 만들면 같은 브랜드가 2개가 된다.
  */
-export default function AdminBrandRequestsPage() {
-  const rows = [...DEV_ADMIN_BRAND_REQUESTS].sort((a, b) => b.count - a.count);
+export default async function AdminBrandRequestsPage() {
+  // 건수 순 정렬·같은 요청 병합은 조회 계층에서 끝난다 (FR-09-A-06·B-01)
+  const rows = await getAdminBrandRequests();
   return (
     <AdminPage
       id="A-12" title="브랜드 요청 큐"

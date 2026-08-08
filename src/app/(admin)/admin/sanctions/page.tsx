@@ -1,5 +1,5 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
-import { DEV_ADMIN_SANCTIONS } from "@/lib/dev-fixture";
+import { getAdminSanctions } from "@/lib/data/admin";
 
 const LEVEL: Record<string, { label: string; tone: "muted" | "warn" | "danger" }> = {
   WARNING: { label: "경고", tone: "muted" },
@@ -27,7 +27,8 @@ const REASON: Record<string, string> = {
  * | 콘텐츠를 삭제하지 않는다. 이력 보존 | D-065 |
  * | 판매중 아이템에 별도 로직 없음 — 공개 판정으로 자연히 빠진다 | FR-07-B-05 |
  */
-export default function AdminSanctionsPage() {
+export default async function AdminSanctionsPage() {
+  const sanctions = await getAdminSanctions();
   return (
     <AdminPage
       id="A-10" title="유저·방 제재"
@@ -39,7 +40,7 @@ export default function AdminSanctionsPage() {
       }
     >
       <Table head={["방", "단계", "사유", "기간", "제재 이전 공개 상태", "적용일", "조치"]}>
-        {DEV_ADMIN_SANCTIONS.map((s) => {
+        {sanctions.map((s) => {
           const lv = LEVEL[s.level];
           return (
             <tr key={s.id}>

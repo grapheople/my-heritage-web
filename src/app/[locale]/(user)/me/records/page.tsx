@@ -5,7 +5,8 @@ import { RoomProfile } from "@/components/domain/room-profile";
 import { RoomTabs } from "@/components/domain/room-tabs";
 import { Link, redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { findRoom, roomDiaries } from "@/lib/dev-fixture";
+import { getRoomDiaries } from "@/lib/data/diary";
+import { getRoom } from "@/lib/data/room";
 
 /**
  * 마이룸 "기록" 탭 (본인) — myroom-service §1-4.
@@ -22,13 +23,17 @@ export default async function MyRecordsPage({
     redirect({ href: { pathname: "/login", query: { next: "/me/records" } }, locale });
     return null;
   }
-  const room = viewer.roomId ? findRoom(viewer.roomId) : undefined;
-  if (!room) {
+  const access = viewer.roomId
+    ? await getRoom(viewer.roomId, viewer)
+    : ({ status: "none" } as const);
+  if (access.status !== "ok") {
     redirect({ href: "/me/settings", locale });
     return null;
   }
+  const room = access.room;
 
-  const diaries = roomDiaries(room.id, true);
+  // 본인이므로 비공개 일기도 나온다 (FR-03-A-03)
+  const diaries = await getRoomDiaries(room.id, viewer);
   const itemCount = room.sections.reduce((n, s) => n + s.items.length, 0);
 
   return (

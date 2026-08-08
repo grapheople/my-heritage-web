@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { isLoggedIn } from "@/lib/auth/viewer";
-import { DEV_CODEX_OWNERS } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { getCodexOwners } from "@/lib/data/codex";
 
 /**
  * 도감 소유자 목록 — **클라이언트 전용 엔드포인트** (D-078, FR-07-A-08).
@@ -23,13 +23,15 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ codexId: string }> },
 ) {
-  if (!(await isLoggedIn())) {
+  const viewer = await getViewer();
+  if (!viewer) {
     // 비로그인에게는 목록도 개수도 주지 않는다 (FR-07-A-07)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const { codexId } = await params;
-  const owners = DEV_CODEX_OWNERS[codexId] ?? [];
+  // 차단 관계는 여기서 빠진다 — 그래서 값이 조회 유저마다 다르다 (E-07-07)
+  const owners = await getCodexOwners(codexId, viewer);
 
   return NextResponse.json(
     { owners, count: owners.length },

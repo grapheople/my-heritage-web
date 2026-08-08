@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
-import { DEV_SANCTION } from "@/lib/dev-fixture";
+import { Link, redirect } from "@/i18n/navigation";
+import { getViewer } from "@/lib/auth/viewer";
+import { getActiveSanction } from "@/lib/data/settings";
 
 /**
  * S-21 제재 안내 (D-066 · D-067 · D-088).
@@ -22,10 +23,21 @@ import { DEV_SANCTION } from "@/lib/dev-fixture";
  * 노출 규칙은 `SanctionNotice`가 담당한다 — **세션당 1회 + 제재 대상 행동
  * 시도 시 재노출** (D-088, FR-07-C-09·10).
  */
-export default async function SuspendedPage() {
+export default async function SuspendedPage({
+  params,
+}: PageProps<"/[locale]/suspended">) {
+  const { locale } = await params;
   const t = await getTranslations();
-  const s = DEV_SANCTION;
   const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+
+  // ⚠️ 제재 중에도 로그인은 된다 (D-066). 로그인 자체가 없으면 볼 화면이 아니다
+  const viewer = await getViewer();
+  const s = viewer ? await getActiveSanction(viewer) : null;
+  if (!s) {
+    // 제재가 없거나 이미 만료·해제됐다 — 안내를 남겨둘 이유가 없다
+    redirect({ href: "/", locale });
+    return null;
+  }
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-12">
@@ -37,16 +49,18 @@ export default async function SuspendedPage() {
       <dl className="mt-5 flex flex-col gap-3 rounded-lg border p-4 text-sm">
         <div className="flex gap-4">
           <dt className="w-16 shrink-0 text-muted-foreground">{t("sanction.reason")}</dt>
-          <dd>{t(s.reasonKey)}</dd>
+          {/* ⚠️ 어드민이 **입력한 원문**이다 (FR-07-A-04 — "사유를 입력받는다").
+              번역 키가 아니라서 어드민이 쓴 언어 그대로 보인다 — OI-56 */}
+          <dd>{s.reason}</dd>
         </div>
         <div className="flex gap-4">
           <dt className="w-16 shrink-0 text-muted-foreground">{t("sanction.period")}</dt>
           {/* 영구 정지는 기간이 없다 */}
-          <dd>{s.until ? t("sanction.until", { date: s.until }) : t("sanction.permanent")}</dd>
-        </div>
-        <div className="flex gap-4">
-          <dt className="w-16 shrink-0 text-muted-foreground">{t("sanction.issuedAt")}</dt>
-          <dd>{s.issuedAt}</dd>
+          <dd>
+            {s.expiresAt
+              ? t("sanction.until", { date: s.expiresAt })
+              : t("sanction.permanent")}
+          </dd>
         </div>
       </dl>
 

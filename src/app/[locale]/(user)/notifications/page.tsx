@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { NotificationList } from "@/components/domain/notification-list";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
-import { DEV_NOTIFICATIONS } from "@/lib/dev-fixture";
+import { getNotifications } from "@/lib/data/notification";
 
 /**
  * S-22 알림함 (D-087).
@@ -31,7 +31,7 @@ export default async function NotificationsPage({
   }
 
   // 최신순 (FR-08-A-04)
-  const items = DEV_NOTIFICATIONS;
+  const items = await getNotifications(viewer);
 
   return (
     <div>

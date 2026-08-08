@@ -1,7 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { ItemGrid } from "@/components/domain/item-grid";
-import { findRoom } from "@/lib/dev-fixture";
+import { getViewer } from "@/lib/auth/viewer";
+import { getRoomCategory } from "@/lib/data/room";
 import { formatNumber } from "@/lib/format";
 
 /**
@@ -16,14 +17,13 @@ export default async function OtherRoomCategoryPage({
   const { roomId, category } = await params;
   const t = await getTranslations();
 
-  const room = findRoom(roomId);
-  if (!room?.isPublic) notFound();
+  const found = await getRoomCategory(roomId, category, await getViewer());
+  if (!found) notFound();
 
-  const section = room.sections.find((s) => s.slug === category);
-  if (!section) notFound();
-
-  const items = section.items.filter((i) => !i.isPrivate);
-  if (items.length === 0) notFound();
+  // ⚠️ 비공개 아이템은 **조회에서** 빠져 있다. S-03 에서 걸렀다고 이 경로가
+  // 새면 의미가 없다 — 직접 URL 진입이 가능하다 (D-083, FR-01-B-06)
+  const { room, section } = found;
+  const items = section.items;
 
   return (
     <div>
