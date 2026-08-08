@@ -42,3 +42,5 @@ next-env.d.ts
 
 # 로컬 개발 업로드 (D-101). 프로덕션은 Vercel Blob 이다
 /public/uploads
+
+.idea/

@@ -6,15 +6,17 @@
   <component name="ChangeListManager">
     <list default="true" id="8b2086a7-bdd5-46a9-ad0c-db99337ec5fb" name="변경" comment="">
       <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/DEPLOY.md" beforeDir="false" afterPath="$PROJECT_DIR$/DEPLOY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/next.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/next.config.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prisma.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prisma/add-admin.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/add-admin.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prisma/import-brands.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/import-brands.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prisma/seed-dev.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/seed-dev.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/prisma/seed.ts" beforeDir="false" afterPath="$PROJECT_DIR$/prisma/seed.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib/prisma.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/prisma.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(admin)/admin/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(admin)/admin/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/[locale]/(user)/codex/[codexId]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/[locale]/(user)/codex/[codexId]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/api/health/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/api/health/route.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/sitemap.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/sitemap.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/storage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/storage.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +103,7 @@
       <updated>1786028199107</updated>
       <workItem from="1786028200910" duration="4107000" />
       <workItem from="1786126872201" duration="2632000" />
-      <workItem from="1786190890076" duration="773000" />
+      <workItem from="1786190890076" duration="1963000" />
     </task>
     <servers />
   </component>

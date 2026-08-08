@@ -29,6 +29,20 @@ const geistMono = Geist_Mono({
  * 레이아웃에서 막는 이유: 화면마다 걸면 새 화면을 추가할 때 빠뜨린다.
  * D-096 이 그렇게 새서 나온 결정이다.
  */
+/**
+ * ⚠️ **동적 렌더를 명시한다.**
+ *
+ * 어드민은 인가가 필요해서 정적일 수 없다. 그런데 `getAdmin()` 이 요청 스코프
+ * 밖에서 `auth()` 가 던지는 것을 **try/catch 로 삼키므로**(스크립트 검증용,
+ * D-102) Next 는 "이 라우트는 동적"이라는 신호를 받지 못한다.
+ *
+ * 그 결과 빌드가 어드민 페이지를 **정적 생성하려 시도하고, 페이지 컴포넌트의
+ * DB 쿼리에서 매달린다** — DB 에 못 닿는 네트워크에서 실제로 빌드가 멈췄다.
+ *
+ * 즉 이 한 줄은 성능 설정이 아니라 **빌드가 DB 에 묶이지 않게 하는 장치**다.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "나의 방 어드민",
   robots: { index: false, follow: false },
