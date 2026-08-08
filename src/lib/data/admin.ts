@@ -251,7 +251,9 @@ export async function getAdminReports() {
 
   return rows.map((r) => ({
     id: r.id,
-    target: r.targetType.toLowerCase(),
+    // ⚠️ enum 을 그대로 낸다. 소문자로 바꾸면 `EXTERNAL_LINK` → `external_link`
+    // 가 되어 화면의 라벨 맵(`link`)과 어긋나 빈칸이 된다
+    target: r.targetType,
     targetId: r.targetId,
     // ⚠️ 대상 이름은 종류가 5가지라 FK 가 없다. 운영 화면에서 id 로 이동한다
     targetName: r.targetId,
@@ -328,4 +330,89 @@ export async function getAdminUsers() {
     deactivatedAt: r.deactivatedAt?.toISOString().slice(0, 10) ?? null,
     createdAt: r.createdAt.toISOString().slice(0, 10),
   }));
+}
+
+/**
+ * A-10 제재 대상 검색.
+ *
+ * ⚠️ **어드민은 유저를 방 이름으로 찾는다.** 유저 화면에는 계정 식별자가
+ * 없고(방 이름은 유일값도 아니다 — FR-05-A-06), 신고·문의는 방이나
+ * 콘텐츠를 가리킨다. 그래서 방 이름 + 이메일 둘 다 매칭한다.
+ *
+ * ⚠️ 유저 화면과 달리 **비공개 방·차단·탈퇴를 거르지 않는다.** 운영은 전체를
+ * 봐야 조치할 수 있다 — 비공개로 숨은 계정을 제재할 수 없으면 곤란하다.
+ */
+export async function searchSanctionTargets(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+
+  const rooms = await prisma.room.findMany({
+    where: {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { user: { email: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      visibility: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          deletedAt: true,
+          _count: { select: { sanctions: { where: { liftedAt: null } } } },
+        },
+      },
+    },
+    take: 20,
+  });
+
+  return rooms.map((r) => ({
+    userId: r.user.id,
+    roomId: r.id,
+    roomName: r.name,
+    email: r.user.email ?? "(비공개)",
+    roomPublic: r.visibility === "PUBLIC",
+    withdrawn: r.user.deletedAt !== null,
+    /** 진행 중인 제재 수 — **경고 누적으로 자동 승격하지 않는다**(FR-07-A-06). 참고용이다 */
+    activeSanctions: r.user._count.sanctions,
+  }));
+}
+
+/**
+ * 신고 대상 → 유저 (FR-05-A-09 — 신고 처리에서 제재로 이동).
+ *
+ * ⚠️ 대상 종류가 5가지라 FK 가 없다. 종류별로 풀어야 한다.
+ * **외부 링크는 유저에 닿지 않는다** — 링크를 올린 아이템을 거쳐야 하는데
+ * 신고가 링크 문자열만 들고 있어서다. 그 경우 `null` 을 낸다.
+ */
+export async function resolveReportTargetUser(
+  targetType: string,
+  targetId: string,
+): Promise<{ userId: string; roomName: string } | null> {
+  if (targetType === "ITEM") {
+    const i = await prisma.item.findUnique({
+      where: { id: targetId },
+      select: { room: { select: { name: true, userId: true } } },
+    });
+    return i ? { userId: i.room.userId, roomName: i.room.name } : null;
+  }
+  if (targetType === "DIARY") {
+    const d = await prisma.diary.findUnique({
+      where: { id: targetId },
+      select: { room: { select: { name: true, userId: true } } },
+    });
+    return d ? { userId: d.room.userId, roomName: d.room.name } : null;
+  }
+  if (targetType === "ROOM") {
+    const r = await prisma.room.findUnique({
+      where: { id: targetId },
+      select: { name: true, userId: true },
+    });
+    return r ? { userId: r.userId, roomName: r.name } : null;
+  }
+  // CODEX·EXTERNAL_LINK 는 특정 유저의 콘텐츠가 아니다
+  return null;
 }

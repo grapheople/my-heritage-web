@@ -1,7 +1,12 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
 import { liftSanction } from "@/lib/actions/admin";
-import { getAdminSanctions } from "@/lib/data/admin";
+import { SanctionForm } from "@/components/admin/sanction-form";
+import {
+  getAdminSanctions,
+  resolveReportTargetUser,
+  searchSanctionTargets,
+} from "@/lib/data/admin";
 
 const LEVEL: Record<string, { label: string; tone: "muted" | "warn" | "danger" }> = {
   WARNING: { label: "경고", tone: "muted" },
@@ -36,18 +41,33 @@ const REASON: Record<string, string> = {
  * | 콘텐츠를 삭제하지 않는다. 이력 보존 | D-065 |
  * | 판매중 아이템에 별도 로직 없음 — 공개 판정으로 자연히 빠진다 | FR-07-B-05 |
  */
-export default async function AdminSanctionsPage() {
-  const sanctions = await getAdminSanctions();
+export default async function AdminSanctionsPage({
+  searchParams,
+}: PageProps<"/admin/sanctions">) {
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q : "";
+  // 신고 처리에서 넘어온 경우 대상을 미리 고른다 (FR-05-A-09)
+  const reportTarget =
+    typeof sp.targetType === "string" && typeof sp.targetId === "string"
+      ? await resolveReportTargetUser(sp.targetType, sp.targetId)
+      : null;
+
+  const [sanctions, targets, preselectList] = await Promise.all([
+    getAdminSanctions(),
+    searchSanctionTargets(q),
+    reportTarget ? searchSanctionTargets(reportTarget.roomName) : Promise.resolve([]),
+  ]);
+  const preselected = preselectList.find((t) => t.userId === reportTarget?.userId);
+
   return (
     <AdminPage
       id="A-10" title="유저·방 제재"
       desc="경고 / 일시 정지 / 영구 정지. 콘텐츠는 삭제하지 않고 이력을 남깁니다 (D-065)."
-      action={
-        <button disabled title="편집 폼 미구현 (OI-64)" className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground opacity-40">
-          제재 부과
-        </button>
-      }
+
     >
+      <SanctionForm targets={targets} query={q} preselected={preselected} />
+
+      <div className="mt-6">
       <Table head={["방", "단계", "사유", "기간", "제재 이전 공개 상태", "적용일", "조치"]}>
         {sanctions.map((s) => {
           const lv = LEVEL[s.level];
@@ -86,6 +106,7 @@ export default async function AdminSanctionsPage() {
           );
         })}
       </Table>
+      </div>
 
       <section className="mt-6 rounded-lg border border-warn bg-warn-bg p-4">
         <h2 className="text-sm font-bold text-warn">해제 시 주의</h2>
