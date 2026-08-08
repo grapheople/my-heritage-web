@@ -52,6 +52,12 @@ if (!isLocalDatabase()) {
   process.exit(1);
 }
 
+/**
+ * ⚠️ 여기만 `DATABASE_URL`(런타임 URL)을 쓴다 — **로컬 전용 스크립트**이고
+ * 위 가드가 localhost 가 아니면 이미 종료시킨다. 다른 스크립트(시드·import·
+ * 어드민 추가)는 **마이그레이션과 같은 대상**을 봐야 하므로 `migrationDatabaseUrl()`
+ * 을 쓴다.
+ */
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 /**
  * DB 커넥션 문자열 해석 (D-113).
  *
@@ -48,6 +51,67 @@ export function isLocalDatabase(url = migrationDatabaseUrl()): boolean {
     return host === "localhost" || host === "127.0.0.1" || host === "::1";
   } catch {
     return false;
+  }
+}
+
+/**
+ * ⚠️ **`sslmode` 를 URL 에서 떼어낸다.**
+ *
+ * `pg` 는 연결 문자열의 `sslmode` 를 보고 **자체 SSL 설정을 만들어** 우리가
+ * 넘긴 `ssl` 객체를 덮는다. 그래서 CA 를 고정해도 반영되지 않고
+ * `self-signed certificate in certificate chain` 이 계속 난다 — 실제로 그랬다.
+ *
+ * `pgbouncer`·`supa` 같은 Prisma·Supabase 전용 파라미터는 pg 가 무시하므로
+ * 그대로 둔다.
+ */
+export function stripSslMode(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    u.searchParams.delete("sslmode");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Postgres TLS 설정 (D-115).
+ *
+ * ## ⚠️ Supabase 는 Postgres 에 **자체 CA** 를 쓴다
+ * 리프 인증서가 `Supabase Root 2021 CA` 로 서명돼 있고, 그 루트는 시스템 신뢰
+ * 저장소에 없다. 그래서 Node 는 `self-signed certificate in certificate chain`
+ * 으로 거부한다. **중간자 공격이 아니다** — 인증서 체인을 직접 확인했다
+ * (subject `*.pooler.supabase.com`, issuer `O=Supabase Inc`).
+ *
+ * ## ⚠️ `rejectUnauthorized: false` 로 끄지 않는다
+ * 흔한 해법이지만 **암호화만 하고 상대를 확인하지 않는 것**이다. 그러면 실제
+ * 중간자가 끼어들어도 구분할 수 없다 — 우리는 위 진단으로 "지금은 중간자가
+ * 없다"를 확인했을 뿐, 앞으로도 없다는 보장은 아니다.
+ *
+ * **CA 를 저장소에 넣고 그것으로 검증한다.** 검증은 유지하면서 신뢰 앵커만
+ * 추가하는 방식이다. `authorized=true` 로 확인했다.
+ *
+ * 파일이 없으면 `undefined` 를 내 pg 의 기본 동작에 맡긴다 — 로컬 docker 는
+ * TLS 를 안 쓴다.
+ */
+export function pgSslConfig(url = runtimeDatabaseUrl()): { ca: string } | undefined {
+  if (!url) return undefined;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+  if (!host.endsWith(".supabase.com") && !host.endsWith(".supabase.co")) return undefined;
+
+  const inline = process.env.SUPABASE_CA_CERT;
+  if (inline) return { ca: inline };
+  try {
+    // 저장소에 커밋한 공개 CA. 비밀이 아니다
+    return { ca: readFileSync(join(process.cwd(), "prisma/certs/supabase-root-2021-ca.crt"), "utf8") };
+  } catch {
+    return undefined;
   }
 }
 
