@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
+import { preferredCategoryKeys } from "@/lib/data/settings";
 
 /**
  * S-01 NEW 피드 — 최초 진입 화면. 온보딩은 없다 (D-069).
@@ -46,16 +47,30 @@ export default async function FeedPage({
   const sp = await searchParams;
   const t = await getTranslations();
 
-  const category = typeof sp.category === "string" ? sp.category : undefined;
+  const raw = typeof sp.category === "string" ? sp.category : undefined;
   const lang = typeof sp.lang === "string" ? sp.lang : "all";
+  const viewer = await getViewer();
+
+  // 선호 카테고리는 **첫 진입 기본값**일 뿐이다 (D-124). 유저가 칩을 누르면
+  // 그 선택이 이긴다 (FR-09-B-06) — `category=all` 이 명시적 전체다
+  const preferred = viewer ? await preferredCategoryKeys(viewer.userId) : [];
+  const category = raw === "all" ? undefined : raw;
+  const usePreferred = raw === undefined && preferred.length > 0;
 
   // 필터는 **조회 조건**이다 — 다 가져와서 걸러내면 비공개·차단이 응답에
   // 실린 뒤 화면에서만 사라진다 (D-083)
-  const items = await getFeed({ category, lang }, await getViewer());
+  const items = await getFeed(
+    { category, categories: usePreferred ? preferred : undefined, lang },
+    viewer,
+  );
 
   return (
     <div>
-      <FilterBar category={category} lang={lang} />
+      <FilterBar
+        category={raw}
+        lang={lang}
+        hasPreferred={preferred.length > 0}
+      />
 
       {items.length === 0 ? (
         <EmptyState

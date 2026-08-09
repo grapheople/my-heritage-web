@@ -26,9 +26,20 @@ const LANGS = ["all", "ko", "ja", "en"] as const;
 export function FilterBar({
   category,
   lang,
+  hasPreferred = false,
 }: {
   category?: string;
   lang: string;
+  /**
+   * 선호 카테고리를 1개 이상 고른 유저인가 (D-124).
+   *
+   * ⚠️ 고른 유저에게는 **칩이 하나 늘고 기본 선택이 바뀐다.** 선호가 여러
+   * 개일 수 있어 단일 칩으로는 표현할 수 없기 때문이다 (FR-09-B-05).
+   * `category` 없음 = 관심, `category=all` = 전체로 나눈다.
+   *
+   * 고르지 않은 유저에게는 이 칩이 없고 `category` 없음 = 전체다 — 예전 그대로.
+   */
+  hasPreferred?: boolean;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -48,7 +59,15 @@ export function FilterBar({
     <div className="sticky top-0 z-20 flex items-center gap-2 border-b bg-background px-4 py-3 lg:top-15 lg:px-0">
       {/* 카테고리 — 가로 스크롤 칩 */}
       <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <Chip on={!category} onClick={() => apply({ category: null })}>
+        {hasPreferred && (
+          <Chip on={!category} onClick={() => apply({ category: null })}>
+            {t("filter.preferred")}
+          </Chip>
+        )}
+        <Chip
+          on={hasPreferred ? category === "all" : !category}
+          onClick={() => apply({ category: hasPreferred ? "all" : null })}
+        >
           {t("filter.all")}
         </Chip>
         {CATEGORIES.map((c) => (

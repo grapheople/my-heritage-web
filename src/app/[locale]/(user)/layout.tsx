@@ -1,7 +1,8 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { TopNav } from "@/components/layout/top-nav";
-import { isLoggedIn } from "@/lib/auth/viewer";
+import { redirect } from "@/i18n/navigation";
+import { getViewer, needsOnboarding } from "@/lib/auth/viewer";
 
 /**
  * 유저 셸 — 모바일 우선 + 데스크톱 대응 (D-077).
@@ -18,8 +19,17 @@ import { isLoggedIn } from "@/lib/auth/viewer";
  */
 export default async function UserLayout({
   children,
+  params,
 }: LayoutProps<"/[locale]">) {
-  const loggedIn = await isLoggedIn();
+  const viewer = await getViewer();
+  const loggedIn = viewer !== null;
+
+  // ⚠️ 방 이름이 없으면 **어느 화면도 열지 않는다** (FR-09-A-02). 여기서
+  // 막지 않으면 빈 이름 방이 피드·검색·마켓 카드에 그대로 나간다 (D-123)
+  if (viewer && (await needsOnboarding(viewer))) {
+    const { locale } = await params;
+    redirect({ href: "/onboarding", locale });
+  }
   return (
     <div className="flex min-h-dvh flex-col">
       <TopNav loggedIn={loggedIn}>

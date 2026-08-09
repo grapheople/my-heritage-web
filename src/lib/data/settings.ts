@@ -16,8 +16,12 @@ export type ProfileSettings = {
    * 그 사실을 **전환 전에** 알려야 한다 (D-071).
    */
   onSaleCount: number;
+  imageUrl?: string;
+  /** 선호 카테고리 key (D-124) */
+  preferredCategories: string[];
   language: "ko" | "ja" | "en";
-  timezone: string;
+  /** ⚠️ `undefined` = 아직 수집 안 됨 (D-122). "UTC 를 골랐다"와 다르다 */
+  timezone?: string;
 };
 
 export async function getProfileSettings(
@@ -28,10 +32,12 @@ export async function getProfileSettings(
     select: {
       language: true,
       timezone: true,
+      preferredCategories: { where: { active: true }, select: { key: true } },
       room: {
         select: {
           name: true,
           bio: true,
+          imageUrl: true,
           visibility: true,
           _count: { select: { items: { where: { saleStatus: "ON_SALE" } } } },
         },
@@ -43,10 +49,12 @@ export async function getProfileSettings(
   return {
     roomName: user.room.name,
     bio: user.room.bio ?? undefined,
+    imageUrl: user.room.imageUrl ?? undefined,
+    preferredCategories: user.preferredCategories.map((c) => c.key),
     roomPublic: user.room.visibility === "PUBLIC",
     onSaleCount: user.room._count.items,
     language: user.language,
-    timezone: user.timezone,
+    timezone: user.timezone ?? undefined,
   };
 }
 
@@ -125,4 +133,25 @@ export async function getActiveSanction(
     detail: s.detail ?? undefined,
     expiresAt: s.expiresAt?.toISOString().slice(0, 10),
   };
+}
+
+/**
+ * 선호 카테고리 key 목록 (D-124).
+ *
+ * ⚠️ **비활성 카테고리는 뺀다.** 선택 기록은 남기되 필터에는 쓰지 않는다
+ * (D-036 과 같은 기준 — 값은 보존, 표시에서 제외). 빼지 않으면 유저가 고른
+ * 적도 없는 빈 화면을 보게 된다
+ */
+export async function preferredCategoryKeys(userId: string): Promise<string[]> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      preferredCategories: {
+        where: { active: true },
+        orderBy: { displayOrder: "asc" },
+        select: { key: true },
+      },
+    },
+  });
+  return u?.preferredCategories.map((c) => c.key) ?? [];
 }

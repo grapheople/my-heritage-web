@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth/viewer";
-import { fail, type ActionResult } from "@/lib/actions/shared";
+import { fail, type ActionResult, revalidate } from "@/lib/actions/shared";
 import { prisma } from "@/lib/prisma";
+import { ROOM_NAME_MAX } from "@/lib/profile";
 
 /**
  * 설정 · 알림 (S-11 · S-12 · S-22).
@@ -19,22 +19,84 @@ import { prisma } from "@/lib/prisma";
 export async function updateProfile(input: {
   roomName: string;
   bio?: string;
+  /** 방 대표 이미지 (S-24·S-16). `null` 이면 지운다 */
+  imageUrl?: string | null;
+  /**
+   * 선호 카테고리 key 목록 (D-124). `undefined` 면 건드리지 않는다 —
+   * 설정 화면이 이 항목을 안 보내는 경우와 "전부 해제"를 구분해야 한다
+   */
+  preferredCategories?: string[];
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer?.roomId) return fail({}, "로그인이 필요합니다");
 
   const name = input.roomName.trim();
   if (!name) return fail({ roomName: "방 이름을 입력해주세요" });
-  if ([...name].length > 30) return fail({ roomName: "방 이름은 30자까지예요" });
+  if ([...name].length > ROOM_NAME_MAX) {
+    return fail({ roomName: `방 이름은 ${ROOM_NAME_MAX}자까지예요` });
+  }
 
   await prisma.room.update({
     where: { id: viewer.roomId },
-    data: { name, bio: input.bio?.trim() || null },
+    data: {
+      name,
+      bio: input.bio?.trim() || null,
+      // `undefined` 는 Prisma 가 무시한다 — 안 보낸 것과 지운 것이 갈린다
+      ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
+    },
   });
 
-  revalidatePath("/[locale]/me", "page");
-  revalidatePath("/[locale]/me/settings", "page");
+  if (input.preferredCategories) {
+    await prisma.user.update({
+      where: { id: viewer.userId },
+      data: {
+        // `set` 이라 빈 배열이면 전부 해제된다 — 그게 의도다 (FR-09-B-04)
+        preferredCategories: {
+          set: input.preferredCategories.map((key) => ({ key })),
+        },
+      },
+    });
+  }
+
+  revalidate("/[locale]/me");
+  revalidate("/[locale]/me/settings");
+  // 선호 카테고리가 피드 기본 필터를 바꾼다 (FR-09-B-05)
+  revalidate("/[locale]");
   return { ok: true };
+}
+
+/**
+ * 타임존을 **조용히 1회** 기록한다 (D-122, FR-09-C).
+ *
+ * ## ⚠️ 이미 있으면 덮지 않는다
+ * 설정에서 직접 고른 값을, 다른 기기에서 접속했다는 이유로 되돌리면 안 된다.
+ * `timezone: null` 인 경우에만 쓴다 — 그래서 컬럼을 nullable 로 바꿨다.
+ * `@default("UTC")` 였을 때는 "수집 안 됨"과 "UTC 를 골랐음"이 같은 값이었다.
+ *
+ * ## ⚠️ 실패해도 조용히 넘어간다
+ * 유저가 요청한 적 없는 동작이다. 여기서 오류를 띄우면 **가입 첫 화면에서
+ * 영문 모를 실패 메시지**를 보게 된다. 타임존이 없으면 `UTC` 로 동작한다
+ */
+export async function recordTimezone(timezone: string): Promise<void> {
+  const viewer = await getViewer();
+  if (!viewer) return;
+
+  // IANA 이름인지 확인한다. 아무 문자열이나 넣으면 `userLocalDate` 가 던진다
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+  } catch {
+    return;
+  }
+
+  try {
+    await prisma.user.updateMany({
+      // ⚠️ `where` 에 `timezone: null` 을 건다. 읽고 나서 쓰면 경합에 뚫린다
+      where: { id: viewer.userId, timezone: null },
+      data: { timezone },
+    });
+  } catch {
+    // 조용히 넘어간다 — 위 주석 참조
+  }
 }
 
 /**
@@ -72,9 +134,9 @@ export async function setRoomVisibility(
     data: { visibility },
   });
 
-  revalidatePath("/[locale]/me", "page");
-  revalidatePath("/[locale]/market", "page");
-  revalidatePath("/[locale]", "page");
+  revalidate("/[locale]/me");
+  revalidate("/[locale]/market");
+  revalidate("/[locale]");
   return { ok: true, affectedListings };
 }
 
@@ -102,7 +164,7 @@ export async function updateLanguage(input: {
     },
   });
 
-  revalidatePath("/[locale]", "page");
+  revalidate("/[locale]");
   return { ok: true };
 }
 
@@ -122,7 +184,7 @@ export async function markNotificationRead(id: string): Promise<ActionResult> {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/[locale]/notifications", "page");
+  revalidate("/[locale]/notifications");
   return { ok: true };
 }
 
@@ -136,6 +198,6 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/[locale]/notifications", "page");
+  revalidate("/[locale]/notifications");
   return { ok: true };
 }

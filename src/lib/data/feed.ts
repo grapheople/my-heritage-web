@@ -23,6 +23,11 @@ import { prisma } from "@/lib/prisma";
  */
 export type FeedFilter = {
   category?: string;
+  /**
+   * 여러 카테고리 (D-124 선호 카테고리). `category` 가 있으면 그쪽이 이긴다 —
+   * 유저가 화면에서 직접 고른 것이기 때문이다 (FR-09-B-06)
+   */
+  categories?: string[];
   /** `all` | `ko` | `ja` | `en` — 소유자 설정 언어 기준 (D-027, FR-03-B-02) */
   lang?: string;
   limit?: number;
@@ -49,7 +54,11 @@ export async function getFeed(
       // 떠난 아이템은 피드에 올리지 않는다 (D-023).
       // ⚠️ Spec 이 명시하지 않은 지점이다 — OI-55
       saleStatus: { not: "SOLD" },
-      ...(filter.category ? { category: { key: filter.category } } : {}),
+      ...(filter.category
+        ? { category: { key: filter.category } }
+        : filter.categories?.length
+          ? { category: { key: { in: filter.categories } } }
+          : {}),
     },
     select: {
       id: true,

@@ -178,7 +178,10 @@ model User {
   /// 유저 설정 언어. NEW 피드 언어권 필터의 기준값이다 (D-027, FR-03-B-02)
   language Locale @default(en)
   /// 경험치 1일 1회 판정 기준 (M-10, D-056). IANA tz name
-  timezone String @default("UTC")
+  /// ⚠️ **null = 아직 수집 안 됨** (D-122). `@default("UTC")` 였을 때는
+  /// "수집 안 됨"과 "진짜 UTC 유저"를 구분할 수 없어, 이미 기록됐는지
+  /// 판정할 수 없었다 (FR-09-C-04). 읽는 쪽이 `?? "UTC"` 로 떨어진다
+  timezone String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -194,6 +197,9 @@ model User {
   brandRequests  BrandRequest[]
   createdCodex   CodexItem[]     @relation("codexCreator")
   notifications  Notification[]
+  /// 선호 카테고리 (D-124). **NEW 피드 첫 진입 기본 필터로만 쓴다** —
+  /// 추천 알고리즘에 쓰지 말 것. D-006(전체 노출)을 뒤집는 결정이 된다
+  preferredCategories Category[] @relation("userPreferredCategories")
 
   @@unique([provider, subject])
   @@index([language])
@@ -280,6 +286,7 @@ model Category {
   codexItems  CodexItem[]
   items       Item[]
   brands      Brand[]
+  preferredBy  User[] @relation("userPreferredCategories")
   matchingKey MatchingKeyDefinition?
 }
 

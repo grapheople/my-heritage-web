@@ -73,7 +73,8 @@
       "ko": "한국어",
       "ja": "일본어",
       "en": "영어"
-    }
+    },
+    "preferred": "관심"
   },
   "sanction": {
     "warning": "경고",
