@@ -242,7 +242,6 @@
     "errUrlFormat": "링크 형식이 올바르지 않아요",
     "errUrlScheme": "http 또는 https 로 시작해야 해요",
     "errNeedsPublic": "공개 전환에 동의해야 판매할 수 있어요",
-    "notWired": "입력값 검증까지 확인했습니다. 저장은 개발 연동 후 동작합니다.",
     "markSold": "판매완료 처리",
     "cancel": "판매 취소",
     "undoSold": "판매완료 되돌리기",

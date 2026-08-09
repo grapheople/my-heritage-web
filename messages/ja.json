@@ -242,7 +242,6 @@
     "errUrlFormat": "リンクの形式が正しくありません",
     "errUrlScheme": "http または https で始まる必要があります",
     "errNeedsPublic": "公開への切り替えに同意すると販売できます",
-    "notWired": "入力値の検証まで確認しました。保存は開発連携後に動作します。",
     "markSold": "売却済みにする",
     "cancel": "販売を取り消す",
     "undoSold": "売却済みを取り消す",

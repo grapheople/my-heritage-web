@@ -3,6 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { useRouter } from "@/i18n/navigation";
 import { convertToSale } from "@/lib/actions/sell";
 import type { CurrencyCode } from "@/lib/format";
 
@@ -38,6 +39,7 @@ export function SellForm({
   initial?: { price: number; currency: CurrencyCode; url: string };
 }) {
   const t = useTranslations();
+  const router = useRouter();
 
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
   const [currency, setCurrency] = useState<CurrencyCode>(
@@ -48,7 +50,6 @@ export function SellForm({
   // 비공개면 공개 전환 확인을 받아야 한다 (FR-01-A-05)
   const [agreePublic, setAgreePublic] = useState(!isPrivate);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function validate(): Record<string, string> {
@@ -88,8 +89,10 @@ export function SellForm({
         // 비공개면 공개 전환 동의가 함께 간다 (FR-01-A-05, FR-02-B-04)
         agreePublic,
       });
-      if (res.ok) setDone(true);
-      else setErrors(res.fieldErrors ?? {});
+      if (!res.ok) return setErrors(res.fieldErrors ?? {});
+      // ⚠️ **아이템 상세로 돌려보낸다.** 폼에 머물면 전환됐는지 알 수 없고,
+      // 다시 누르면 이미 판매중인 아이템에 또 요청이 간다
+      router.replace(`/items/${itemId}`);
     });
   }
 
@@ -169,12 +172,6 @@ export function SellForm({
       >
         {onSale ? t("common.save") : t("sell.convert")}
       </button>
-
-      {done && (
-        <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-          {t("sell.notWired")}
-        </p>
-      )}
     </form>
   );
 }
