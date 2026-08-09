@@ -433,3 +433,36 @@ export async function getMatchingKeyCandidates() {
   });
   return rows.map((r) => ({ key: r.key, label: r.labelKo, type: r.type }));
 }
+
+/**
+ * A-04 도감 직접 등록 폼이 필요한 것 — **카테고리별 매칭 키 입력칸**.
+ *
+ * ## ⚠️ 칸 하나로 받으면 복합 키 카테고리는 영원히 매칭되지 않는다
+ * 유저 아이템은 `buildMatchingKey` 로 `brand␟model␟year` 형태의 키를 만든다.
+ * 어드민이 "고유값" 한 칸에 `Trek Domane SL 6 2021` 을 넣으면 정규화 결과가
+ * `trekdomanesl62021` 이라 **어떤 아이템과도 만나지 않는다.** 도감은 만들어지고
+ * 보유자는 영원히 0명이다 — 조용히 실패하는 종류라 더 나쁘다.
+ *
+ * 그래서 매칭 키 구성만큼 칸을 만들어 **같은 함수로** 키를 만든다.
+ */
+export async function getCodexKeyForms() {
+  const categories = await prisma.category.findMany({
+    where: { active: true },
+    orderBy: { displayOrder: "asc" },
+    select: { key: true, matchingKey: { select: { attributeKeys: true } } },
+  });
+  const defs = await prisma.attributeDefinition.findMany({
+    select: { key: true, labelKo: true },
+  });
+  const labelByKey = new Map(defs.map((d) => [d.key, d.labelKo]));
+
+  return categories.map((c) => {
+    // 매칭 키가 없는 카테고리는 A-03 미구성이다. 단일 `uniqueId` 로 가정하지
+    // 않고 **빈 배열**로 넘겨 화면이 "먼저 A-03 을 구성하세요"를 띄우게 한다
+    const keys = c.matchingKey?.attributeKeys ?? [];
+    return {
+      categoryKey: c.key,
+      parts: keys.map((k) => ({ key: k, label: labelByKey.get(k) ?? k })),
+    };
+  });
+}

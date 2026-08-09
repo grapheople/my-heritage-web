@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { getViewer, type Viewer } from "@/lib/auth/viewer";
 import { fail, grantExperience, ownItem, type ActionResult } from "@/lib/actions/shared";
-import { normalizeBrandToken } from "@/lib/brand-search";
+import {
+  buildMatchingKey,
+  codexDisplayName,
+  uniqueIdForCodex,
+} from "@/lib/codex-key";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -120,7 +124,9 @@ export async function createItemAs(
     where: { categoryId: category.id },
     select: { attributeKeys: true },
   });
-  const matchingKeys = new Set(matchingKey?.attributeKeys ?? ["uniqueId"]);
+  // 순서가 정규화 순서다 (FR-01-A-05) — Set 으로만 들고 있으면 순서를 잃는다
+  const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
+  const matchingKeys = new Set(keyOrder);
 
   /* ── 검증 (FR-05-A-03) ── */
   const fieldErrors: Record<string, string> = {};
@@ -158,12 +164,13 @@ export async function createItemAs(
   let codexItemId: string | null = null;
   let codexCreated = false;
   if (!input.unknownMatchingKey) {
-    const keyAttr = [...matchingKeys][0];
-    const raw = keyAttr ? input.values[keyAttr]?.trim() : undefined;
-    if (raw) {
+    // ⚠️ **복합 키를 전부 쓴다** (D-013). 첫 키만 쓰면 캠핑에서 Snow Peak
+    // 제품이 도감 한 칸으로 뭉친다 — `lib/codex-key.ts` 참조
+    const key = buildMatchingKey(keyOrder, input.values);
+    if (key) {
       // `CodexItem.normalizedKey` 가 이미 정규화된 값을 담는다 — 전수 조회 대신
       // 인덱스로 찾는다. 정규화 규칙은 검색·import 와 공유한다 (D-014)
-      const normalizedKey = normalizeBrandToken(raw);
+      const normalizedKey = key.normalizedKey;
       const hit = await prisma.codexItem.findFirst({
         where: {
           categoryId: category.id,
@@ -180,20 +187,14 @@ export async function createItemAs(
         // ⚠️ **매칭 실패 = 도감 자동 생성** (D-015, FR-03-B-01). 연결만 하고
         // 말면 도감이 영원히 비어 있어 "같은 물건 가진 사람"이 성립하지 않는다.
         // 검증 상태는 **미검증**이고 보너스 경험치는 없다 (D-033, FR-03-B-03)
-        // 브랜드 + 모델이 기본이다. 모델이 없을 때만 고유값을 붙인다 —
-        // 둘 다 넣으면 `YETI Tundra 45 TUNDRA45` 처럼 같은 정보가 두 번 나온다.
-        // 어차피 어드민이 검증하며 정리할 값이라 정교하게 만들지 않는다
-        const model = input.values.model?.trim();
-        const displayName =
-          [brandName, model].filter(Boolean).join(" ") ||
-          [brandName, raw].filter(Boolean).join(" ") ||
-          raw;
+        const displayName = codexDisplayName(brandName, input.values.model, key);
         try {
           const made = await prisma.codexItem.create({
             data: {
               categoryId: category.id,
               displayName,
-              uniqueId: raw,
+              // 복합 키에서는 비운다 — 이어붙인 문자열은 "고유번호"가 아니다
+              uniqueId: uniqueIdForCodex(keyOrder, key.raw),
               normalizedKey,
               verification: "UNVERIFIED",
               // 생성자와 생성 일시를 기록한다 (FR-03-B-02)
@@ -326,7 +327,8 @@ export async function updateItemAs(
     where: { categoryId },
     select: { attributeKeys: true },
   });
-  const matchingKeys = new Set(matchingKey?.attributeKeys ?? ["uniqueId"]);
+  const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
+  const matchingKeys = new Set(keyOrder);
 
   /* ── 검증 — 수정 시점에 필수로 바뀐 속성도 요구한다 (FR-05-B-04) ── */
   const fieldErrors: Record<string, string> = {};
@@ -363,13 +365,14 @@ export async function updateItemAs(
   // null 이 되어야 한다. 기존 연결을 유지하면 다른 물건에 붙은 채로 남는다
   let codexItemId: string | null = null;
   if (!input.unknownMatchingKey) {
-    const keyAttr = [...matchingKeys][0];
-    const raw = keyAttr ? input.values[keyAttr]?.trim() : undefined;
-    if (raw) {
+    // 등록과 **같은 규칙**을 써야 한다. 여기만 첫 키를 쓰면 수정 한 번으로
+    // 도감 연결이 다른 곳으로 옮겨간다
+    const key = buildMatchingKey(keyOrder, input.values);
+    if (key) {
       const hit = await prisma.codexItem.findFirst({
         where: {
           categoryId,
-          normalizedKey: normalizeBrandToken(raw),
+          normalizedKey: key.normalizedKey,
           mergedIntoId: null,
         },
         select: { id: true },
