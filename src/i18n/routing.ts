@@ -8,6 +8,15 @@ import { defineRouting } from "next-intl/routing";
  * SoT: policies/i18n/policy-handoff.md
  */
 export const locales = ["ko", "ja", "en"] as const;
+
+/**
+ * 로케일 쿠키 이름.
+ *
+ * 상수로 뺀 이유: 가입 시점 언어를 정할 때 인증 쪽에서도 이 쿠키를 읽는다
+ * (D-120). 문자열을 양쪽에 적어두면 한쪽만 바뀌었을 때 **조용히 기본값으로
+ * 떨어진다** — 전원 `en` 으로 기록되는데 오류는 안 난다.
+ */
+export const LOCALE_COOKIE = "MYHERITAGE_LOCALE";
 export type Locale = (typeof locales)[number];
 
 /** 미번역 key 대신 채워 넣을 fallback 언어 순서 — 요청 언어 → en → ko (D-012) */
@@ -22,7 +31,7 @@ export const routing = defineRouting({
   localeDetection: true,
   // 비로그인 유저의 언어 선택 보존 (FR-05-B-03)
   localeCookie: {
-    name: "MYHERITAGE_LOCALE",
+    name: LOCALE_COOKIE,
     maxAge: 60 * 60 * 24 * 365,
   },
 });
