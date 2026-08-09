@@ -3,10 +3,12 @@
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { cn } from "@/lib/utils";
 
 /**
- * NEW 피드 필터 — 카테고리 + 언어권 (FR-03-A-03, FR-03-B-01).
+ * NEW 피드 필터 — **언어권만** (FR-03-B-01).
+ *
+ * ⚠️ **카테고리는 여기서 빠졌다** (D-137). 이제 필터가 아니라 축이라
+ * `CategoryBar` 가 따로 맡는다. `전체` 선택지도 없앴다.
  *
  * **D-082 — 두 필터를 한 줄에 둔다.** 카테고리는 가로 스크롤 칩, 언어권은
  * 우측 끝 드롭다운. 각각 한 줄씩 쓰면 헤더 + 필터 2줄이 첫 화면 상단을 다 먹어
@@ -17,69 +19,27 @@ import { cn } from "@/lib/utils";
  *
  * 선택은 URL 쿼리에 싣는다 — 공유 가능하고 뒤로가기가 동작한다.
  */
-const CATEGORIES = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
-
 const LANGS = ["all", "ko", "ja", "en"] as const;
 
-export function FilterBar({
-  category,
-  lang,
-  hasPreferred = false,
-}: {
-  category?: string;
-  lang: string;
-  /**
-   * 선호 카테고리를 1개 이상 고른 유저인가 (D-124).
-   *
-   * ⚠️ 고른 유저에게는 **칩이 하나 늘고 기본 선택이 바뀐다.** 선호가 여러
-   * 개일 수 있어 단일 칩으로는 표현할 수 없기 때문이다 (FR-09-B-05).
-   * `category` 없음 = 관심, `category=all` = 전체로 나눈다.
-   *
-   * 고르지 않은 유저에게는 이 칩이 없고 `category` 없음 = 전체다 — 예전 그대로.
-   */
-  hasPreferred?: boolean;
-}) {
+export function FilterBar({ lang }: { lang: string }) {
   const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
 
-  function apply(next: { category?: string | null; lang?: string }) {
-    const p = new URLSearchParams();
-    const c = next.category === undefined ? category : next.category;
-    const l = next.lang ?? lang;
-    if (c) p.set("category", c);
-    if (l && l !== "all") p.set("lang", l);
+  function apply(next: { lang: string }) {
+    // ⚠️ **`category` 를 지우면 안 된다** (D-137). 언어권만 바꾸는 동작인데
+    // 카테고리까지 날아가면 보고 있던 축이 초기화된다
+    const p = new URLSearchParams(
+      typeof window === "undefined" ? "" : window.location.search,
+    );
+    if (next.lang && next.lang !== "all") p.set("lang", next.lang);
+    else p.delete("lang");
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
   return (
     <div className="sticky top-0 z-20 flex items-center gap-2 border-b bg-background px-4 py-3 lg:top-15 lg:px-0">
-      {/* 카테고리 — 가로 스크롤 칩 */}
-      <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {hasPreferred && (
-          <Chip on={!category} onClick={() => apply({ category: null })}>
-            {t("filter.preferred")}
-          </Chip>
-        )}
-        <Chip
-          on={hasPreferred ? category === "all" : !category}
-          onClick={() => apply({ category: hasPreferred ? "all" : null })}
-        >
-          {t("filter.all")}
-        </Chip>
-        {CATEGORIES.map((c) => (
-          <Chip
-            key={c}
-            on={category === c}
-            onClick={() => apply({ category: category === c ? null : c })}
-          >
-            {t(`category.${c}`)}
-          </Chip>
-        ))}
-      </div>
 
       {/* 언어권 — 우측 끝. 기본값 '전체'라 작게 둔다 (D-027) */}
       <div className="flex shrink-0 items-center border-l pl-3">
@@ -107,28 +67,3 @@ export function FilterBar({
   );
 }
 
-function Chip({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={on}
-      className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
-        on
-          ? "border-foreground bg-foreground font-semibold text-background"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}

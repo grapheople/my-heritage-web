@@ -16,17 +16,12 @@ import { cn } from "@/lib/utils";
  * 비활성일 때 **왜 못 쓰는지 알려주는 것이 이 UI의 핵심**이다 (FR-02-C-02) —
  * 그냥 회색으로 두면 유저는 고장난 줄 안다.
  */
-const CATEGORIES = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
 const CURRENCIES = ["KRW", "JPY", "USD"] as const;
 
 export function MarketControls({
-  category,
   currency,
   sort,
 }: {
-  category?: string;
   currency?: string;
   sort: string;
 }) {
@@ -36,43 +31,27 @@ export function MarketControls({
 
   const priceSortEnabled = Boolean(currency);
 
-  function apply(next: {
-    category?: string | null;
-    currency?: string | null;
-    sort?: string;
-  }) {
-    const p = new URLSearchParams();
-    const c = next.category === undefined ? category : next.category;
+  function apply(next: { currency?: string | null; sort?: string }) {
+    // ⚠️ **`category` 를 보존한다** (D-137). 빈 URLSearchParams 로 새로 만들면
+    // 통화만 바꿔도 보고 있던 카테고리 축이 초기화된다
+    const p = new URLSearchParams(
+      typeof window === "undefined" ? "" : window.location.search,
+    );
     const cur = next.currency === undefined ? currency : next.currency;
     let s = next.sort ?? sort;
     // 통화를 해제하면 가격순을 유지할 수 없다 — 최신순으로 되돌린다 (FR-02-C-01)
     if (!cur && s !== "recent") s = "recent";
-    if (c) p.set("category", c);
-    if (cur) p.set("currency", cur);
-    if (s !== "recent") p.set("sort", s);
+    if (cur) p.set("currency", cur); else p.delete("currency");
+    if (s !== "recent") p.set("sort", s); else p.delete("sort");
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
   return (
     <div className="sticky top-0 z-20 border-b bg-background lg:top-15">
-      {/* 1줄: 카테고리 칩 + 통화 드롭다운 */}
-      <div className="flex items-center gap-2 px-4 py-3 lg:px-0">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Chip on={!category} onClick={() => apply({ category: null })}>
-            {t("filter.all")}
-          </Chip>
-          {CATEGORIES.map((c) => (
-            <Chip
-              key={c}
-              on={category === c}
-              onClick={() => apply({ category: category === c ? null : c })}
-            >
-              {t(`category.${c}`)}
-            </Chip>
-          ))}
-        </div>
-        <div className="flex shrink-0 items-center border-l pl-3">
+      {/* 카테고리는 `CategoryBar` 가 맡는다 (D-137) — 여기는 통화·정렬만 */}
+      <div className="flex items-center justify-end gap-2 px-4 py-2 lg:px-0">
+        <div className="flex shrink-0 items-center">
           <label className="relative flex items-center gap-1 text-sm text-muted-foreground">
             <span className="sr-only">{t("filter.currency")}</span>
             <select
@@ -115,20 +94,6 @@ export function MarketControls({
   );
 }
 
-function Chip({ on, onClick, children }: {
-  on: boolean; onClick: () => void; children: React.ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} aria-pressed={on}
-      className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
-        on ? "border-foreground bg-foreground font-semibold text-background"
-           : "text-muted-foreground hover:text-foreground",
-      )}>
-      {children}
-    </button>
-  );
-}
 
 function SortButton({ on, disabled, onClick, children }: {
   on: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode;

@@ -14,31 +14,25 @@ import { cn } from "@/lib/utils";
  * 카테고리 필터는 아이템·도감 탭에만 붙는다 (FR-04-A-09).
  */
 const TABS = ["items", "codex", "rooms"] as const;
-const CATEGORIES = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
-
-export function SearchBar({
-  q, tab, category,
-}: {
+export function SearchBar({ q, tab }: {
   q: string;
   tab: (typeof TABS)[number];
-  category?: string;
 }) {
   const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
   const [draft, setDraft] = useState(q);
 
-  function apply(next: { q?: string; tab?: string; category?: string | null }) {
-    const p = new URLSearchParams();
-    const query = next.q ?? draft;
+  function apply(next: { q?: string; tab?: string }) {
+    // ⚠️ **`category` 를 보존한다** (D-137). 검색어·탭만 바꾸는 동작인데
+    // 축이 초기화되면 다른 카테고리 결과가 튀어나온다
+    const p = new URLSearchParams(
+      typeof window === "undefined" ? "" : window.location.search,
+    );
+    const nextQ = next.q ?? q;
     const nextTab = next.tab ?? tab;
-    const c = next.category === undefined ? category : next.category;
-    if (query) p.set("q", query);
-    if (nextTab !== "items") p.set("tab", nextTab);
-    // 방 탭에는 카테고리 필터가 없다 (FR-04-A-09)
-    if (c && nextTab !== "rooms") p.set("category", c);
+    if (nextQ) p.set("q", nextQ); else p.delete("q");
+    if (nextTab && nextTab !== "items") p.set("tab", nextTab); else p.delete("tab");
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
@@ -80,39 +74,7 @@ export function SearchBar({
           </button>
         ))}
       </div>
-
-      {/* 카테고리 필터 — 아이템·도감 탭에만 (FR-04-A-09) */}
-      {tab !== "rooms" && (
-        <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Chip on={!category} onClick={() => apply({ category: null })}>
-            {t("filter.all")}
-          </Chip>
-          {CATEGORIES.map((c) => (
-            <Chip
-              key={c}
-              on={category === c}
-              onClick={() => apply({ category: category === c ? null : c })}
-            >
-              {t(`category.${c}`)}
-            </Chip>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-function Chip({ on, onClick, children }: {
-  on: boolean; onClick: () => void; children: React.ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} aria-pressed={on}
-      className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
-        on ? "border-foreground bg-foreground font-semibold text-background"
-           : "text-muted-foreground hover:text-foreground",
-      )}>
-      {children}
-    </button>
-  );
-}
