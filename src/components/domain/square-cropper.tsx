@@ -32,6 +32,9 @@ const MAX_VIEW = 280;
 /** 출력 한 변. 서버가 다시 줄이므로 넉넉하면 된다 */
 const OUT = 1600;
 
+/** 최대 확대 배율 (슬라이더 오른쪽 끝) */
+const MAX_ZOOM = 3;
+
 export function SquareCropper({
   file,
   onDone,
@@ -48,7 +51,20 @@ export function SquareCropper({
 }) {
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const [unsupported, setUnsupported] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  /**
+   * 슬라이더 위치 `-1 ~ 1`. **0이 가운데이자 기본값**이다.
+   *
+   * | 위치 | 배율 | 보이는 것 |
+   * |---|---|---|
+   * | `-1` | 사진 전체가 들어가는 배율 | 사진 전부 + 위아래(또는 좌우) 여백 |
+   * | `0` | 짧은 변이 꽉 차는 배율 | 여백 없음. 긴 쪽이 잘린다 |
+   * | `+1` | 3배 | 확대 |
+   *
+   * ⚠️ **배율을 슬라이더 값으로 직접 쓰면 가운데가 기본값이 되지 않는다.**
+   * 축소 범위(1→0.56 같은 값)와 확대 범위(1→3)의 폭이 다르기 때문이다.
+   * 위치를 따로 두고 양쪽을 각각 선형으로 매핑한다.
+   */
+  const [slider, setSlider] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,7 +89,7 @@ export function SquareCropper({
       .then((bm) => {
         if (dead) return bm.close();
         setBitmap(bm);
-        setZoom(1);
+        setSlider(0);
         setOffset({ x: 0, y: 0 });
       })
       .catch(() => {
@@ -94,6 +110,20 @@ export function SquareCropper({
   const baseScale = bitmap
     ? view / Math.min(bitmap.width, bitmap.height)
     : 1;
+
+  /**
+   * 사진 전체가 들어가는 배율 (슬라이더 왼쪽 끝).
+   *
+   * `baseScale` 이 짧은 변 기준이므로, 긴 변까지 넣으려면 **짧은 변 ÷ 긴 변**
+   * 만큼 더 줄이면 된다. 정사각형 원본이면 1이라 축소 구간이 없다 — 이미
+   * 전체가 보이므로 맞다
+   */
+  const minZoom = bitmap
+    ? Math.min(bitmap.width, bitmap.height) / Math.max(bitmap.width, bitmap.height)
+    : 1;
+
+  const zoom =
+    slider < 0 ? 1 + slider * (1 - minZoom) : 1 + slider * (MAX_ZOOM - 1);
 
   /** 이동 가능 범위 — 사진 밖의 빈 영역이 보이지 않게 가둔다 */
   const clamp = useCallback(
@@ -230,20 +260,25 @@ export function SquareCropper({
       </div>
 
       <label className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-        확대
+        <span aria-hidden>축소</span>
         <input
           type="range"
-          min={1}
-          max={3}
+          aria-label="사진 크기"
+          min={-1}
+          max={1}
           step={0.01}
-          value={zoom}
+          value={slider}
           onChange={(e) => {
-            const z = Number(e.target.value);
-            setZoom(z);
+            const v = Number(e.target.value);
+            setSlider(v);
+            const z = v < 0 ? 1 + v * (1 - minZoom) : 1 + v * (MAX_ZOOM - 1);
+            // 축소하면 이동 범위가 줄어든다. 사진이 뷰포트보다 작아지면
+            // 범위가 0이 되어 **자동으로 가운데**에 놓인다
             if (bitmap) setOffset((o) => clamp(o, z, bitmap, baseScale));
           }}
           className="flex-1"
         />
+        <span aria-hidden>확대</span>
       </label>
 
       <div className="mt-4 flex gap-2">
