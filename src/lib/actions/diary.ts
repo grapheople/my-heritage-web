@@ -81,7 +81,13 @@ export async function createDiaryAs(
   viewer: Viewer,
   input: DiaryInput,
 ): Promise<ActionResult<{ diaryId: string; expGranted: boolean }>> {
-  if (!viewer.roomId) return fail({}, "방이 없습니다");
+  // 세션의 방 id 는 낡을 수 있다 — 유저 기준으로 찾는다 (D-132)
+  const room = await prisma.room.findUnique({
+    where: { userId: viewer.userId },
+    select: { id: true },
+  });
+  if (!room) return fail({}, "방이 없습니다");
+  const roomId = room.id;
 
   const errors = validate(input);
   if (Object.keys(errors).length > 0) return fail(errors);
@@ -90,7 +96,7 @@ export async function createDiaryAs(
 
   const diary = await prisma.diary.create({
     data: {
-      roomId: viewer.roomId,
+      roomId,
       // 가공하지 않는다 — 개행 보존 (D-055, FR-01-B-04)
       body: input.body,
       visibility: input.visibility,
