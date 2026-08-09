@@ -21,7 +21,11 @@
     "addItem": "アイテム登録",
     "emptyRoomTitle": "まだ何もありません",
     "emptyRoomDesc": "最初のアイテムを登録すると、ここに並びます",
-    "addFirstItem": "最初のアイテムを登録"
+    "addFirstItem": "最初のアイテムを登録",
+    "emptyRecordsTitle": "まだ記録がありません",
+    "emptyRecordsDesc": "アイテムにまつわる話を残しておくと、後でそれが裏づけになります",
+    "addFirstRecord": "最初の記録を書く",
+    "addRecord": "記録を書く"
   },
   "category": {
     "watch": "時計",
