@@ -25,8 +25,29 @@ const PROVIDER_MAP: Record<string, AuthProvider> = {
   apple: AuthProvider.APPLE,
 };
 
+/**
+ * 자격증명이 있는 provider 만 켠다 (D-119).
+ *
+ * ## ⚠️ 켜두고 자격증명을 비우면 인증 전체가 죽는다
+ * Auth.js 는 provider 목록을 요청마다 구성하므로, 자격증명 없는 provider 가
+ * 하나라도 있으면 `/api/auth/*` 가 **통째로 500** 이 된다 — Google 로그인까지
+ * 같이 막힌다. Apple 은 일본 시장 때문에 유지하는 결정이지만(D-092), 계정
+ * 발급 전까지는 **꺼져 있어야** Google 을 먼저 붙일 수 있다.
+ *
+ * ⚠️ 로그인 화면도 이 목록을 따라야 한다. 버튼만 그려두면 누르는 순간 에러다.
+ */
+export const ENABLED_PROVIDERS = [
+  ...(process.env.AUTH_GOOGLE_ID ? (["google"] as const) : []),
+  ...(process.env.AUTH_APPLE_ID ? (["apple"] as const) : []),
+];
+
+export type EnabledProvider = (typeof ENABLED_PROVIDERS)[number];
+
 export const authConfig = {
-  providers: [Google, Apple],
+  providers: [
+    ...(process.env.AUTH_GOOGLE_ID ? [Google] : []),
+    ...(process.env.AUTH_APPLE_ID ? [Apple] : []),
+  ],
 
   session: { strategy: "jwt" },
 
