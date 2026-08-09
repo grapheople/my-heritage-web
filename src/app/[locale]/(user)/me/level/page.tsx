@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
+import { userTimezone } from "@/lib/actions/shared";
 import { getViewer } from "@/lib/auth/viewer";
 import {
   DAILY_EXP_CAP, EXP_RULES, expHistory, expReasonKey, levelProgressOf,
@@ -38,7 +39,7 @@ export default async function LevelPage({
 
   // ⚠️ "오늘"의 경계는 **유저 타임존**이다 (D-056). 서버 UTC 날짜로 비교하면
   // 자정 근처에서 "오늘 이미 받았다"가 어긋난다
-  const today = userLocalDate(viewer.timezone ?? "UTC");
+  const today = userLocalDate(await userTimezone(viewer.userId));
   const [p, exp, levels] = await Promise.all([
     levelProgressOf(viewer.userId),
     expHistory(viewer.userId, today),

@@ -57,12 +57,22 @@ export function fail(
  * ⚠️ `localDate` 는 **유저 타임존** 기준이다 (D-056). 운영 지표는 UTC
  * (`createdAt`)로 집계하므로 **두 기준이 공존한다 — 섞지 말 것** (FR-01-B-07).
  */
+export async function userTimezone(userId: string): Promise<string> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timezone: true },
+  });
+  return u?.timezone ?? "UTC";
+}
+
 export async function grantExperience(
   viewer: Viewer,
   reason: "LOGIN" | "ITEM_CREATE" | "DIARY_CREATE",
   amount: number,
 ): Promise<boolean> {
-  const localDate = userLocalDate(viewer.timezone ?? "UTC");
+  // ⚠️ DB 에서 읽는다 (D-121). 세션에 담으면 설정 변경이 재로그인 전까지
+  // 반영되지 않고, 무엇보다 **진짜 세션에는 애초에 담기지 않고 있었다**
+  const localDate = userLocalDate(await userTimezone(viewer.userId));
   try {
     await prisma.experienceLog.create({
       data: { userId: viewer.userId, reason, amount, localDate },
