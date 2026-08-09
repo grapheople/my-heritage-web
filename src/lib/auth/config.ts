@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Apple from "next-auth/providers/apple";
 import Google from "next-auth/providers/google";
 import { AuthProvider } from "@/generated/prisma/enums";
+import { LOCALE_COOKIE, locales, type Locale } from "@/i18n/routing";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -20,6 +22,22 @@ import { prisma } from "@/lib/prisma";
  * 두는 셈이다. **JWT 세션 + signIn 콜백에서 직접 upsert** 하는 방식이 기존
  * 스키마와 정합한다.
  */
+/**
+ * 가입 시점 언어 — next-intl 이 심는 로케일 쿠키를 읽는다 (D-120).
+ *
+ * 쿠키가 없으면 `en` 이다. D-012 의 fallback 순서(요청 언어 → en → ko)와 같다.
+ */
+async function signupLocale(): Promise<Locale> {
+  try {
+    const jar = await cookies();
+    const v = jar.get(LOCALE_COOKIE)?.value;
+    if (v && (locales as readonly string[]).includes(v)) return v as Locale;
+  } catch {
+    // 요청 스코프 밖(스크립트)에서 부르면 던진다. 기본값으로 떨어진다
+  }
+  return "en";
+}
+
 const PROVIDER_MAP: Record<string, AuthProvider> = {
   google: AuthProvider.GOOGLE,
   apple: AuthProvider.APPLE,
@@ -82,11 +100,19 @@ export const authConfig = {
 
         const user = await prisma.user.upsert({
           where: { provider_subject: { provider, subject } },
+          // ⚠️ `language` 는 갱신하지 않는다 — 설정 화면에서 정한 값을
+          // 재로그인이 덮으면 안 된다
           update: { email },
           create: {
             provider,
             subject,
             email,
+            // ⚠️ 가입한 화면의 언어를 그대로 쓴다 (D-120).
+            // 스키마 기본값(`en`)에 맡기면 **한국어 화면에서 가입해도 en 으로
+            // 기록**되고, 그 값이 NEW 피드 언어권 필터를 가른다 (D-027,
+            // FR-03-B-02) — ko·ja 필터가 계속 비어 보인다. 계정 행은 한 번만
+            // 만들어지므로 **이 시점을 놓치면 유저가 직접 고치기 전까지 틀린다**
+            language: await signupLocale(),
             // 방은 유저와 1:1 이다 (M-02). 가입 시 함께 만든다.
             // ⚠️ 방 이름은 가입 직후 유저가 정해야 한다 (FR-05-A-05) —
             //    그 화면이 아직 없다. 임시로 빈 값을 두고 설정 화면으로 유도한다
