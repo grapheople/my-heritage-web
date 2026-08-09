@@ -33,7 +33,10 @@
     "bicycle": "自転車",
     "apparel": "ウェア",
     "camping": "キャンプ",
-    "deskterior": "デスク周り"
+    "deskterior": "デスク周り",
+    "pickTitle": "何を集めていますか？",
+    "pickDesc": "選んだカテゴリーを中心にお見せします。上でいつでも変更できます",
+    "pickLater": "あとで選ぶ"
   },
   "item": {
     "status": {

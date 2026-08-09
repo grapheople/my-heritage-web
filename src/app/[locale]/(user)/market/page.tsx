@@ -5,6 +5,8 @@ import { MarketCard } from "@/components/domain/market-card";
 import { MarketControls } from "@/components/domain/market-controls";
 import { getViewer } from "@/lib/auth/viewer";
 import { getMarketListings } from "@/lib/data/market";
+import { resolveCategory } from "@/lib/category-scope";
+import { CategoryBar } from "@/components/domain/category-bar";
 import { localeAlternates } from "@/lib/site";
 
 /**
@@ -34,7 +36,11 @@ export default async function MarketPage({
   const sp = await searchParams;
   const t = await getTranslations();
 
-  const category = typeof sp.category === "string" ? sp.category : undefined;
+  // ⚠️ 카테고리는 항상 하나다 (D-137)
+  const scope = await resolveCategory(
+    typeof sp.category === "string" ? sp.category : undefined,
+  );
+  const category = scope.key;
   const currency = typeof sp.currency === "string" ? sp.currency : undefined;
   // 통화가 없으면 가격순을 쓸 수 없다 (FR-02-C-01)
   const sort = sp.sort === "price" && currency ? "price" : "recent";
@@ -48,7 +54,8 @@ export default async function MarketPage({
 
   return (
     <div>
-      <MarketControls category={category} currency={currency} sort={sort} />
+      <CategoryBar keys={scope.keys} active={category} />
+      <MarketControls currency={currency} sort={sort} />
 
       {listings.length === 0 ? (
         <EmptyState title={t("empty.market")} />

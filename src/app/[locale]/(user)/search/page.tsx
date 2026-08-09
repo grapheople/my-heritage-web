@@ -5,6 +5,8 @@ import { FeedCard } from "@/components/domain/feed-card";
 import { RoomRow } from "@/components/domain/room-row";
 import { SearchBar } from "@/components/domain/search-bar";
 import { getViewer } from "@/lib/auth/viewer";
+import { resolveCategory } from "@/lib/category-scope";
+import { CategoryBar } from "@/components/domain/category-bar";
 import { searchCodex } from "@/lib/data/codex";
 import { searchItems, searchRooms } from "@/lib/data/search";
 
@@ -32,11 +34,16 @@ export default async function SearchPage({
   const q = typeof sp.q === "string" ? sp.q : "";
   const tab: Tab =
     sp.tab === "codex" || sp.tab === "rooms" ? sp.tab : "items";
-  const category = typeof sp.category === "string" ? sp.category : undefined;
+  // ⚠️ 카테고리는 항상 하나다 (D-137). `전체` 검색은 없다
+  const scope = await resolveCategory(
+    typeof sp.category === "string" ? sp.category : undefined,
+  );
+  const category = scope.key;
 
   return (
     <div>
-      <SearchBar q={q} tab={tab} category={category} />
+      <CategoryBar keys={scope.keys} active={category} />
+      <SearchBar q={q} tab={tab} />
 
       {!q ? (
         <EmptyState title={t("search.prompt")} />
