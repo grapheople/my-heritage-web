@@ -43,8 +43,40 @@ export const ACCEPTED_TYPES = [
 
 /** 원본 상한 — 최근 폰 사진이 5~8MB다 (D-101) */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-/** 저장 해상도 — 긴 변 기준. 원본은 보관하지 않는다 (D-101) */
+/**
+ * 저장 해상도 — **정방형 한 변** (D-129). 원본은 보관하지 않는다 (D-101).
+ *
+ * 예전에는 "긴 변 기준"이었고 비율을 유지했다. 정방형으로 바꾼 이유는 D-129 참조.
+ */
 export const MAX_EDGE = 2000;
+
+/**
+ * 저장본 상한 — **500KB** (D-128).
+ *
+ * ## ⚠️ 화질이 아니라 **비용과 체감 속도**의 문제다
+ * 아이템 1건에 사진 10장(D-037)이고 방·일기까지 있다. 장당 2MB면 유저 한 명이
+ * 수십 MB를 쓰고, 그 비용은 스토리지보다 **모바일 데이터와 첫 화면 로딩**에서
+ * 먼저 드러난다. 피드는 카드가 수십 장 깔리는 화면이다.
+ *
+ * ## ⚠️ 못 맞추면 화질을 더 내린다. 업로드를 거부하지 않는다
+ * "사진이 너무 커서 못 올린다"는 유저가 해결할 수 없는 실패다 — 카메라가 찍은
+ * 그대로인데 무엇을 하라는 것인가. 품질을 단계적으로 낮추고, 그래도 안 되면
+ * 해상도를 줄인다. **마지막 시도의 결과라도 저장한다.**
+ */
+export const MAX_BYTES = 500 * 1024;
+
+/** 품질 사다리 — 위에서부터 시도한다 */
+const QUALITY_STEPS = [82, 72, 62, 52, 42] as const;
+
+/**
+ * 품질을 다 내려도 안 되면 해상도를 줄인다. **시작 크기 대비 비율**이다.
+ *
+ * ⚠️ **절대값(2000·1600·1200)으로 두면 사다리가 접힌다.** 원본 짧은 변이
+ * 1200이면 `min(step, 1200)` 이 세 단계 모두 1200이 되어 해상도가 한 번도
+ * 줄지 않는다 — 실제로 1200x1200 노이즈 이미지가 **704KB** 로 나갔다.
+ * 상한을 지킨다고 적어두고 안 지키는 것이 가장 나쁘다.
+ */
+const SCALE_STEPS = [1, 0.75, 0.55, 0.4, 0.3] as const;
 /** 사진 최대 장수 (D-037) */
 export const MAX_PHOTOS = 10;
 
@@ -100,21 +132,50 @@ export async function storeImage(
   file: ArrayBuffer,
   key: string,
 ): Promise<StoredImage> {
-  const image = sharp(Buffer.from(file), { failOn: "none" })
-    // 회전 정보만 픽셀에 반영하고 태그는 버린다 — 안 하면 세로 사진이 눕는다
-    .rotate()
-    .resize({
-      width: MAX_EDGE,
-      height: MAX_EDGE,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    // ⚠️ `.withMetadata()` 를 부르지 않는다 = EXIF 제거 (D-101)
-    .webp({ quality: 82 });
+  const source = Buffer.from(file);
+  let last: { data: Buffer; width: number; height: number } | null = null;
 
-  const { data, info } = await image.toBuffer({ resolveWithObject: true });
-  const url = await putBytes(`${key}.webp`, data);
-  return { url, width: info.width, height: info.height };
+  // ⚠️ **원본보다 크게 만들지 않되, 정방형은 포기하지 않는다.**
+  // `withoutEnlargement` 만으로는 400x300 짜리가 400x300 그대로 나온다 —
+  // 크롭까지 막혀서 정방형 보장이 깨진다. 짧은 변을 상한으로 삼는다.
+  //
+  // `rotate()` 가 EXIF 방향을 반영하면 가로·세로가 뒤바뀔 수 있으므로,
+  // **회전 후** 크기를 읽어야 한다
+  const upright = await sharp(source, { failOn: "none" }).rotate().toBuffer();
+  const meta = await sharp(upright).metadata();
+  const shortSide = Math.min(meta.width ?? MAX_EDGE, meta.height ?? MAX_EDGE);
+
+  // 큰 해상도·높은 품질부터 시도하고, 상한을 넘으면 낮춰간다. 대부분 첫
+  // 시도에서 끝난다 — 사다리는 큰 원본을 위한 것이다
+  const base = Math.min(MAX_EDGE, shortSide);
+  outer: for (const scale of SCALE_STEPS) {
+    // 1px 밑으로 내려가지 않게 바닥을 둔다
+    const edge = Math.max(64, Math.round(base * scale));
+    for (const quality of QUALITY_STEPS) {
+      const { data, info } = await sharp(upright, { failOn: "none" })
+        .resize({
+          width: edge,
+          height: edge,
+          // ⚠️ **정방형으로 자른다** (D-129). 클라이언트가 이미 정방형으로
+          // 보냈으면 아무 일도 일어나지 않는다. 화면(S-24 크롭 UI)만 믿으면
+          // 요청을 직접 보내는 경로로 우회된다 — EXIF 제거와 같은 이유다
+          fit: "cover",
+          position: "centre",
+        })
+        // ⚠️ `.withMetadata()` 를 부르지 않는다 = EXIF 제거 (D-101)
+        .webp({ quality })
+        .toBuffer({ resolveWithObject: true });
+
+      last = { data, width: info.width, height: info.height };
+      if (data.byteLength <= MAX_BYTES) break outer;
+    }
+  }
+
+  // 사다리를 다 내려와도 상한을 못 맞춘 경우다. **그래도 저장한다** —
+  // 위 주석 참조. 거부하면 유저가 할 수 있는 일이 없다
+  const out = last!;
+  const url = await putBytes(`${key}.webp`, out.data);
+  return { url, width: out.width, height: out.height };
 }
 
 /**
