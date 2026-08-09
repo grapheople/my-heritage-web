@@ -14,8 +14,16 @@ const DEV_SUBJECT = "dev-local-subject";
 export type Viewer = {
   userId: string;
   roomId?: string;
-  /** 경험치 1일 1회 판정 기준 (D-056). 세션에 없으면 UTC */
-  timezone?: string;
+  /**
+   * ⚠️ **타임존은 여기 두지 않는다** (D-121).
+   *
+   * 예전에는 있었는데 **개발 우회로만 채우고 진짜 세션은 비워뒀다.** 그래서
+   * `viewer.timezone ?? "UTC"` 가 실사용자에게는 **항상 UTC** 로 떨어졌고,
+   * D-056(경험치 1일 경계 = 유저 타임존)이 조용히 깨져 있었다.
+   *
+   * 필요한 곳에서 **DB 에서 직접 읽는다** (`userTimezone`). 세션(JWT)에 담으면
+   * 설정 화면에서 바꿔도 재로그인 전까지 옛 값이 남는다.
+   */
   /** 신규 가입 — 방 이름 미설정 (FR-05-A-05) */
   needsRoomName: boolean;
 };
@@ -56,7 +64,7 @@ async function devViewer(): Promise<Viewer | null> {
 
   const user = await prisma.user.findUnique({
     where: { provider_subject: { provider: "GOOGLE", subject: DEV_SUBJECT } },
-    select: { id: true, timezone: true, room: { select: { id: true, name: true } } },
+    select: { id: true, room: { select: { id: true, name: true } } },
   });
   if (!user) {
     console.warn(
@@ -67,7 +75,6 @@ async function devViewer(): Promise<Viewer | null> {
   return {
     userId: user.id,
     roomId: user.room?.id,
-    timezone: user.timezone,
     needsRoomName: !user.room?.name,
   };
 }
