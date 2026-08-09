@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { CategorySelect } from "@/components/domain/category-select";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,7 +15,9 @@ import { cn } from "@/lib/utils";
  * 카테고리 필터는 아이템·도감 탭에만 붙는다 (FR-04-A-09).
  */
 const TABS = ["items", "codex", "rooms"] as const;
-export function SearchBar({ q, tab }: {
+export function SearchBar({ q, tab, categoryKeys, category }: {
+  categoryKeys: string[];
+  category: string;
   q: string;
   tab: (typeof TABS)[number];
 }) {
@@ -54,6 +57,11 @@ export function SearchBar({ q, tab }: {
           />
         </div>
       </form>
+
+      {/* 카테고리 축 — 검색도 한 카테고리 안에서다 (D-137·D-138) */}
+      <div className="flex items-center gap-3 px-4 pt-3 lg:px-0">
+        <CategorySelect keys={categoryKeys} active={category} />
+      </div>
 
       <div className="flex px-4 lg:px-0" role="tablist">
         {TABS.map((k) => (

@@ -3,6 +3,7 @@
 import { ChevronDown, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { CategorySelect } from "@/components/domain/category-select";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,9 +22,13 @@ const CURRENCIES = ["KRW", "JPY", "USD"] as const;
 export function MarketControls({
   currency,
   sort,
+  categoryKeys,
+  category,
 }: {
   currency?: string;
   sort: string;
+  categoryKeys: string[];
+  category: string;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -49,9 +54,11 @@ export function MarketControls({
 
   return (
     <div className="sticky top-0 z-20 border-b bg-background lg:top-15">
-      {/* 카테고리는 `CategoryBar` 가 맡는다 (D-137) — 여기는 통화·정렬만 */}
-      <div className="flex items-center justify-end gap-2 px-4 py-2 lg:px-0">
-        <div className="flex shrink-0 items-center">
+      {/* 카테고리 축(왼쪽) + 통화 (D-138) */}
+      <div className="flex items-center gap-3 px-4 py-2.5 lg:px-0">
+        <CategorySelect keys={categoryKeys} active={category} />
+        <span className="flex-1" />
+        <div className="flex shrink-0 items-center border-l pl-3">
           <label className="relative flex items-center gap-1 text-sm text-muted-foreground">
             <span className="sr-only">{t("filter.currency")}</span>
             <select

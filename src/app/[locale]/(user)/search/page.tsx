@@ -6,7 +6,6 @@ import { RoomRow } from "@/components/domain/room-row";
 import { SearchBar } from "@/components/domain/search-bar";
 import { getViewer } from "@/lib/auth/viewer";
 import { resolveCategory } from "@/lib/category-scope";
-import { CategoryBar } from "@/components/domain/category-bar";
 import { searchCodex } from "@/lib/data/codex";
 import { searchItems, searchRooms } from "@/lib/data/search";
 
@@ -42,8 +41,7 @@ export default async function SearchPage({
 
   return (
     <div>
-      <CategoryBar keys={scope.keys} active={category} />
-      <SearchBar q={q} tab={tab} />
+      <SearchBar q={q} tab={tab} categoryKeys={scope.keys} category={category} />
 
       {!q ? (
         <EmptyState title={t("search.prompt")} />

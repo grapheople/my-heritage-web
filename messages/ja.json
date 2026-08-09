@@ -36,7 +36,8 @@
     "deskterior": "デスク周り",
     "pickTitle": "何を集めていますか？",
     "pickDesc": "選んだカテゴリーを中心にお見せします。上でいつでも変更できます",
-    "pickLater": "あとで選ぶ"
+    "pickLater": "あとで選ぶ",
+    "label": "カテゴリー"
   },
   "item": {
     "status": {
