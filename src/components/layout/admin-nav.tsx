@@ -54,7 +54,7 @@ export function AdminNav() {
 
   return (
     <nav className="w-60 shrink-0 border-r bg-muted/30 p-4">
-      <p className="px-2 pb-4 text-sm font-semibold">나의 방 어드민</p>
+      <p className="px-2 pb-4 text-sm font-semibold">Zroom 어드민</p>
       <div className="space-y-5">
         {SECTIONS.map((section) => (
           <div key={section.title}>

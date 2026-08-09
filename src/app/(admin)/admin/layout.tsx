@@ -44,7 +44,7 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "나의 방 어드민",
+  title: "Zroom 어드민",
   robots: { index: false, follow: false },
 };
 
