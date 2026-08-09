@@ -52,7 +52,12 @@ export default async function MyRoomPage({
           imageUrl={room.imageUrl}
       />
       <RoomTabs active="items" />
-      <RoomDisplay sections={sections} goneItems={room.gone} basePath="/me" />
+      <RoomDisplay
+          sections={sections}
+          goneItems={room.gone}
+          basePath="/me"
+          owner
+        />
     </div>
   );
 }

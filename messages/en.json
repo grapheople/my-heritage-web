@@ -17,7 +17,11 @@
     },
     "leftItems": "Items that left",
     "itemCount": "{count, plural, =1 {# item} other {# items}}",
-    "level": "Lv.{level}"
+    "level": "Lv.{level}",
+    "addItem": "Add item",
+    "emptyRoomTitle": "Nothing here yet",
+    "emptyRoomDesc": "Add your first item and it will appear here",
+    "addFirstItem": "Add your first item"
   },
   "category": {
     "watch": "Watches",
