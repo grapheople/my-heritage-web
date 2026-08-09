@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { signIn } from "@/lib/auth/config";
+import { ENABLED_PROVIDERS, signIn } from "@/lib/auth/config";
 import { getViewer } from "@/lib/auth/viewer";
 import { Link, redirect } from "@/i18n/navigation";
 
@@ -34,6 +34,13 @@ export default async function LoginPage({
     await signIn(provider, { redirectTo: next });
   }
 
+  // ⚠️ 자격증명이 있는 provider 만 그린다 (D-119). 버튼만 그려두면 누르는
+  // 순간 에러 화면이고, 유저는 "이 서비스는 로그인이 안 된다"로 읽는다
+  const BUTTONS = {
+    google: { label: "auth.loginWithGoogle", className: "w-full rounded-lg border py-3 text-sm font-semibold hover:bg-accent" },
+    apple: { label: "auth.loginWithApple", className: "w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90" },
+  } as const;
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
       <div>
@@ -44,22 +51,18 @@ export default async function LoginPage({
       </div>
 
       <div className="flex flex-col gap-2">
-        <form action={login.bind(null, "google")}>
-          <button
-            type="submit"
-            className="w-full rounded-lg border py-3 text-sm font-semibold hover:bg-accent"
-          >
-            {t("auth.loginWithGoogle")}
-          </button>
-        </form>
-        <form action={login.bind(null, "apple")}>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-          >
-            {t("auth.loginWithApple")}
-          </button>
-        </form>
+        {ENABLED_PROVIDERS.map((p) => (
+          <form key={p} action={login.bind(null, p)}>
+            <button type="submit" className={BUTTONS[p].className}>
+              {t(BUTTONS[p].label)}
+            </button>
+          </form>
+        ))}
+        {ENABLED_PROVIDERS.length === 0 && (
+          <p className="rounded-lg border border-warn bg-warn-bg p-3 text-sm text-warn">
+            로그인 수단이 아직 설정되지 않았습니다.
+          </p>
+        )}
       </div>
 
       {/* 비로그인도 열람은 가능하다 (FR-05-B-01) — 막다른 길로 두지 않는다 */}
