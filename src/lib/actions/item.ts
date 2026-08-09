@@ -85,9 +85,17 @@ export async function createItemAs(
   viewer: Viewer,
   input: CreateItemInput,
 ): Promise<CreateItemResult> {
-  if (!viewer.roomId) {
+  // ⚠️ **세션의 `roomId` 를 쓰지 않는다** (D-132). 그 값은 로그인 시점 JWT 에
+  // 박혀 있어 낡을 수 있고, 낡으면 외래키 위반으로 터진다. `Room.userId` 가
+  // 유일값이라 유저를 기준으로 찾는 것이 항상 맞다
+  const room = await prisma.room.findUnique({
+    where: { userId: viewer.userId },
+    select: { id: true },
+  });
+  if (!room) {
     return { ok: false, fieldErrors: {}, formError: "방이 없습니다" };
   }
+  const roomId = room.id;
 
   const category = await prisma.category.findUnique({
     where: { key: input.category },
@@ -222,7 +230,7 @@ export async function createItemAs(
   const attrByKey = new Map(attrs.map((a) => [a.attributeDefinition.key, a]));
   const item = await prisma.item.create({
     data: {
-      roomId: viewer.roomId,
+      roomId,
       categoryId: category.id,
       brandId,
       model: input.values.model?.trim() || null,

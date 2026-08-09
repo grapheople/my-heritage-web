@@ -42,8 +42,12 @@ export async function completeOnboarding(
     return fail({ roomName: `방 이름은 ${ROOM_NAME_MAX}자까지예요` });
   }
 
+  // ⚠️ **세션의 `roomId` 를 `where` 에 쓰지 않는다** (D-132). 그 값은 로그인
+  // 시점 JWT 에 박혀 있어 낡을 수 있다 — 방이 지워졌거나 세션이 다른 DB 에서
+  // 발급됐으면 "레코드를 찾을 수 없다"로 터진다. `Room.userId` 가 유일값이므로
+  // 유저를 기준으로 찾는 것이 항상 맞다
   await prisma.room.update({
-    where: { id: viewer.roomId },
+    where: { userId: viewer.userId },
     data: {
       name,
       bio: input.bio?.trim() || null,
