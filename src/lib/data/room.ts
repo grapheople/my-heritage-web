@@ -21,6 +21,8 @@ import { prisma } from "@/lib/prisma";
 export type RoomView = {
   id: string;
   name: string;
+  /** 방 대표 사진 (D-130). 없으면 헤더가 빈 자리를 그린다 */
+  imageUrl?: string;
   bio?: string;
   level: number;
   /** 소유자 설정 언어 — NEW 피드 언어권 필터의 기준 (D-027) */
@@ -55,6 +57,7 @@ export async function getRoom(
       id: true,
       name: true,
       bio: true,
+      imageUrl: true,
       visibility: true,
       user: { select: { id: true, language: true, deletedAt: true } },
     },
@@ -135,6 +138,7 @@ export async function getRoom(
       id: room.id,
       name: room.name,
       bio: room.bio ?? undefined,
+      imageUrl: room.imageUrl ?? undefined,
       level: await levelOf(room.user.id),
       lang: room.user.language,
       isPublic: room.visibility === "PUBLIC",

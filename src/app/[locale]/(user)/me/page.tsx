@@ -49,6 +49,7 @@ export default async function MyRoomPage({
         bio={room.bio}
         level={room.level}
         itemCount={total}
+          imageUrl={room.imageUrl}
       />
       <RoomTabs active="items" />
       <RoomDisplay sections={sections} goneItems={room.gone} basePath="/me" />
