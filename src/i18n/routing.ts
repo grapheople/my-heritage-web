@@ -17,6 +17,18 @@ export const locales = ["ko", "ja", "en"] as const;
  * 떨어진다** — 전원 `en` 으로 기록되는데 오류는 안 난다.
  */
 export const LOCALE_COOKIE = "MYHERITAGE_LOCALE";
+
+/**
+ * 가입 시점 언어를 실어 나르는 쿠키 (D-120).
+ *
+ * ⚠️ **`LOCALE_COOKIE` 를 읽는 것만으로는 부족했다.** 실제 로그인에서 OAuth
+ * 콜백 시점에 그 쿠키가 없어 전원 `en` 으로 기록됐다. next-intl 이 언제
+ * 쿠키를 심는지에 기대는 설계였기 때문이다.
+ *
+ * 로그인 화면은 URL 에서 로케일을 **확실히** 안다. 구글로 보내기 직전에
+ * 직접 심으면 콜백에서 반드시 읽힌다. 10분이면 충분하다 — OAuth 왕복용이다.
+ */
+export const SIGNUP_LOCALE_COOKIE = "MYHERITAGE_SIGNUP_LOCALE";
 export type Locale = (typeof locales)[number];
 
 /** 미번역 key 대신 채워 넣을 fallback 언어 순서 — 요청 언어 → en → ko (D-012) */

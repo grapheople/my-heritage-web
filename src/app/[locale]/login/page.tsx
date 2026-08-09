@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { ENABLED_PROVIDERS, signIn } from "@/lib/auth/config";
 import { getViewer } from "@/lib/auth/viewer";
 import { Link, redirect } from "@/i18n/navigation";
+import { SIGNUP_LOCALE_COOKIE } from "@/i18n/routing";
 
 /**
  * S-13 로그인.
@@ -31,6 +33,16 @@ export default async function LoginPage({
 
   async function login(provider: "google" | "apple") {
     "use server";
+    // ⚠️ 가입 시점 언어를 여기서 확정한다 (D-120). 이 화면은 URL 에서 로케일을
+    // 확실히 알지만, OAuth 콜백은 구글에서 돌아오는 별개 요청이라 그 정보가
+    // 없다. next-intl 쿠키에 기댔더니 콜백 시점에 없어서 전원 `en` 으로
+    // 기록됐다 — 오류는 안 나고 피드 언어권 필터만 조용히 틀린다 (D-027)
+    (await cookies()).set(SIGNUP_LOCALE_COOKIE, locale, {
+      maxAge: 60 * 10, // OAuth 왕복용. 오래 둘 이유가 없다
+      httpOnly: true,
+      sameSite: "lax", // 구글에서 돌아오는 최상위 이동에 실려야 한다
+      path: "/",
+    });
     await signIn(provider, { redirectTo: next });
   }
 
