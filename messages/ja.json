@@ -192,22 +192,6 @@
     },
     "matchedBy": "「{alias}」で一致しました"
   },
-  "attr": {
-    "brand": "ブランド",
-    "movement": "ムーブメント",
-    "caseSize": "ケース径",
-    "year": "製造年",
-    "model": "モデル名",
-    "uniqueId": "固有番号",
-    "condition": "状態",
-    "purchasedFrom": "購入先",
-    "purchaseDate": "購入日",
-    "purchasePrice": "購入価格",
-    "refUrl": "参考リンク",
-    "accessories": "付属品",
-    "hasBox": "純正箱",
-    "note": "メモ"
-  },
   "report": {
     "reportThis": "報告する",
     "title": "報告",

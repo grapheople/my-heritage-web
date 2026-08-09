@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail } from "@/lib/data/item";
 
@@ -23,13 +24,13 @@ export default async function EditItemPage({
     return null;
   }
 
-  const item = await getItemDetail(itemId, viewer);
+  const item = await getItemDetail(itemId, viewer, locale as Locale);
   if (!item) notFound();
   if (viewer.roomId !== item.roomId) notFound();
 
   const category = item.categoryKey.replace(/^category\./, "");
   const initial: Record<string, string> = {};
-  for (const a of item.attrs) initial[a.labelKey.replace(/^attr\./, "")] = a.value;
+  for (const a of item.attrs) initial[a.key] = a.value;
   if (item.owner.purchasedFrom) initial.purchasedFrom = item.owner.purchasedFrom;
   if (item.owner.purchaseDate) initial.purchaseDate = item.owner.purchaseDate;
   // ⚠️ 속성 key 는 `referenceUrl` 이다. `refUrl` 로 넣으면 폼이 못 찾아

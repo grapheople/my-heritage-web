@@ -1,3 +1,4 @@
+import { pickLabel as pick } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -35,13 +36,6 @@ export type AttrDef = {
   brandSelect?: boolean;
 };
 
-function pick(
-  locale: Locale,
-  v: { ko: string | null; ja: string | null; en: string | null },
-): string {
-  // 요청 언어 → en → ko (D-012)
-  return v[locale] || v.en || v.ko || "";
-}
 
 /**
  * 등록·수정 폼이 그릴 속성 목록.

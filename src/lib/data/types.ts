@@ -19,7 +19,18 @@ export type OwnerLang = "ko" | "ja" | "en";
 export type ItemNickname = string | undefined;
 
 /** 도감·아이템 속성 한 줄. 값이 비면 렌더하지 않는다 (FR-06-A-02) */
-export type CodexAttr = { labelKey: string; value: string };
+/**
+ * 표시용 속성 한 줄.
+ *
+ * ⚠️ **이미 번역된 라벨**이다. i18n 키가 아니다 (D-135) — 속성은 어드민이
+ * 추가할 수 있어 메시지 파일로 덮을 수 없다
+ */
+export type CodexAttr = {
+  /** 속성 key — 수정 폼이 값을 되돌려 넣을 때 쓴다 */
+  key: string;
+  label: string;
+  value: string;
+};
 
 export type CodexEntry = {
   id: string;
@@ -97,6 +108,11 @@ export type ItemDetail = {
   sale?: { price: number; currency: CurrencyCode; url: string };
   /** 아이템 `url` 속성 — 외부 링크 경고를 경유해야 한다 (D-040) */
   refUrl?: string;
+  /**
+   * 속성 key → 표시 라벨 (D-135). 소유자 전용 항목·참고 링크가 이름을
+   * 얻는 곳이다 — 메시지 파일을 쓰면 어드민이 이름을 바꿔도 안 따라간다
+   */
+  labels: Record<string, string>;
 };
 
 export type DiaryEntry = {

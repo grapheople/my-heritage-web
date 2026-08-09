@@ -192,22 +192,6 @@
     },
     "matchedBy": "‘{alias}’로 찾았어요"
   },
-  "attr": {
-    "brand": "브랜드",
-    "movement": "무브먼트",
-    "caseSize": "케이스 지름",
-    "year": "제조년도",
-    "model": "모델명",
-    "uniqueId": "고유번호",
-    "condition": "상태",
-    "purchasedFrom": "구매처",
-    "purchaseDate": "구매일",
-    "purchasePrice": "구매가",
-    "refUrl": "참고 링크",
-    "accessories": "포함 부속품",
-    "hasBox": "정품 박스",
-    "note": "메모"
-  },
   "report": {
     "reportThis": "신고하기",
     "title": "신고",

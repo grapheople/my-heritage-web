@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { SellForm } from "@/components/domain/sell-form";
 import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail } from "@/lib/data/item";
 
@@ -28,7 +29,7 @@ export default async function SellPage({
     return null;
   }
 
-  const item = await getItemDetail(itemId, viewer);
+  const item = await getItemDetail(itemId, viewer, locale as Locale);
   if (!item) notFound();
 
   // 소유자만 (FR-05-B-01, D-019)

@@ -192,22 +192,6 @@
     },
     "matchedBy": "Matched “{alias}”"
   },
-  "attr": {
-    "brand": "Brand",
-    "movement": "Movement",
-    "caseSize": "Case size",
-    "year": "Year",
-    "model": "Model",
-    "uniqueId": "Reference",
-    "condition": "Condition",
-    "purchasedFrom": "Bought from",
-    "purchaseDate": "Purchase date",
-    "purchasePrice": "Purchase price",
-    "refUrl": "Reference link",
-    "accessories": "Accessories",
-    "hasBox": "Original box",
-    "note": "Notes"
-  },
   "report": {
     "reportThis": "Report",
     "title": "Report",

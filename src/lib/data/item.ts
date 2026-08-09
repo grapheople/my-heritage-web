@@ -5,6 +5,8 @@ import { blockedUserIds } from "@/lib/data/scope";
 import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import type { Locale } from "@/i18n/routing";
+import { pickAttrLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -33,6 +35,7 @@ function displayValue(value: unknown): string {
 export async function getItemDetail(
   itemId: string,
   viewer: Viewer | null,
+  locale: Locale,
 ): Promise<ItemDetail | null> {
   const item = await prisma.item.findUnique({
     where: { id: itemId },
@@ -56,7 +59,17 @@ export async function getItemDetail(
             select: {
               active: true,
               displayOrder: true,
-              attributeDefinition: { select: { key: true, type: true } },
+              // ⚠️ 라벨은 **DB 에서** 온다 (D-135). 어드민이 추가한 속성은
+              // 메시지 파일에 키가 없어 `t()` 로는 이름을 낼 수 없다
+              attributeDefinition: {
+                select: {
+                  key: true,
+                  type: true,
+                  labelKo: true,
+                  labelJa: true,
+                  labelEn: true,
+                },
+              },
             },
           },
         },
@@ -84,11 +97,19 @@ export async function getItemDetail(
   const attrs: CodexAttr[] = [];
   const ownerInfo: ItemDetail["owner"] = {};
   let refUrl: string | undefined;
+  /**
+   * 속성 key → 라벨. **소유자 전용 항목과 참고 링크도 여기서 이름을 얻는다**
+   * (D-135). 그것들만 메시지 파일을 쓰면 어드민이 A-02 에서 이름을 바꿨을 때
+   * 같은 속성이 화면 두 곳에서 다르게 불린다
+   */
+  const labels: Record<string, string> = {};
 
   for (const v of values) {
     const key = v.categoryAttribute.attributeDefinition.key;
     const text = displayValue(v.value);
     if (!text) continue; // 값이 빈 항목은 렌더하지 않는다 (FR-06-A-02)
+
+    labels[key] = pickAttrLabel(locale, v.categoryAttribute.attributeDefinition);
 
     if (OWNER_ONLY_KEYS.has(key)) {
       // ⚠️ 타인에게는 **응답에 넣지 않는다.** 화면에서 감추는 것이 아니다
@@ -104,7 +125,7 @@ export async function getItemDetail(
       refUrl = text;
       continue;
     }
-    attrs.push({ labelKey: `attr.${key}`, value: text });
+    attrs.push({ key, label: labels[key], value: text });
   }
 
   const diaries = await prisma.diary.findMany({
@@ -148,6 +169,7 @@ export async function getItemDetail(
           }
         : undefined,
     refUrl,
+    labels,
   };
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import type { Locale } from "@/i18n/routing";
 import { CodexOwners } from "@/components/domain/codex-owners";
 import { MarketCard } from "@/components/domain/market-card";
 import { StatusBadge } from "@/components/domain/status-badge";
@@ -90,7 +91,7 @@ export default async function CodexDetailPage({
   if (!entry) notFound();
 
   const [attrs, desc, listings] = await Promise.all([
-    getCodexAttrs(codexId),
+    getCodexAttrs(codexId, locale as Locale),
     // 검증본은 3개 언어 + 폴백, 미검증본은 원문 그대로 (FR-07-A-05)
     getCodexDesc(codexId, locale as "ko" | "ja" | "en"),
     getCodexListings(codexId),
@@ -132,8 +133,8 @@ export default async function CodexDetailPage({
       {attrs.length > 0 && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-t px-4 py-5 lg:px-0">
           {attrs.map((a) => (
-            <div key={a.labelKey} className="col-span-2 grid grid-cols-subgrid">
-              <dt className="text-sm text-muted-foreground">{t(a.labelKey)}</dt>
+            <div key={a.key} className="col-span-2 grid grid-cols-subgrid">
+              <dt className="text-sm text-muted-foreground">{a.label}</dt>
               {/* 속성값은 번역하지 않는다 (policies/i18n) */}
               <dd className="text-sm font-semibold">{a.value}</dd>
             </div>
