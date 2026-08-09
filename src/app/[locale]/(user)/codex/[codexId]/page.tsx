@@ -102,7 +102,9 @@ export default async function CodexDetailPage({
       <header className="px-4 py-5 lg:px-0">
         {/* 대표 이미지 — **연결된 공개 아이템의 사진을 빌려 쓴다** (D-110).
             도감에는 사진 필드가 없고, 후보가 없으면 빈 자리로 남는다 */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border bg-muted lg:max-w-lg">
+        {/* ⚠️ 4:3 이 아니라 **정방형**이다 (D-131). 빌려 쓰는 아이템 사진이
+              이미 정방형이라 4:3 은 두 번 자르는 셈이 된다 */}
+          <div className="relative aspect-square w-full overflow-hidden rounded-lg border bg-muted lg:max-w-lg">
           {entry.imageUrl && (
             <Image
               src={entry.imageUrl}
