@@ -21,7 +21,11 @@
     "addItem": "아이템 등록",
     "emptyRoomTitle": "아직 아무것도 없어요",
     "emptyRoomDesc": "첫 물건을 등록하면 여기에 진열돼요",
-    "addFirstItem": "첫 아이템 등록하기"
+    "addFirstItem": "첫 아이템 등록하기",
+    "emptyRecordsTitle": "아직 기록이 없어요",
+    "emptyRecordsDesc": "물건에 얽힌 이야기를 남겨두면 나중에 그게 근거가 돼요",
+    "addFirstRecord": "첫 기록 쓰기",
+    "addRecord": "기록 쓰기"
   },
   "category": {
     "watch": "시계",

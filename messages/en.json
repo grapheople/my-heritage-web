@@ -21,7 +21,11 @@
     "addItem": "Add item",
     "emptyRoomTitle": "Nothing here yet",
     "emptyRoomDesc": "Add your first item and it will appear here",
-    "addFirstItem": "Add your first item"
+    "addFirstItem": "Add your first item",
+    "emptyRecordsTitle": "No records yet",
+    "emptyRecordsDesc": "Write down the story behind your things — it becomes proof later",
+    "addFirstRecord": "Write your first record",
+    "addRecord": "Write a record"
   },
   "category": {
     "watch": "Watches",

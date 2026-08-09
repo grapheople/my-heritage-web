@@ -41,22 +41,40 @@ export default async function MyRecordsPage({
       <RoomProfile
         roomName={room.name} bio={room.bio}
         level={room.level} itemCount={itemCount}
-          imageUrl={room.imageUrl}
+        imageUrl={room.imageUrl}
       />
       <RoomTabs active="records" />
+      {/*
+        ⚠️ **아이템 진열과 같은 모양이다** (D-133·D-134). 기록이 없을 때는
+        상단 버튼 대신 **유도 화면 하나만** 낸다 — 빈 목록 위에 작은 버튼이
+        떠 있는 것보다, 무엇을 하면 되는지 한 곳에서 말하는 편이 낫다.
+      */}
       <div className="lg:min-w-0">
-        <div className="flex justify-end px-4 py-3 lg:px-3">
-          <Link
-            href="/diaries/new"
-            className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-accent"
-          >
-            {t("diary.newTitle")}
-          </Link>
-        </div>
         {diaries.length === 0 ? (
-          <EmptyState title={t("empty.records")} />
+          <EmptyState
+            title={t("myRoom.emptyRecordsTitle")}
+            description={t("myRoom.emptyRecordsDesc")}
+            action={
+              <Link
+                href="/diaries/new"
+                className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                {t("myRoom.addFirstRecord")}
+              </Link>
+            }
+          />
         ) : (
-          <DiaryList diaries={diaries} isOwner />
+          <>
+            <div className="flex justify-end px-4 pt-4 lg:px-0">
+              <Link
+                href="/diaries/new"
+                className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground"
+              >
+                + {t("myRoom.addRecord")}
+              </Link>
+            </div>
+            <DiaryList diaries={diaries} isOwner />
+          </>
         )}
       </div>
     </div>
