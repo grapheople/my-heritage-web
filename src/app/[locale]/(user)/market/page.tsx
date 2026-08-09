@@ -6,7 +6,6 @@ import { MarketControls } from "@/components/domain/market-controls";
 import { getViewer } from "@/lib/auth/viewer";
 import { getMarketListings } from "@/lib/data/market";
 import { resolveCategory } from "@/lib/category-scope";
-import { CategoryBar } from "@/components/domain/category-bar";
 import { localeAlternates } from "@/lib/site";
 
 /**
@@ -54,8 +53,12 @@ export default async function MarketPage({
 
   return (
     <div>
-      <CategoryBar keys={scope.keys} active={category} />
-      <MarketControls currency={currency} sort={sort} />
+      <MarketControls
+        currency={currency}
+        sort={sort}
+        categoryKeys={scope.keys}
+        category={category}
+      />
 
       {listings.length === 0 ? (
         <EmptyState title={t("empty.market")} />

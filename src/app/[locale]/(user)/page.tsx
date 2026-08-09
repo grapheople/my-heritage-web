@@ -8,7 +8,6 @@ import { localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
 import { resolveCategory } from "@/lib/category-scope";
-import { CategoryBar } from "@/components/domain/category-bar";
 import { CategoryGate } from "@/components/domain/category-gate";
 
 /**
@@ -65,8 +64,7 @@ export default async function FeedPage({
 
   return (
     <div>
-      <CategoryBar keys={scope.keys} active={category} />
-      <FilterBar lang={lang} />
+      <FilterBar lang={lang} categoryKeys={scope.keys} category={category} />
 
       {/* ⚠️ 콘텐츠 **위에** 덮는다. 대체하지 않는다 — 크롤러는 피드를 읽어야
           하고(D-109) 관람자는 벽부터 만나면 안 된다(D-069) */}
