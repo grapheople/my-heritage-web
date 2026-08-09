@@ -17,7 +17,11 @@
     },
     "leftItems": "旅立ったアイテム",
     "itemCount": "{count, plural, other {アイテム#点}}",
-    "level": "Lv.{level}"
+    "level": "Lv.{level}",
+    "addItem": "アイテム登録",
+    "emptyRoomTitle": "まだ何もありません",
+    "emptyRoomDesc": "最初のアイテムを登録すると、ここに並びます",
+    "addFirstItem": "最初のアイテムを登録"
   },
   "category": {
     "watch": "時計",

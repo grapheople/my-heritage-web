@@ -17,7 +17,11 @@
     },
     "leftItems": "떠난 아이템",
     "itemCount": "{count, plural, other {아이템 #개}}",
-    "level": "Lv.{level}"
+    "level": "Lv.{level}",
+    "addItem": "아이템 등록",
+    "emptyRoomTitle": "아직 아무것도 없어요",
+    "emptyRoomDesc": "첫 물건을 등록하면 여기에 진열돼요",
+    "addFirstItem": "첫 아이템 등록하기"
   },
   "category": {
     "watch": "시계",

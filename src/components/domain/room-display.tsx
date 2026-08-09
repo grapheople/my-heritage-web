@@ -1,3 +1,6 @@
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { EmptyState } from "./empty-state";
 import { GoneSection } from "./gone-section";
 import type { ItemThumbData } from "./item-thumb";
 import { Section } from "./section";
@@ -24,19 +27,61 @@ export type RoomSection = {
  * | 섹션 순서 = 개수 내림차순 (호출부 책임) | D-075, FR-01-A-10 |
  * | 아이템 0건 카테고리는 숨김 | FR-01-A-04 |
  * | 떠난 아이템은 맨 아래·기본 접힘·0건이면 숨김 | D-023·D-086, FR-01-A-08·09·13 |
+ * | **본인 방이 비면 첫 등록을 유도** | D-133, 핸드오프 S-02 |
+ *
+ * ## ⚠️ 등록 진입점은 여기밖에 없었다
+ * `/items/new` 페이지는 있는데 **링크가 0곳**이었다 — 화면으로는 아이템을
+ * 등록할 방법이 없었다. 진열이 비어 있을 때 유도하는 것만으로는 부족하다.
+ * 이미 물건이 있는 유저도 계속 추가하므로 **상시 버튼**이 필요하다.
  */
 export function RoomDisplay({
   sections,
   goneItems,
   /** "더 보기" 경로 접두 — 본인 `/me`, 타인 `/rooms/{id}` */
   basePath,
+  owner = false,
 }: {
   sections: RoomSection[];
   goneItems: ItemThumbData[];
   basePath: string;
+  /** 본인 방인가 — 등록 진입점은 본인에게만 (핸드오프 S-03 "등록·수정 버튼이 없습니다") */
+  owner?: boolean;
 }) {
+  const t = useTranslations();
+  const hasItems = sections.some((s) => s.items.length > 0);
+
+  // 아이템도 떠난 것도 없는 본인 방 — 첫 등록을 유도한다
+  if (owner && !hasItems && goneItems.length === 0) {
+    return (
+      <div className="lg:min-w-0">
+        <EmptyState
+          title={t("myRoom.emptyRoomTitle")}
+          description={t("myRoom.emptyRoomDesc")}
+          action={
+            <Link
+              href="/items/new"
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              {t("myRoom.addFirstItem")}
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="lg:min-w-0">
+      {owner && (
+        <div className="flex justify-end px-4 pt-4 lg:px-0">
+          <Link
+            href="/items/new"
+            className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            + {t("myRoom.addItem")}
+          </Link>
+        </div>
+      )}
       {sections
         .filter((s) => s.items.length > 0)
         .map((s) => (
