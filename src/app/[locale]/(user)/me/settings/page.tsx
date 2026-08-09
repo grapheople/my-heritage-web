@@ -1,7 +1,9 @@
 import { getTranslations } from "next-intl/server";
+import { ProfileForm } from "@/components/domain/profile-form";
 import { RoomVisibilityToggle } from "@/components/domain/room-visibility-toggle";
 import { Link, redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
+import { ROOM_NAME_MAX } from "@/lib/profile";
 import { getProfileSettings } from "@/lib/data/settings";
 
 /**
@@ -33,31 +35,25 @@ export default async function ProfileSettingsPage({
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">{t("settings.title")}</h1>
 
-      <section className="mt-5 flex flex-col gap-4">
-        <div>
-          <label className="text-sm font-semibold" htmlFor="room-name">
-            {t("settings.roomName")}
-          </label>
-          <input
-            id="room-name" defaultValue={p.roomName}
-            className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm"
-          />
-          {/* 유일값이 아니다 (FR-05-A-06) */}
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {t("settings.roomNameHint")}
-          </p>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold" htmlFor="bio">
-            {t("settings.bio")}
-          </label>
-          <textarea
-            id="bio" defaultValue={p.bio} rows={3}
-            className="mt-1.5 w-full resize-y rounded-md border px-3 py-2 text-sm"
-          />
-        </div>
-      </section>
+      <ProfileForm
+        initial={{
+          roomName: p.roomName,
+          bio: p.bio,
+          imageUrl: p.imageUrl,
+          preferredCategories: p.preferredCategories,
+        }}
+        categoryLabels={Object.fromEntries(
+          ["watch", "shoes", "bicycle", "apparel", "camping", "deskterior"].map(
+            (k) => [k, t(`category.${k}`)],
+          ),
+        )}
+        roomNameMax={ROOM_NAME_MAX}
+        labels={{
+          roomName: t("settings.roomName"),
+          roomNameHint: t("settings.roomNameHint"),
+          bio: t("settings.bio"),
+        }}
+      />
 
       <section className="mt-6 border-t pt-5">
         <RoomVisibilityToggle

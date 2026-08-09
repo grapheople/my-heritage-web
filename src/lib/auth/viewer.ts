@@ -59,8 +59,14 @@ async function devViewer(): Promise<Viewer | null> {
 
   // 우회로가 켜져 있는 동안만 읽는다. `auth()` 도 쿠키를 읽으므로
   // 렌더 전략(정적/동적)에 새로 미치는 영향은 없다
-  const jar = await cookies();
-  if (jar.get("dev-logged-out")?.value === "1") return null;
+  // ⚠️ 스코프 밖(스크립트)에서는 쿠키가 없다. 던지면 위 `getViewer` 의
+  // try/catch 가 다시 여기로 들어와 무한이다 — 여기서 흡수한다
+  try {
+    const jar = await cookies();
+    if (jar.get("dev-logged-out")?.value === "1") return null;
+  } catch {
+    // 쿠키가 없으면 "로그아웃 흉내"도 없다. 그대로 개발 유저로 간주한다
+  }
 
   const user = await prisma.user.findUnique({
     where: { provider_subject: { provider: "GOOGLE", subject: DEV_SUBJECT } },
@@ -81,7 +87,18 @@ async function devViewer(): Promise<Viewer | null> {
 
 /** 로그인한 뷰어. 비로그인이면 `null` */
 export async function getViewer(): Promise<Viewer | null> {
-  const session = await auth();
+  // ⚠️ `auth()` 는 **요청 스코프**를 요구해서 스크립트에서 부르면 던진다.
+  // 여기서 던지면 Server Action 을 스크립트로 검증할 수 없고, **검증할 수
+  // 없는 코드가 곧 미검증 위험**이다 — 개발 우회로가 D-078·D-096 을 가렸던
+  // 일이 그렇게 생겼다. `getAdmin()` 이 같은 이유로 같은 처리를 한다.
+  //
+  // 프로덕션에서는 `devViewer()` 가 `NODE_ENV` 에서 막히므로 열리지 않는다.
+  let session = null;
+  try {
+    session = await auth();
+  } catch {
+    return devViewer();
+  }
   if (session?.user?.id) {
     return {
       userId: session.user.id,
@@ -98,4 +115,25 @@ export async function getViewer(): Promise<Viewer | null> {
  */
 export async function isLoggedIn(): Promise<boolean> {
   return (await getViewer()) !== null;
+}
+
+/**
+ * 가입 직후 프로필 설정(S-24)이 필요한가 (FR-09-A-02).
+ *
+ * ## ⚠️ 세션 값만 믿으면 온보딩을 무한 반복한다
+ * `needsRoomName` 은 **로그인 시점에 발급된 JWT** 에 박혀 있다. 방 이름을
+ * 저장해도 그 토큰은 재로그인 전까지 `true` 인 채로 남는다 — 가드가 그 값만
+ * 보면 저장하자마자 다시 온보딩으로 돌아온다.
+ *
+ * 그래서 **토큰이 `true` 라고 말할 때만 DB 로 확인한다.** 토큰이 `false` 면
+ * 조회하지 않는다 — 대부분의 요청이 그쪽이라 비용이 붙지 않는다.
+ */
+export async function needsOnboarding(viewer: Viewer): Promise<boolean> {
+  if (!viewer.needsRoomName) return false;
+  if (!viewer.roomId) return true;
+  const room = await prisma.room.findUnique({
+    where: { id: viewer.roomId },
+    select: { name: true },
+  });
+  return !room?.name;
 }
