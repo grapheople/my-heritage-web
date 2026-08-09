@@ -79,29 +79,44 @@ export default async function ItemDetailPage({
         정방형이라(D-129) 16:9 는 위아래를 **한 번 더 잘라낸다.** 제품에서
         가장 중요한 사진에서 40% 넘게 사라진다.
       */}
-      <div className="relative aspect-square w-full overflow-hidden border-b bg-muted lg:max-w-2xl">
-        {item.photos[0] && (
-          <Image
-            src={item.photos[0]}
-            alt={item.name}
-            fill
-            sizes="(min-width:1024px) 1200px, 100vw"
-            className="object-cover"
-            priority
-          />
+      {/*
+        ⚠️ **데스크톱에서 폭을 묶는다** (D-136). 모바일은 화면을 꽉 채우는
+        것이 맞지만, `lg` 에서 그대로 두면 정사각형 대표 이미지가 **672px**,
+        썸네일이 **장당 300px** 로 나온다 — 사진이 화면을 잡아먹고 정보가
+        한참 아래로 밀린다. 정방형으로 바꾸면서(D-131) 세로가 커진 결과다.
+      */}
+      <div className="lg:max-w-[420px]">
+        <div className="relative aspect-square w-full overflow-hidden border-b bg-muted">
+          {item.photos[0] && (
+            <Image
+              src={item.photos[0]}
+              alt={item.name}
+              fill
+              // 실제로 그려지는 크기와 맞춰야 필요 이상으로 큰 파일을 받지 않는다
+              sizes="(min-width:1024px) 420px, 100vw"
+              className="object-cover"
+              priority
+            />
+          )}
+        </div>
+
+        {/* 나머지 사진 (FR-07-A-01) — 대표 이미지와 같은 폭 안에서 */}
+        {item.photos.length > 1 && (
+          <div className="grid grid-cols-4 gap-1 border-b p-1">
+            {item.photos.slice(1).map((url) => (
+              <div key={url} className="relative aspect-square overflow-hidden rounded-sm bg-muted">
+                <Image
+                  src={url}
+                  alt=""
+                  fill
+                  sizes="(min-width:1024px) 104px, 25vw"
+                  className="object-cover"
+                />
+              </div>
+            ))}
+          </div>
         )}
       </div>
-
-      {/* 나머지 사진 (FR-07-A-01) */}
-      {item.photos.length > 1 && (
-        <div className="grid grid-cols-4 gap-1 border-b p-1">
-          {item.photos.slice(1).map((url) => (
-            <div key={url} className="relative aspect-square overflow-hidden rounded-sm bg-muted">
-              <Image src={url} alt="" fill sizes="25vw" className="object-cover" />
-            </div>
-          ))}
-        </div>
-      )}
 
       <header className="px-4 py-5 lg:px-0">
         <div className="flex flex-wrap items-center gap-1.5">
