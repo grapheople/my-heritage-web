@@ -6,6 +6,7 @@ import { SaleStatusActions } from "@/components/domain/sale-status-actions";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { ExternalLinkWarning } from "@/components/common/external-link-warning";
 import { Link } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail, isItemIndexable } from "@/lib/data/item";
 import { formatPrice, ownershipDuration } from "@/lib/format";
@@ -38,10 +39,10 @@ import { localeAlternates } from "@/lib/site";
 export async function generateMetadata({
   params,
 }: PageProps<"/[locale]/items/[itemId]">): Promise<Metadata> {
-  const { itemId } = await params;
+  const { itemId, locale } = await params;
   // ⚠️ 메타데이터는 **비로그인 기준**으로 판정해야 한다 — 뷰어를 넘기면
   // 소유자에게만 보이는 아이템이 색인 대상으로 잡힌다 (D-093)
-  const item = await getItemDetail(itemId, null);
+  const item = await getItemDetail(itemId, null, locale as Locale);
   // 기본값은 layout 의 noindex 다. 색인 조건을 만족할 때만 켠다 (D-093)
   if (!item || !isItemIndexable(item)) return {};
   return {
@@ -54,13 +55,13 @@ export async function generateMetadata({
 export default async function ItemDetailPage({
   params,
 }: PageProps<"/[locale]/items/[itemId]">) {
-  const { itemId } = await params;
+  const { itemId, locale } = await params;
   const t = await getTranslations();
 
   const viewer = await getViewer();
   // 공개 판정(Room AND Item)·차단·소유 정보 제거는 조회 계층에서 끝난다.
   // 볼 수 없는 아이템은 **응답 자체가 없다** (D-019, D-083)
-  const item = await getItemDetail(itemId, viewer);
+  const item = await getItemDetail(itemId, viewer, locale as Locale);
   if (!item) notFound();
 
   const isOwner = viewer?.roomId === item.roomId;
@@ -189,8 +190,8 @@ export default async function ItemDetailPage({
       {item.attrs.length > 0 && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-t px-4 py-5 lg:px-0">
           {item.attrs.map((a) => (
-            <div key={a.labelKey} className="col-span-2 grid grid-cols-subgrid">
-              <dt className="text-sm text-muted-foreground">{t(a.labelKey)}</dt>
+            <div key={a.key} className="col-span-2 grid grid-cols-subgrid">
+              <dt className="text-sm text-muted-foreground">{a.label}</dt>
               <dd className="text-sm font-semibold">{a.value}</dd>
             </div>
           ))}
@@ -207,19 +208,19 @@ export default async function ItemDetailPage({
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
               {item.owner.purchasedFrom && (
                 <div className="col-span-2 grid grid-cols-subgrid">
-                  <dt className="text-sm text-muted-foreground">{t("attr.purchasedFrom")}</dt>
+                  <dt className="text-sm text-muted-foreground">{item.labels.purchasedFrom}</dt>
                   <dd className="text-sm">{item.owner.purchasedFrom}</dd>
                 </div>
               )}
               {item.owner.purchaseDate && (
                 <div className="col-span-2 grid grid-cols-subgrid">
-                  <dt className="text-sm text-muted-foreground">{t("attr.purchaseDate")}</dt>
+                  <dt className="text-sm text-muted-foreground">{item.labels.purchaseDate}</dt>
                   <dd className="text-sm">{item.owner.purchaseDate}</dd>
                 </div>
               )}
               {item.owner.purchasePrice && (
                 <div className="col-span-2 grid grid-cols-subgrid">
-                  <dt className="text-sm text-muted-foreground">{t("attr.purchasePrice")}</dt>
+                  <dt className="text-sm text-muted-foreground">{item.labels.purchasePrice}</dt>
                   <dd className="text-sm">{item.owner.purchasePrice}</dd>
                 </div>
               )}
@@ -237,7 +238,7 @@ export default async function ItemDetailPage({
             href={item.refUrl}
             className="text-sm text-muted-foreground underline"
           >
-            {t("attr.refUrl")}
+            {item.labels.referenceUrl}
           </ExternalLinkWarning>
         </section>
       )}

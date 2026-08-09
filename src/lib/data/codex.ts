@@ -5,6 +5,8 @@ import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
+import type { Locale } from "@/i18n/routing";
+import { pickAttrLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /** 소유자 목록·보유자 수 집계에 공통으로 쓰는 아이템 조건 */
@@ -256,7 +258,10 @@ export async function resolveMergedCodex(codexId: string): Promise<string | null
  * 도감 자체에는 속성 테이블이 없다 — 연결된 아이템의 매칭 키 속성으로 만든다.
  * 값이 비면 렌더하지 않는다.
  */
-export async function getCodexAttrs(codexId: string): Promise<CodexAttr[]> {
+export async function getCodexAttrs(
+  codexId: string,
+  locale: Locale,
+): Promise<CodexAttr[]> {
   const c = await prisma.codexItem.findUnique({
     where: { id: codexId },
     select: {
@@ -269,7 +274,20 @@ export async function getCodexAttrs(codexId: string): Promise<CodexAttr[]> {
   if (!c) return [];
 
   const attrs: CodexAttr[] = [];
-  if (c.uniqueId) attrs.push({ labelKey: "attr.uniqueId", value: c.uniqueId });
+  // ⚠️ 라벨을 DB 에서 읽는다 (D-135) — 메시지 파일의 `attr.*` 키는 어드민이
+  // 추가한 속성을 덮지 못하고, 실제로 4종이 어긋나 화면이 터졌다
+  const labels = await prisma.attributeDefinition.findMany({
+    where: { key: { in: ["uniqueId", "brand"] } },
+    select: { key: true, labelKo: true, labelJa: true, labelEn: true },
+  });
+  const labelOf = (key: string) => {
+    const d = labels.find((l) => l.key === key);
+    return d ? pickAttrLabel(locale, d) : key;
+  };
+
+  if (c.uniqueId) {
+    attrs.push({ key: "uniqueId", label: labelOf("uniqueId"), value: c.uniqueId });
+  }
 
   // 연결된 아이템 중 아무거나 하나에서 브랜드를 가져온다 — 같은 도감이면
   // 브랜드는 같다 (D-013 매칭 키에 브랜드가 포함되기 때문)
@@ -278,7 +296,7 @@ export async function getCodexAttrs(codexId: string): Promise<CodexAttr[]> {
     select: { brand: { select: { name: true } } },
   });
   if (sample?.brand) {
-    attrs.unshift({ labelKey: "attr.brand", value: sample.brand.name });
+    attrs.unshift({ key: "brand", label: labelOf("brand"), value: sample.brand.name });
   }
   return attrs;
 }
