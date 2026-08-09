@@ -53,7 +53,10 @@ export function CodexRow({
           {!entry.verified && <StatusBadge variant="unverified" />}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {t(entry.categoryKey)} · {entry.uniqueId}
+          {/* ⚠️ 복합 매칭 키 카테고리는 고유번호가 없다 (자전거·옷·캠핑·
+              데스크테리어). 무조건 이으면 "자전거 · " 로 점만 남는다.
+              그 카테고리는 연식 등이 이미 명칭에 들어가 있다 */}
+          {[t(entry.categoryKey), entry.uniqueId].filter(Boolean).join(" · ")}
         </p>
         {matchedAlias && (
           <p className="mt-0.5 text-xs text-muted-foreground">

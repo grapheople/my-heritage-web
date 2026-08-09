@@ -10,26 +10,41 @@ import { createCodexItem } from "@/lib/actions/admin";
  * 미검증인데(FR-03-B-01) 반대다 — 운영자가 확인해서 넣은 것이므로 검증 큐에
  * 다시 올릴 이유가 없다. 화면에서 그 사실을 밝힌다.
  *
- * ⚠️ **고유값이 필수다** (FR-04-A-04). 없으면 어떤 아이템에도 연결되지 않아
- * 도감이 만들어져도 비어 있다.
+ * ⚠️ **매칭 키 값이 필수다** (FR-04-A-04). 없으면 어떤 아이템에도 연결되지
+ * 않아 도감이 만들어져도 비어 있다.
+ *
+ * ⚠️ **입력칸은 카테고리의 매칭 키 구성만큼 생긴다.** 시계·신발은 고유번호
+ * 한 칸이지만 자전거는 브랜드·모델명·제조년도 세 칸이다. 한 칸으로 받으면
+ * 유저 아이템이 만드는 키와 형식이 달라 **영영 매칭되지 않는다** — 도감은
+ * 멀쩡히 만들어지고 보유자만 영원히 0명이라 알아채기 어렵다.
  *
  * 설명은 3개 언어다 (D-010) — 검증된 도감이므로 번역 대상이다 (FR-07-A-05).
  */
-const CATEGORIES = [
-  { key: "watch", label: "시계" }, { key: "shoes", label: "신발" },
-  { key: "bicycle", label: "자전거" }, { key: "apparel", label: "옷" },
-  { key: "camping", label: "캠핑" }, { key: "deskterior", label: "데스크테리어" },
-];
+const LABEL: Record<string, string> = {
+  watch: "시계", shoes: "신발", bicycle: "자전거",
+  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어",
+};
 
-export function CodexCreateForm() {
+/** A-03 에서 정한 매칭 키 구성 — 서버가 넘긴다 (`getCodexKeyForms`) */
+export type CodexKeyForm = {
+  categoryKey: string;
+  parts: { key: string; label: string }[];
+};
+
+export function CodexCreateForm({ forms }: { forms: CodexKeyForm[] }) {
   const [open, setOpen] = useState(false);
-  const [categoryKey, setCategoryKey] = useState("watch");
+  const [categoryKey, setCategoryKey] = useState(forms[0]?.categoryKey ?? "watch");
   const [displayName, setDisplayName] = useState("");
-  const [uniqueId, setUniqueId] = useState("");
+  const [keyValues, setKeyValues] = useState<Record<string, string>>({});
   const [desc, setDesc] = useState({ ko: "", ja: "", en: "" });
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [pending, startTransition] = useTransition();
+
+  const parts = forms.find((f) => f.categoryKey === categoryKey)?.parts ?? [];
+  // 전부는 아니어도 **하나는** 있어야 한다. `brand` 는 마스터 대기로 빌 수
+  // 있으므로(D-046) 전부 필수로 막지 않는다 — 서버도 같은 기준이다
+  const filled = parts.some((p) => (keyValues[p.key] ?? "").trim());
 
   if (!open) {
     return (
@@ -51,12 +66,12 @@ export function CodexCreateForm() {
         setDone("");
         startTransition(async () => {
           const res = await createCodexItem({
-            categoryKey, displayName, uniqueId, descriptions: desc,
+            categoryKey, displayName, keyValues, descriptions: desc,
           });
           if (res.ok) {
             setDone(`"${displayName}" 을 검증됨 상태로 등록했습니다.`);
             setDisplayName("");
-            setUniqueId("");
+            setKeyValues({});
             setDesc({ ko: "", ja: "", en: "" });
           } else {
             setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
@@ -84,8 +99,10 @@ export function CodexCreateForm() {
             onChange={(e) => setCategoryKey(e.target.value)}
             className="w-40 rounded-md border px-3 py-2 text-sm"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c.key} value={c.key}>{c.label}</option>
+            {forms.map((f) => (
+              <option key={f.categoryKey} value={f.categoryKey}>
+                {LABEL[f.categoryKey] ?? f.categoryKey}
+              </option>
             ))}
           </select>
         </label>
@@ -102,21 +119,32 @@ export function CodexCreateForm() {
           {/* 도감 명칭은 전 언어 공통 원문 1개다 — 번역하지 않는다 (D-009) */}
           <span className="text-xs text-muted-foreground">번역하지 않습니다 (D-009)</span>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-semibold">
-            고유값 <span className="text-destructive">*</span>
-          </span>
-          <input
-            value={uniqueId}
-            onChange={(e) => setUniqueId(e.target.value)}
-            placeholder="126610LN"
-            className="w-48 rounded-md border px-3 py-2 text-sm"
-          />
-          <span className="text-xs text-muted-foreground">
-            없으면 아이템에 연결되지 않습니다 (FR-04-A-04)
-          </span>
-        </label>
+        {parts.map((p) => (
+          <label key={p.key} className="flex flex-col gap-1 text-sm">
+            <span className="font-semibold">
+              {p.label} <span className="text-destructive">*</span>
+            </span>
+            <input
+              value={keyValues[p.key] ?? ""}
+              onChange={(e) => setKeyValues({ ...keyValues, [p.key]: e.target.value })}
+              className="w-48 rounded-md border px-3 py-2 text-sm"
+            />
+          </label>
+        ))}
       </div>
+
+      {parts.length === 0 ? (
+        <p className="rounded-md border border-warn bg-warn-bg p-3 text-xs text-warn">
+          이 카테고리는 매칭 키가 아직 구성되지 않았습니다. A-03 에서 먼저
+          지정해야 도감이 아이템에 연결됩니다 (FR-01-A-03).
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          매칭 키: <b>{parts.map((p) => p.label).join(" + ")}</b> — 유저 아이템도
+          같은 조합으로 연결됩니다. 비우면 어떤 아이템에도 연결되지 않습니다
+          (FR-04-A-04).
+        </p>
+      )}
 
       <div>
         <span className="text-sm font-semibold">
@@ -143,7 +171,7 @@ export function CodexCreateForm() {
       <div>
         <button
           type="submit"
-          disabled={pending || !displayName.trim() || !uniqueId.trim()}
+          disabled={pending || !displayName.trim() || !filled}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
         >
           {pending ? "등록 중…" : "등록"}

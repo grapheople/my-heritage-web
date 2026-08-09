@@ -3,6 +3,7 @@
 import { getAdmin } from "@/lib/auth/admin";
 import { fail, revalidate, type ActionResult } from "@/lib/actions/shared";
 import { normalizeBrandToken } from "@/lib/brand-search";
+import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -927,32 +928,50 @@ export async function setAdminActiveAs(
 export async function createCodexItem(input: {
   categoryKey: string;
   displayName: string;
-  uniqueId: string;
+  /**
+   * 매칭 키 속성별 값. **단일 값을 받지 않는다** — 복합 키 카테고리에서
+   * 이어붙인 문자열을 받으면 유저 아이템과 영영 만나지 않는다
+   * (`lib/data/admin.ts` `getCodexKeyForms` 주석 참조)
+   */
+  keyValues: Record<string, string>;
   descriptions?: { ko?: string; ja?: string; en?: string };
 }): Promise<ActionResult<{ codexId: string }>> {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
 
   const displayName = input.displayName.trim();
-  const uniqueId = input.uniqueId.trim();
   if (!displayName) return fail({ displayName: "명칭을 입력해주세요" });
-  // 매칭 키 값이 없으면 어떤 아이템에도 연결되지 않는다 (FR-04-A-04)
-  if (!uniqueId) return fail({ uniqueId: "고유값을 입력해주세요" });
 
   const category = await prisma.category.findUnique({
     where: { key: input.categoryKey },
-    select: { id: true },
+    select: { id: true, matchingKey: { select: { attributeKeys: true } } },
   });
   if (!category) return fail({}, "카테고리를 찾을 수 없습니다");
 
-  const normalizedKey = normalizeBrandToken(uniqueId);
+  const keyOrder = category.matchingKey?.attributeKeys ?? [];
+  if (keyOrder.length === 0) {
+    // A-03 미구성. 여기서 임의로 `uniqueId` 를 가정하면 나중에 운영이 실제
+    // 매칭 키를 정하는 순간 이 도감만 다른 규칙으로 남는다
+    return fail({}, "이 카테고리의 매칭 키가 아직 구성되지 않았습니다 (A-03)");
+  }
+
+  // 유저 등록과 **같은 함수**를 쓴다 — 규칙이 갈리면 조용히 안 만나기 시작한다
+  const key = buildMatchingKey(keyOrder, input.keyValues);
+  if (!key) {
+    // 매칭 키 값이 없으면 어떤 아이템에도 연결되지 않는다 (FR-04-A-04)
+    return fail({ [keyOrder[0]]: "매칭 키 값을 입력해주세요" });
+  }
+  const uniqueId = uniqueIdForCodex(keyOrder, key.raw);
+  const normalizedKey = key.normalizedKey;
   const dup = await prisma.codexItem.findFirst({
     where: { categoryId: category.id, normalizedKey },
     select: { id: true, displayName: true },
   });
   // 차단하고 **기존 도감을 알려준다** — 그냥 막으면 어드민이 왜 막혔는지 모른다
   if (dup) {
-    return fail({ uniqueId: `이미 있는 도감입니다 — "${dup.displayName}"` });
+    // 필드 오류는 실제 존재하는 입력칸에 붙여야 화면에 뜬다 — 복합 키에는
+    // `uniqueId` 칸이 없다
+    return fail({ [keyOrder[0]]: `이미 있는 도감입니다 — "${dup.displayName}"` });
   }
 
   const made = await prisma.codexItem.create({

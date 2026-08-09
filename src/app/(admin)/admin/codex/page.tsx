@@ -4,10 +4,13 @@ import { AdminActionButton } from "@/components/admin/action-button";
 import { CodexCreateForm } from "@/components/admin/codex-create-form";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { setCodexVerification } from "@/lib/actions/admin";
-import { getAdminCodex } from "@/lib/data/admin";
+import { getAdminCodex, getCodexKeyForms } from "@/lib/data/admin";
 
 const CAT: Record<string, string> = {
   "category.watch": "시계", "category.shoes": "신발", "category.camping": "캠핑",
+  // ⚠️ 3개가 빠져 있어 자전거·옷·데스크테리어 도감의 카테고리 칸이 비었다
+  "category.bicycle": "자전거", "category.apparel": "옷",
+  "category.deskterior": "데스크테리어",
 };
 
 /**
@@ -21,13 +24,16 @@ const CAT: Record<string, string> = {
  * 설명은 검증본만 3개 언어다 (FR-07-A-05) — A-05 검증 큐에서 입력한다.
  */
 export default async function AdminCodexPage() {
-  const codex = await getAdminCodex();
+  const [codex, keyForms] = await Promise.all([
+    getAdminCodex(),
+    getCodexKeyForms(),
+  ]);
   return (
     <AdminPage
       id="A-04" title="도감 목록"
       desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02)."
       action={
-        <CodexCreateForm />
+        <CodexCreateForm forms={keyForms} />
       }
     >
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
