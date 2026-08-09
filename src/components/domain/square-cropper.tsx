@@ -20,11 +20,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * 그때는 크롭을 건너뛰고 원본을 그대로 보낸다. 서버가 가운데를 자른다.
  * 여기서 막으면 아이폰 유저가 사진을 못 올린다.
  */
-const VIEW = 280;
+/**
+ * 미리보기 한 변의 **최대**값. 실제 값은 화면 폭에 맞춰 줄어든다.
+ *
+ * ⚠️ **고정값으로 두면 좁은 기기에서 미리보기가 거짓말을 한다.** 320px 폭
+ * 기기에서는 팝업 안쪽이 256px 라 280px 상자가 잘리는데, 저장은 잘리지 않은
+ * 기준으로 이뤄져 **보이는 것과 저장되는 것이 달라진다.** 크롭 UI 의 존재
+ * 이유가 "보이는 것이 저장된다"이므로 이건 그냥 버그다.
+ */
+const MAX_VIEW = 280;
 /** 출력 한 변. 서버가 다시 줄이므로 넉넉하면 된다 */
 const OUT = 1600;
-
-type Loaded = { bitmap: ImageBitmap; baseScale: number };
 
 export function SquareCropper({
   file,
@@ -40,21 +46,33 @@ export function SquareCropper({
   index: number;
   total: number;
 }) {
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState(MAX_VIEW);
+
+  // 실제로 그릴 수 있는 폭을 재서 쓴다 — 위 주석 참조
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = Math.round(entry.contentRect.width);
+      if (w > 0) setView(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let dead = false;
     createImageBitmap(file)
-      .then((bitmap) => {
-        if (dead) return bitmap.close();
-        // 짧은 변이 뷰포트를 채우는 배율 — 처음부터 빈 곳이 없어야 한다
-        const baseScale = VIEW / Math.min(bitmap.width, bitmap.height);
-        setLoaded({ bitmap, baseScale });
+      .then((bm) => {
+        if (dead) return bm.close();
+        setBitmap(bm);
         setZoom(1);
         setOffset({ x: 0, y: 0 });
       })
@@ -67,50 +85,58 @@ export function SquareCropper({
     };
   }, [file]);
 
+  /**
+   * 짧은 변이 뷰포트를 채우는 배율 — 처음부터 빈 곳이 없어야 한다.
+   *
+   * ⚠️ 디코드와 분리해 둔다. 한 값으로 묶으면 **화면 폭이 바뀔 때마다 이미지를
+   * 다시 디코드**하고 유저가 맞춘 위치까지 초기화된다.
+   */
+  const baseScale = bitmap
+    ? view / Math.min(bitmap.width, bitmap.height)
+    : 1;
+
   /** 이동 가능 범위 — 사진 밖의 빈 영역이 보이지 않게 가둔다 */
   const clamp = useCallback(
-    (next: { x: number; y: number }, z: number, l: Loaded) => {
-      const w = l.bitmap.width * l.baseScale * z;
-      const h = l.bitmap.height * l.baseScale * z;
-      const mx = Math.max(0, (w - VIEW) / 2);
-      const my = Math.max(0, (h - VIEW) / 2);
+    (next: { x: number; y: number }, z: number, bm: ImageBitmap, scale: number) => {
+      const w = bm.width * scale * z;
+      const h = bm.height * scale * z;
+      const mx = Math.max(0, (w - view) / 2);
+      const my = Math.max(0, (h - view) / 2);
       return {
         x: Math.min(mx, Math.max(-mx, next.x)),
         y: Math.min(my, Math.max(-my, next.y)),
       };
     },
-    [],
+    [view],
   );
 
   // 미리보기 그리기
   useEffect(() => {
     const c = canvasRef.current;
-    if (!c || !loaded) return;
+    if (!c || !bitmap) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    const { bitmap, baseScale } = loaded;
     const w = bitmap.width * baseScale * zoom;
     const h = bitmap.height * baseScale * zoom;
-    ctx.clearRect(0, 0, VIEW, VIEW);
+    ctx.clearRect(0, 0, view, view);
     ctx.drawImage(
       bitmap,
-      (VIEW - w) / 2 + offset.x,
-      (VIEW - h) / 2 + offset.y,
+      (view - w) / 2 + offset.x,
+      (view - h) / 2 + offset.y,
       w,
       h,
     );
-  }, [loaded, zoom, offset]);
+  }, [bitmap, baseScale, zoom, offset, view]);
 
   function confirm() {
-    if (!loaded) return;
-    const { bitmap, baseScale } = loaded;
+    if (!bitmap) return;
     const out = document.createElement("canvas");
     out.width = OUT;
     out.height = OUT;
     const ctx = out.getContext("2d");
     if (!ctx) return;
     // 화면 좌표를 그대로 출력 크기로 확대한다 — 보이는 것이 저장된다
-    const k = OUT / VIEW;
+    const k = OUT / view;
     const w = bitmap.width * baseScale * zoom * k;
     const h = bitmap.height * baseScale * zoom * k;
     ctx.drawImage(
@@ -159,24 +185,28 @@ export function SquareCropper({
 
   return (
     <Shell index={index} total={total} onCancel={onCancel}>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         사진은 <b>정사각형</b>으로 저장돼요. 끌어서 위치를 맞춰주세요.
       </p>
 
       <div
-        className="relative mt-3 touch-none overflow-hidden rounded-lg bg-muted"
-        style={{ width: VIEW, height: VIEW }}
+        // ⚠️ `mx-auto` 가 없으면 고정 폭(280px) 블록이라 팝업 안에서 **왼쪽에
+        // 붙는다.** 아래 슬라이더·버튼은 전체 폭이라 크롭 상자만 어긋나 보였다
+        ref={boxRef}
+        className="relative mx-auto mt-3 aspect-square w-full touch-none overflow-hidden rounded-lg bg-muted"
+        style={{ maxWidth: MAX_VIEW }}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
         }}
         onPointerMove={(e) => {
-          if (!drag.current || !loaded) return;
+          if (!drag.current || !bitmap) return;
           setOffset(
             clamp(
               { x: e.clientX - drag.current.x, y: e.clientY - drag.current.y },
               zoom,
-              loaded,
+              bitmap,
+              baseScale,
             ),
           );
         }}
@@ -184,7 +214,7 @@ export function SquareCropper({
           drag.current = null;
         }}
       >
-        <canvas ref={canvasRef} width={VIEW} height={VIEW} />
+        <canvas ref={canvasRef} width={view} height={view} />
         {/* 가이드 — 잘리는 경계가 어디인지 보여준다 */}
         <div className="pointer-events-none absolute inset-0 border-2 border-background/80" />
         <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
@@ -192,7 +222,7 @@ export function SquareCropper({
             <span key={i} className="border border-background/25" />
           ))}
         </div>
-        {!loaded && (
+        {!bitmap && (
           <span className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
             불러오는 중…
           </span>
@@ -210,7 +240,7 @@ export function SquareCropper({
           onChange={(e) => {
             const z = Number(e.target.value);
             setZoom(z);
-            if (loaded) setOffset((o) => clamp(o, z, loaded));
+            if (bitmap) setOffset((o) => clamp(o, z, bitmap, baseScale));
           }}
           className="flex-1"
         />
@@ -219,7 +249,7 @@ export function SquareCropper({
       <div className="mt-4 flex gap-2">
         <button
           type="button"
-          disabled={!loaded}
+          disabled={!bitmap}
           onClick={confirm}
           className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40"
         >
