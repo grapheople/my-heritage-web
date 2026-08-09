@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { SquareCropper } from "@/components/domain/square-cropper";
 
 /**
  * 사진 업로드 (D-101, D-037).
@@ -21,6 +22,11 @@ import { useRef, useState, useTransition } from "react";
  * ## ⚠️ EXIF 는 서버가 지운다
  * 클라이언트에서 지우는 방법도 있지만 **우회된다** — 요청을 직접 보내면
  * 그만이다. 위치정보 제거는 `lib/storage.ts` 에서만 일어난다 (D-101).
+ *
+ * ## ⚠️ 정방형 크롭을 **고르는 즉시** 보여준다 (D-129)
+ * 저장은 항상 정방형이다. 크롭 화면이 없으면 유저는 어디가 잘리는지 모른 채
+ * 올리고, 시계 문자판이 날아간 뒤에야 알게 된다. 여러 장을 고르면 **한 장씩**
+ * 차례로 묻는다 — 한꺼번에 자르면 어느 사진 얘기인지 알 수 없다.
  *
  * 실패한 장은 목록에 넣지 않는다. "올라간 것처럼 보이는데 저장은 안 된" 상태가
  * 제일 나쁘다.
@@ -45,36 +51,88 @@ export function PhotoUploader({
 }) {
   const t = useTranslations();
   const inputRef = useRef<HTMLInputElement>(null);
+  /**
+   * ⚠️ **최신 목록을 ref 로 들고 있는다.** `onChange` 는 상태 setter 가 아니라
+   * 함수형 갱신을 쓸 수 없다. 앞 장 업로드가 끝나기 전에 다음 장을 확정하면
+   * 클로저에 갇힌 옛 `urls` 위에 덮어써서 **먼저 올린 사진이 사라진다.**
+   */
+  const latest = useRef(urls);
+  // 렌더 중에 ref 를 쓰면 안 된다 — 밖에서 목록이 바뀐 경우만 여기서 맞춘다.
+  // 업로드 성공 시에는 `upload()` 안에서 **동기로** 갱신한다 (그래야 바로
+  // 다음 장이 최신 값을 본다)
+  useEffect(() => {
+    latest.current = urls;
+  }, [urls]);
   const [failed, setFailed] = useState("");
   const [pending, startTransition] = useTransition();
 
+  /** 크롭 대기열 — 고른 순서대로 한 장씩 묻는다 */
+  const [queue, setQueue] = useState<File[]>([]);
+  const [cursor, setCursor] = useState(0);
+
   function pick(files: FileList | null) {
     if (!files || files.length === 0) return;
+    setFailed("");
     // 남은 자리만큼만 받는다. 넘치면 조용히 자르지 않고 알린다
     const room = max - urls.length;
     const chosen = [...files].slice(0, room);
     if (files.length > room) setFailed(t("reg.photoMax", { max }));
+    if (chosen.length === 0) return;
+    setQueue(chosen);
+    setCursor(0);
+  }
 
+  function upload(blob: Blob, name: string) {
     startTransition(async () => {
-      const added: string[] = [];
-      for (const file of chosen) {
-        const body = new FormData();
-        body.append("file", file);
-        try {
-          const res = await fetch("/api/upload", { method: "POST", body });
-          const data = (await res.json()) as { url?: string; error?: string };
-          if (res.ok && data.url) added.push(data.url);
-          else setFailed(data.error ?? t("error.generic"));
-        } catch {
-          setFailed(t("error.generic"));
+      const body = new FormData();
+      // 크롭 결과는 WebP 다. 이름 확장자를 맞춰야 서버 형식 검사와 어긋나지 않는다
+      body.append("file", new File([blob], name, { type: blob.type }));
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body });
+        const data = (await res.json()) as { url?: string; error?: string };
+        if (res.ok && data.url) {
+          const next = [...latest.current, data.url];
+          latest.current = next;
+          onChange(next);
         }
+        else setFailed(data.error ?? t("error.generic"));
+      } catch {
+        setFailed(t("error.generic"));
       }
-      if (added.length > 0) onChange([...urls, ...added]);
     });
   }
 
+  /** 다음 장으로. 대기열이 끝나면 닫는다 */
+  function next() {
+    setCursor((c) => {
+      const n = c + 1;
+      if (n >= queue.length) {
+        setQueue([]);
+        return 0;
+      }
+      return n;
+    });
+  }
+
+  const current = queue[cursor];
+
   return (
     <div>
+      {current && (
+        <SquareCropper
+          // 파일이 바뀌면 상태를 새로 만든다 — 이전 사진의 위치가 남으면 안 된다
+          key={`${cursor}-${current.name}-${current.size}`}
+          file={current}
+          index={cursor}
+          total={queue.length}
+          onDone={(blob) => {
+            upload(blob, current.name.replace(/\.[^.]+$/, "") + ".webp");
+            next();
+          }}
+          onCancel={next}
+        />
+      )}
+
       <div className="mt-2 flex flex-wrap gap-2">
         {urls.map((url, i) => (
           <span key={url} className="relative size-16 overflow-hidden rounded-md border bg-muted">
