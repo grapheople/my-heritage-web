@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { useRouter } from "@/i18n/navigation";
 import { createDiary, updateDiary } from "@/lib/actions/diary";
 import { StatusBadge } from "./status-badge";
 import { DIARY_MAX_LENGTH, MAX_PHOTOS as DIARY_MAX_PHOTOS } from "@/lib/constants";
@@ -48,6 +49,7 @@ export function DiaryForm({
   diaryId?: string;
 }) {
   const t = useTranslations();
+  const router = useRouter();
   const [body, setBody] = useState(initial?.body ?? "");
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">(
     initial?.visibility ?? "PUBLIC",
@@ -55,7 +57,6 @@ export function DiaryForm({
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
   const [linked, setLinked] = useState<string[]>(initial?.itemIds ?? []);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // 유니코드 문자 수 — 이모지를 1로 센다
@@ -78,11 +79,21 @@ export function DiaryForm({
 
     startTransition(async () => {
       const payload = { body, visibility, photoUrls: photos, itemIds: linked };
+      // ⚠️ 분기해서 받는다 — `updateDiary` 는 id 를 돌려주지 않는다
       const res = diaryId
         ? await updateDiary(diaryId, payload)
         : await createDiary(payload);
-      if (res.ok) setDone(true);
-      else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+      if (!res.ok) {
+        setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+        return;
+      }
+      const target = diaryId ?? ("diaryId" in res ? res.diaryId : undefined);
+      if (!target) return;
+      // ⚠️ **저장하면 그 기록으로 보낸다.** 예전에는 폼에 머물러서 저장이
+      // 됐는지 알 수 없었고, 다시 누르면 같은 내용이 하나 더 생겼다.
+      // `replace` 라 뒤로가기가 폼으로 돌아오지 않는다 — 그 폼은 이미 저장된
+      // 내용을 들고 있어 중복 저장으로 이어진다
+      router.replace(`/diaries/${target}`);
     });
   }
 
@@ -192,12 +203,6 @@ export function DiaryForm({
       >
         {pending ? t("common.saving") : t("common.save")}
       </button>
-
-      {done && (
-        <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-          {t("sell.notWired")}
-        </p>
-      )}
     </form>
   );
 }

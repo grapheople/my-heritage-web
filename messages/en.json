@@ -242,7 +242,6 @@
     "errUrlFormat": "That link doesn't look valid",
     "errUrlScheme": "Must start with http or https",
     "errNeedsPublic": "Agree to make it public to list it",
-    "notWired": "Validation verified. Saving will work once the backend is wired.",
     "markSold": "Mark as sold",
     "cancel": "Cancel listing",
     "undoSold": "Undo sold",

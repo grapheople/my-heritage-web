@@ -3,6 +3,7 @@
 import { Check, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
+import { Link } from "@/i18n/navigation";
 import { createItem, updateItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
@@ -242,12 +243,14 @@ export function ItemForm({
                 : t("reg.codexNotLinked")}
           </li>
         </ul>
-        <a
-          href={`/ko/items/${saved.itemId}`}
+        {/* ⚠️ 예전에는 `/ko/` 가 하드코딩돼 있었다 — 일본어·영어 유저가
+            등록하면 한국어 화면으로 튕겼다. 로케일을 붙이는 Link 를 쓴다 */}
+        <Link
+          href={`/items/${saved.itemId}`}
           className="mt-4 block rounded-lg border py-2.5 text-center text-sm font-semibold hover:bg-accent"
         >
           {t("reg.viewItem")}
-        </a>
+        </Link>
       </div>
     );
   }
