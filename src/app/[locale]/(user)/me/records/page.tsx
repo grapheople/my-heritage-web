@@ -41,6 +41,7 @@ export default async function MyRecordsPage({
       <RoomProfile
         roomName={room.name} bio={room.bio}
         level={room.level} itemCount={itemCount}
+          imageUrl={room.imageUrl}
       />
       <RoomTabs active="records" />
       <div className="lg:min-w-0">

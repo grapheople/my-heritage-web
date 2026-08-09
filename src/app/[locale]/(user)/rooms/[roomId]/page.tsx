@@ -53,6 +53,7 @@ export default async function OtherRoomPage({
         bio={room.bio}
         level={room.level}
         itemCount={publicCount}
+          imageUrl={room.imageUrl}
       />
       <RoomTabs active="items" basePath={`/rooms/${room.id}`} />
       {publicCount === 0 ? (
