@@ -71,8 +71,14 @@ export default async function ItemDetailPage({
 
   return (
     <div>
-      {/* 대표 이미지 = 첫 장 (FR-07-A-04). 아이템은 1장 이상이 보장된다 */}
-      <div className="relative aspect-square w-full overflow-hidden border-b bg-muted lg:aspect-[16/9]">
+      {/*
+        대표 이미지 = 첫 장 (FR-07-A-04). 아이템은 1장 이상이 보장된다.
+
+        ⚠️ **lg 에서 16:9 로 두면 안 된다** (D-131) — 저장본이 이미
+        정방형이라(D-129) 16:9 는 위아래를 **한 번 더 잘라낸다.** 제품에서
+        가장 중요한 사진에서 40% 넘게 사라진다.
+      */}
+      <div className="relative aspect-square w-full overflow-hidden border-b bg-muted lg:max-w-2xl">
         {item.photos[0] && (
           <Image
             src={item.photos[0]}
