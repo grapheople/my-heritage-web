@@ -3,7 +3,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Apple from "next-auth/providers/apple";
 import Google from "next-auth/providers/google";
 import { AuthProvider } from "@/generated/prisma/enums";
-import { LOCALE_COOKIE, locales, type Locale } from "@/i18n/routing";
+import { LOCALE_COOKIE, SIGNUP_LOCALE_COOKIE, locales, type Locale } from "@/i18n/routing";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -23,15 +23,22 @@ import { prisma } from "@/lib/prisma";
  * 스키마와 정합한다.
  */
 /**
- * 가입 시점 언어 — next-intl 이 심는 로케일 쿠키를 읽는다 (D-120).
+ * 가입 시점 언어 (D-120).
  *
- * 쿠키가 없으면 `en` 이다. D-012 의 fallback 순서(요청 언어 → en → ko)와 같다.
+ * 로그인 화면이 심은 쿠키를 먼저 보고, 없으면 next-intl 의 로케일 쿠키를 본다.
+ * 둘 다 없으면 `en` — D-012 의 fallback 순서(요청 언어 → en → ko)와 같다.
+ *
+ * ⚠️ **next-intl 쿠키만 읽던 초판은 실패했다.** 실제 로그인에서 콜백 시점에
+ * 그 쿠키가 없어 `en` 으로 기록됐다. 그래서 로그인 화면이 직접 심는다.
  */
 async function signupLocale(): Promise<Locale> {
   try {
     const jar = await cookies();
-    const v = jar.get(LOCALE_COOKIE)?.value;
-    if (v && (locales as readonly string[]).includes(v)) return v as Locale;
+    // 로그인 화면이 직접 심은 값이 우선이다 — 반드시 있다
+    for (const name of [SIGNUP_LOCALE_COOKIE, LOCALE_COOKIE]) {
+      const v = jar.get(name)?.value;
+      if (v && (locales as readonly string[]).includes(v)) return v as Locale;
+    }
   } catch {
     // 요청 스코프 밖(스크립트)에서 부르면 던진다. 기본값으로 떨어진다
   }
