@@ -109,7 +109,7 @@ export default async function FeedPage({
           }
         />
       ) : (
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 md:grid-cols-3 lg:grid-cols-4 lg:px-0">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-7 px-4 py-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-5 lg:gap-y-9 lg:px-0">
           {items.map((item) => (
             <li key={item.id}>
               <FeedCard item={item} />
