@@ -32,6 +32,33 @@ async function guard(): Promise<{ actorId: string } | { error: string }> {
   return { actorId: admin.id };
 }
 
+
+/**
+ * 실패 이유를 **읽을 수 있게** 만든다 (D-150).
+ *
+ * ⚠️ **`formError` 에 뭉뜬 문구를 채우면 진짜 이유가 사라진다.** 초판이
+ * `fail(fieldErrors, "등록에 실패했습니다")` 였는데, 화면은 `formError` 를
+ * 먼저 읽으므로 `{"model":"필수 항목이에요"}` 가 영원히 안 보였다 — 어드민은
+ * 무엇을 고쳐야 할지 알 수 없었다.
+ *
+ * 필드 오류가 있으면 **어느 항목이 왜 막혔는지**를 문장으로 만든다.
+ */
+function reason(
+  res: { formError?: string; fieldErrors: Record<string, string> },
+  fallback: string,
+): string {
+  if (res.formError) return res.formError;
+  const parts = Object.entries(res.fieldErrors).map(([k, v]) => `${LABEL[k] ?? k}: ${v}`);
+  return parts.length > 0 ? parts.join(" · ") : fallback;
+}
+
+/** 어드민이 화면에서 보는 이름과 맞춘다 */
+const LABEL: Record<string, string> = {
+  brand: "브랜드",
+  model: "모델명",
+  __photos: "사진",
+};
+
 /** 봇 생성 — 유저·방·자격증명을 함께 만든다 */
 export async function createBot(input: {
   loginId: string;
@@ -145,8 +172,16 @@ export async function botPostItem(input: {
   if (!b) return fail({}, "봇을 찾을 수 없습니다");
 
   const itemName = [input.brand, input.model].filter(Boolean).join(" ");
-  // 사진은 필수다 (FR-07-A-03) — 플레이스홀더를 만든다
-  const photoUrl = await makeBotPhoto(itemName || input.categoryKey, b.viewer.userId);
+
+  // ⚠️ 사진은 필수다 (FR-07-A-03) — 플레이스홀더를 만든다. 스토리지 업로드가
+  // 실패하면 예외가 아니라 **메시지로** 돌려준다. 크래시가 뜨면 어드민은
+  // 브랜드가 문제인지 스토리지가 문제인지 구분할 수 없다
+  let photoUrl: string;
+  try {
+    photoUrl = await makeBotPhoto(itemName || input.categoryKey, b.viewer.userId);
+  } catch (e) {
+    return fail({}, `사진 생성·업로드 실패 — ${(e as Error).message}`);
+  }
 
   // 별칭은 있으면 좋고 없어도 된다 — 실패해도 등록을 막지 않는다
   let nickname: string | undefined;
@@ -165,7 +200,7 @@ export async function botPostItem(input: {
     unknownMatchingKey: true,
   });
   if (!res.ok) {
-    return fail(res.fieldErrors, res.formError ?? "등록에 실패했습니다");
+    return fail(res.fieldErrors, reason(res, "등록에 실패했습니다"));
   }
 
   await prisma.botAccount.update({
@@ -224,7 +259,7 @@ export async function botPostDiary(input: {
     itemIds: [item.id],
   });
   if (!res.ok) {
-    return fail(res.fieldErrors, res.formError ?? "작성에 실패했습니다");
+    return fail(res.fieldErrors, reason(res, "작성에 실패했습니다"));
   }
 
   await prisma.botAccount.update({
