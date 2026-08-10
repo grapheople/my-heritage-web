@@ -9,7 +9,8 @@
     "search": "検索",
     "market": "マーケット",
     "notifications": "お知らせ",
-    "back": "戻る"
+    "back": "戻る",
+    "codex": "図鑑"
   },
   "myRoom": {
     "tab": {
@@ -171,7 +172,10 @@
     "onSaleHere": "このアイテムの販売中の出品",
     "originalText": "運営確認前の原文です",
     "goToCodex": "このアイテムの図鑑を見る",
-    "notLinked": "図鑑に紐づいていないアイテムです"
+    "notLinked": "図鑑に紐づいていないアイテムです",
+    "empty": "このカテゴリにはまだ図鑑がありません",
+    "recent": "最近追加された図鑑",
+    "more": "{shown}件表示 · 全{total}件。検索で探してください"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",

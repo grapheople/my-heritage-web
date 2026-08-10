@@ -8,13 +8,23 @@ import { CategorySelect } from "@/components/domain/category-select";
 import { cn } from "@/lib/utils";
 
 /**
- * 통합 검색 입력 + 3탭 (FR-04-A-01).
+ * 도감 탭의 검색 입력 + 3탭 (FR-04-A-01, D-160).
+ *
+ * ⚠️ **경로를 하드코딩하지 않는다.** `usePathname()` 을 써서 `/codex` 로 화면이
+ * 옮겨져도 그대로 동작한다 (옛 `/search` 에서 옮길 때 이 덕에 수정이 없었다).
  *
  * **일기는 검색되지 않는다** (FR-04-A-02, D-020) — 탭이 3개인 이유다.
  * **언어권 필터를 적용하지 않는다** (FR-03-B-07) — NEW 피드와 다른 점이다.
  * 카테고리 필터는 아이템·도감 탭에만 붙는다 (FR-04-A-09).
  */
-const TABS = ["items", "codex", "rooms"] as const;
+/**
+ * ⚠️ **도감이 첫 탭이고 기본값이다** (D-160). 탭 3번이 도감이 되면서
+ * 화면의 주인이 바뀌었다 — 순서를 그대로 두면 도감 탭에 들어와 아이템
+ * 결과가 먼저 뜬다.
+ */
+const TABS = ["codex", "items", "rooms"] as const;
+/** URL 에서 생략하는 값 = 기본 탭. `apply` 와 페이지의 판정이 같아야 한다 */
+const DEFAULT_TAB = "codex";
 export function SearchBar({ q, tab, categoryKeys, category }: {
   categoryKeys: string[];
   category: string;
@@ -35,7 +45,7 @@ export function SearchBar({ q, tab, categoryKeys, category }: {
     const nextQ = next.q ?? q;
     const nextTab = next.tab ?? tab;
     if (nextQ) p.set("q", nextQ); else p.delete("q");
-    if (nextTab && nextTab !== "items") p.set("tab", nextTab); else p.delete("tab");
+    if (nextTab && nextTab !== DEFAULT_TAB) p.set("tab", nextTab); else p.delete("tab");
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }

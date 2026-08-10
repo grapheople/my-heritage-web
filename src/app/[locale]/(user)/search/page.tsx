@@ -1,113 +1,48 @@
-import { getTranslations } from "next-intl/server";
-import { CodexRow } from "@/components/domain/codex-row";
-import { EmptyState } from "@/components/domain/empty-state";
-import { FeedCard } from "@/components/domain/feed-card";
-import { RoomRow } from "@/components/domain/room-row";
-import { SearchBar } from "@/components/domain/search-bar";
-import { getViewer } from "@/lib/auth/viewer";
-import { resolveCategory } from "@/lib/category-scope";
-import { searchCodex } from "@/lib/data/codex";
-import { searchItems, searchRooms } from "@/lib/data/search";
+import { permanentRedirect } from "next/navigation";
+import { getPathname } from "@/i18n/navigation";
 
 /**
- * S-08 통합 검색 — 아이템 · 도감 · 방 3개 탭 (FR-04-A-01).
+ * 옛 검색 화면 → **도감 탭으로 영구 이동** (D-160).
  *
- * | 규칙 | 근거 |
- * |---|---|
- * | **일기는 검색 대상이 아니다** | D-020, FR-04-A-02 |
- * | 비공개 아이템·비공개 방 제외 | D-019, FR-04-A-03 |
- * | 도감은 원문 명칭·고유값·**3개 언어 alias** 전부 대상 | D-009, FR-04-A-04 |
- * | 방은 **방 이름만**. 유저 소개는 제외 | FR-04-A-06·07 |
- * | 카테고리 필터는 아이템·도감 탭에만 | FR-04-A-09 |
- * | **언어권 필터를 적용하지 않는다** | D-027, FR-03-B-07 |
- * | 탭별 빈 상태 | FR-04-A-08 |
+ * ## ⚠️ 라우트를 지우지 않고 리다이렉트한다
+ * 하단 탭 3번이 검색 → 도감으로 바뀌면서 화면이 `/codex` 로 옮겨졌다. 그냥
+ * 지우면 **북마크·공유 링크·검색엔진 색인이 전부 404** 가 된다. 검색 결과
+ * URL 은 공유되는 종류의 주소다 — 그래서 애초에 상태를 쿼리에 싣는다
+ * (`filter-bar.tsx` 주석과 같은 이유).
+ *
+ * ## ⚠️ 307 이 아니라 **308(영구)** 이다
+ * `redirect()` 는 307(임시)을 낸다. 이 이동은 되돌릴 계획이 없으므로 검색엔진이
+ * **옛 URL 의 평가를 새 URL 로 넘기도록** 영구로 알린다. 임시로 두면 옛 주소가
+ * 색인에 계속 남는다. locale 접두는 `getPathname` 이 붙인다.
+ *
+ * ⚠️ **쿼리를 그대로 넘긴다.** `?q=` 를 잃으면 링크를 눌러 온 사람이 빈 화면을
+ * 본다. `tab` 도 유지한다 — 옛 기본 탭은 `items` 였고 `/codex` 의 기본은
+ * `codex` 라, `?tab=` 이 없던 옛 링크는 도감 결과로 바뀐다. 같은 검색어의
+ * **다른 탭**이므로 빈 화면보다 낫다.
  */
-type Tab = "items" | "codex" | "rooms";
-
-export default async function SearchPage({
+export default async function LegacySearchPage({
+  params,
   searchParams,
 }: PageProps<"/[locale]/search">) {
-  const sp = await searchParams;
-  const t = await getTranslations();
+  const [{ locale }, sp] = await Promise.all([params, searchParams]);
 
-  const q = typeof sp.q === "string" ? sp.q : "";
-  const tab: Tab =
-    sp.tab === "codex" || sp.tab === "rooms" ? sp.tab : "items";
-  // ⚠️ 카테고리는 항상 하나다 (D-137). `전체` 검색은 없다
-  const scope = await resolveCategory(
-    typeof sp.category === "string" ? sp.category : undefined,
-  );
-  const category = scope.key;
+  const query: Record<string, string> = {};
+  for (const key of ["q", "tab", "category"] as const) {
+    const v = sp[key];
+    if (typeof v === "string" && v) query[key] = v;
+  }
 
-  return (
-    <div>
-      <SearchBar q={q} tab={tab} categoryKeys={scope.keys} category={category} />
-
-      {!q ? (
-        <EmptyState title={t("search.prompt")} />
-      ) : tab === "items" ? (
-        <ItemResults q={q} category={category} />
-      ) : tab === "codex" ? (
-        <CodexResults q={q} category={category} />
-      ) : (
-        <RoomResults q={q} />
-      )}
-    </div>
-  );
-}
-
-/** 아이템 — 비공개·차단은 **조회 조건**에서 빠진다 (FR-04-A-03, D-083) */
-async function ItemResults({ q, category }: { q: string; category?: string }) {
-  const t = await getTranslations();
-  const hits = await searchItems(q, { category }, await getViewer());
-  if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
-  return (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 lg:px-0">
-      {hits.map((i) => (
-        <li key={i.id}><FeedCard item={i} /></li>
-      ))}
-    </ul>
-  );
-}
-
-/** 도감 — 원문 명칭·고유값·alias 전부 매칭 (FR-04-A-04) */
-async function CodexResults({ q, category }: { q: string; category?: string }) {
-  const t = await getTranslations();
-  const viewer = await getViewer();
-  // ⚠️ 보유자 수는 로그인 유저에게만 (D-078·D-096). 조회 계층이 판정한다 —
-  // 비로그인이면 `ownerCount` 키 자체가 응답에 없다
-  const hits = await searchCodex(q, {
-    category,
-    viewer,
-    withOwnerCount: viewer !== null,
+  const target = getPathname({
+    href:
+      Object.keys(query).length > 0 ? { pathname: "/codex", query } : "/codex",
+    locale,
   });
 
-  if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
-  return (
-    <div className="py-1 lg:py-2">
-      {hits.map(({ entry, ownerCount, matchedAlias }) => (
-        <CodexRow
-          key={entry.id}
-          entry={entry}
-          matchedAlias={matchedAlias}
-          // ⚠️ 비로그인이면 조회 계층이 **애초에 넣지 않았다** (D-096)
-          ownerCount={ownerCount}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** 방 — 방 이름만. 비공개 방 제외 (FR-04-A-03·06·07) */
-async function RoomResults({ q }: { q: string }) {
-  const t = await getTranslations();
-  const hits = await searchRooms(q, await getViewer());
-  if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
-  return (
-    <div className="py-1 lg:py-2">
-      {hits.map((r) => (
-        <RoomRow key={r.id} id={r.id} name={r.name} level={r.level} itemCount={r.itemCount} />
-      ))}
-    </div>
-  );
+  /**
+   * ⚠️ **`typedRoutes` 는 리터럴 라우트만 받는다.** 여기 경로는 locale 접두와
+   * 쿼리를 런타임에 붙여 만든 문자열이라 그 타입을 통과하지 못한다.
+   * `getPathname` 의 `href` 쪽에서 이미 타입 검사를 받았으므로(`/codex` 는
+   * 실재하는 라우트다) 캐스팅을 **이 한 줄에 가둔다.**
+   */
+  permanentRedirect(target as Parameters<typeof permanentRedirect>[0]);
 }
