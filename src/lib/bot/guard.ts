@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describeDatabase, migrationDatabaseUrl } from "@/lib/db-url";
 
 /**
@@ -23,7 +25,22 @@ export function botTargetDb(): string {
   return describeDatabase(migrationDatabaseUrl());
 }
 
-/** Claude 자격증명이 있는가 — 없으면 글 생성만 막고 나머지는 동작한다 */
+/**
+ * 로컬 `claude` CLI 가 있는가 (D-149).
+ *
+ * ⚠️ **API 키를 보지 않는다.** 글 생성은 개발자 기기의 Claude Code CLI 를
+ * 부른다 — 키를 하나 덜 다루고, 원격에서는 애초에 동작하지 않는 것이 의도다.
+ *
+ * 없으면 글 생성만 막히고 봇 생성·아이템 등록은 동작한다.
+ */
 export function claudeConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  const bin = process.env.CLAUDE_CLI_PATH || "claude";
+  // 절대 경로면 파일 존재로, 이름이면 PATH 탐색으로 판정한다
+  try {
+    if (bin.includes("/")) return existsSync(bin);
+    const paths = (process.env.PATH || "").split(":");
+    return paths.some((d) => d && existsSync(join(d, bin)));
+  } catch {
+    return false;
+  }
 }

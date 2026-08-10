@@ -1,61 +1,63 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 /**
- * 봇 글 생성 — Claude (D-146).
+ * 봇 글 생성 — **로컬 Claude Code CLI** (D-149).
  *
- * ## ⚠️ SDK 를 쓰지 않고 `fetch` 로 부른다
- * 요청이 두 종류뿐이고 스트리밍도 쓰지 않는다. 의존성을 늘리면 배포 크기와
- * 취약점 표면이 같이 늘어난다.
+ * ## ⚠️ API 키를 쓰지 않는다
+ * 초판은 Anthropic API 를 `fetch` 로 불렀다. 그러려면 `ANTHROPIC_API_KEY` 를
+ * 저장소 환경에 두고 관리해야 하는데, **봇은 로컬 어드민 전용**이라(D-146)
+ * 개발자 기기에 이미 있는 `claude` CLI 를 쓰는 편이 맞다 — 키를 하나 덜 다룬다.
+ *
+ * ## ⚠️ 원격에서는 동작하지 않는다 — 의도된 것이다
+ * Vercel 런타임에는 `claude` 바이너리가 없다. 봇 자체가 `NODE_ENV=development`
+ * 로 막혀 있으므로(D-146) 프로덕션에서 이 경로에 닿을 일이 없다.
  *
  * ## ⚠️ 서버 전용이다
- * `ANTHROPIC_API_KEY` 가 클라이언트에 닿으면 **누구나 우리 계정으로 호출한다.**
- * `NEXT_PUBLIC_` 접두어를 붙이지 않는 것이 유일한 방어선이므로, 이 모듈을
- * 클라이언트에서 import 하면 런타임에 터지게 둔다 (`lib/storage.ts` 와 같은 구조).
+ * 자식 프로세스를 띄운다. 클라이언트에서 import 하면 런타임에 터지게 둔다
+ * (`lib/storage.ts` 와 같은 구조).
  */
 if (typeof window !== "undefined") {
   throw new Error(
-    "lib/bot/claude.ts 는 서버 전용입니다. API 키가 클라이언트로 나가면 안 됩니다 (D-146).",
+    "lib/bot/claude.ts 는 서버 전용입니다. 자식 프로세스를 띄웁니다 (D-149).",
   );
 }
 
-/**
- * 모델 — 짧은 한국어 문장 생성이라 Sonnet 으로 충분하다.
- *
- * ⚠️ Opus 를 기본으로 두지 않는 이유: 콘텐츠 시딩은 **수십~수백 번** 부르는
- * 작업이다. 문장 품질 차이보다 비용 차이가 먼저 드러난다.
- */
-const MODEL = process.env.BOT_CLAUDE_MODEL || "claude-sonnet-5";
-const API = "https://api.anthropic.com/v1/messages";
+const execFileAsync = promisify(execFile);
 
-type Msg = { role: "user"; content: string };
+/** CLI 경로 — PATH 에 없으면 환경 변수로 지정한다 */
+const BIN = process.env.CLAUDE_CLI_PATH || "claude";
+/** 한 번 호출 상한. 넘으면 죽인다 — 어드민이 무한정 기다리지 않게 */
+const TIMEOUT_MS = 120_000;
 
-async function ask(prompt: string, maxTokens: number): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY 가 없습니다");
-
-  const res = await fetch(API, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }] satisfies Msg[],
-    }),
-  });
-
-  if (!res.ok) {
-    // 본문에 키가 실리지 않는다 — 상태 코드와 메시지만 남긴다
-    const body = (await res.text()).slice(0, 300);
-    throw new Error(`Claude 호출 실패 ${res.status}: ${body}`);
+async function ask(prompt: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      BIN,
+      // ⚠️ `-p`(print) 가 비대화 모드다. 없으면 세션이 열려 응답이 오지 않는다.
+      // 프롬프트는 **인자로** 넘긴다 — 셸을 경유하지 않으므로 따옴표·개행이
+      // 섞여도 주입되지 않는다 (`execFile` 은 셸을 쓰지 않는다)
+      ["-p", prompt],
+      {
+        timeout: TIMEOUT_MS,
+        maxBuffer: 1024 * 1024,
+        // ⚠️ 웹 프로세스의 CWD 가 저장소 루트다. CLI 가 그 컨텍스트를 읽지
+        // 않도록 홈으로 옮긴다 — 프로젝트 파일을 프롬프트에 끌어올 이유가 없다
+        cwd: process.env.HOME || undefined,
+      },
+    );
+    const text = stdout.trim();
+    if (!text) throw new Error("빈 응답");
+    return text;
+  } catch (e) {
+    const err = e as { code?: string | number; message?: string };
+    if (err.code === "ENOENT") {
+      throw new Error(
+        `\`${BIN}\` 를 찾을 수 없습니다. Claude Code CLI 를 설치하거나 CLAUDE_CLI_PATH 를 지정하세요`,
+      );
+    }
+    throw new Error(`claude CLI 실패 — ${err.message ?? String(e)}`);
   }
-  const data = (await res.json()) as {
-    content?: { type: string; text?: string }[];
-  };
-  const text = data.content?.find((c) => c.type === "text")?.text?.trim();
-  if (!text) throw new Error("Claude 응답이 비어 있습니다");
-  return text;
 }
 
 /** 응답에서 코드펜스·따옴표를 벗긴다 — 모델이 자주 감싼다 */
@@ -92,7 +94,6 @@ export async function writeDiaryBody(input: {
 - 이모지 금지
 
 본문만 출력해.`,
-    600,
   );
   return unwrap(text).slice(0, 1000);
 }
@@ -117,7 +118,6 @@ export async function writeItemNickname(input: {
 - 소유자가 애정을 담아 부르는 이름 느낌
 - 물건 이름을 그대로 반복하지 마
 - 따옴표·설명·이모지 없이 별칭만 출력`,
-    100,
   );
   return unwrap(text).split("\n")[0].slice(0, 30);
 }

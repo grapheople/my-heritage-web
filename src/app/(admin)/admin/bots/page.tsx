@@ -26,7 +26,7 @@ export default async function AdminBotsPage() {
     <AdminPage
       id="A-15"
       title="봇 콘텐츠 시딩"
-      desc="로컬 개발 환경 전용입니다. 봇이 만든 콘텐츠는 일반 유저 콘텐츠와 같은 경로로 저장됩니다."
+      desc="로컬 개발 환경 전용입니다. 글은 로컬 claude CLI 가 씁니다. 봇이 만든 콘텐츠는 일반 유저 콘텐츠와 같은 경로로 저장됩니다."
     >
       <div className="mb-4 rounded-lg border border-warn bg-warn-bg p-3 text-sm text-warn">
         <p>
@@ -38,8 +38,10 @@ export default async function AdminBotsPage() {
         </p>
         {!claudeConfigured() && (
           <p className="mt-1">
-            ⚠️ <code>ANTHROPIC_API_KEY</code> 가 없어 <b>글 생성이 동작하지 않습니다.</b>{" "}
-            봇 생성과 아이템 등록은 가능합니다(별칭 없이).
+            ⚠️ 로컬 <code>claude</code> CLI 를 찾을 수 없어{" "}
+            <b>글 생성이 동작하지 않습니다.</b> 봇 생성과 아이템 등록은
+            가능합니다(별칭 없이). Claude Code 를 설치하거나{" "}
+            <code>CLAUDE_CLI_PATH</code> 를 지정하세요.
           </p>
         )}
       </div>
