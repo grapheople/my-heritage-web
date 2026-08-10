@@ -79,7 +79,7 @@ const MATCHING_KEY_VERIFIED = new Set(["watch", "shoes", "camping"]);
 const ORDER = [
   "brand", "model", "uniqueId", "serialNo",
   "size", "color", "condition", "year", "accessories",
-  "purchasedFrom", "purchaseDate", "purchasePrice",
+  "purchasedFrom", "purchaseDate", // purchasePrice 는 비활성 (D-163)
   "note", "referenceUrl",
 ];
 

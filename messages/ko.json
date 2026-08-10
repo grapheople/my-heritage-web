@@ -173,7 +173,7 @@
     "empty": "이 카테고리에 아직 도감이 없어요",
     "recent": "최근 추가된 도감",
     "more": "{shown}개 표시 · 전체 {total}개. 검색으로 찾아보세요",
-    "wearTitle": "이 물건을 쓰는 모습",
+    "wearTitle": "착용샷 · 사용샷",
     "noWear": "아직 착용샷이 없어요",
     "wearLoginRequired": "로그인하면 이 물건의 착용샷을 볼 수 있어요"
   },
