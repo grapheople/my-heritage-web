@@ -63,7 +63,7 @@ export default async function MarketPage({
       {listings.length === 0 ? (
         <EmptyState title={t("empty.market")} />
       ) : (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-7 px-4 py-6 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-5 lg:gap-y-9 lg:px-0">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-7 px-4 py-6  lg:px-0">
           {listings.map((l) => (
             <li key={l.id}>
               <MarketCard listing={l} />

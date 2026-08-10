@@ -58,7 +58,7 @@ export default async function DiaryDetailPage({
 
       {/* 사진 — 최대 10장, 없을 수 있다 (FR-01-A-05·06) */}
       {diary.photos.length > 0 && (
-        <div className="grid grid-cols-2 gap-1 border-b p-1 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-1 border-b p-1">
           {diary.photos.map((url) => (
             <div key={url} className="relative aspect-square overflow-hidden rounded-sm bg-muted">
               {/* 일기 사진에는 캡션이 없다 — alt 를 비워 스크린리더가 건너뛰게 한다 */}

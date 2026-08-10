@@ -38,7 +38,7 @@ export default async function RoomWearShotsPage({
   const itemCount = room.sections.reduce((n, s) => n + s.items.length, 0);
 
   return (
-    <div className="lg:grid lg:grid-cols-[210px_1fr] lg:gap-6">
+    <div>
       <RoomProfile
         roomName={room.name} bio={room.bio}
         level={room.level} itemCount={itemCount}

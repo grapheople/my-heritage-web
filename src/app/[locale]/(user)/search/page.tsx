@@ -62,7 +62,7 @@ async function ItemResults({ q, category }: { q: string; category?: string }) {
   const hits = await searchItems(q, { category }, await getViewer());
   if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
   return (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 md:grid-cols-3 lg:grid-cols-4 lg:px-0">
+    <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 lg:px-0">
       {hits.map((i) => (
         <li key={i.id}><FeedCard item={i} /></li>
       ))}

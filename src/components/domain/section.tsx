@@ -38,8 +38,9 @@ export function Section({
 }) {
   const t = useTranslations();
 
-  const overSmMd = totalCount > DISPLAY_CAP.smMd;
-  const overLg = totalCount > DISPLAY_CAP.lg;
+  // ⚠️ 폭에 따라 갈리던 판정을 하나로 합쳤다 (D-156). 상한이 전 구간 12 라
+  // "lg 에서는 전부 보이니 더 보기를 감춘다"는 분기가 사라졌다
+  const over = totalCount > DISPLAY_CAP;
 
   return (
     <section className="border-t px-4 py-7 first-of-type:border-t-0 lg:px-0 lg:py-10">
@@ -52,15 +53,10 @@ export function Section({
 
       <ItemGrid items={items} />
 
-      {overSmMd && (
+      {over && (
         <Link
           href={moreHref}
-          className={
-            // 13~15개면 lg 에서는 전부 보이므로 "더 보기"를 감춘다
-            overLg
-              ? "mt-5 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
-              : "mt-5 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent lg:hidden"
-          }
+          className="mt-5 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
         >
           {t("display.more")}{" "}
           <span className="font-semibold text-muted-foreground">

@@ -27,8 +27,10 @@ export function RoomTabs({
   const href = (k: "items" | "wear" | "records") =>
     k === "items" ? basePath : `${basePath}/${k}`;
 
+  // ⚠️ `lg` 에서 세로 사이드바로 바뀌던 변형을 제거했다 (D-156). 콘텐츠가
+  // 500px 로 고정돼 옆에 탭을 세울 자리가 없다
   return (
-    <nav className="sticky top-0 z-10 flex border-b bg-background lg:h-fit lg:flex-col lg:self-start lg:rounded-lg lg:border">
+    <nav className="sticky top-0 z-10 flex border-b bg-background">
       {(["items", "wear", "records"] as const).map((k) => (
         <Link
           key={k}
@@ -36,8 +38,8 @@ export function RoomTabs({
           aria-current={k === active ? "page" : undefined}
           className={
             k === active
-              ? "flex-1 border-b-2 border-foreground px-4 py-3 text-center text-sm font-bold lg:border-b-0 lg:bg-accent lg:text-left lg:shadow-[inset_3px_0_0_currentColor]"
-              : "flex-1 px-4 py-3 text-center text-sm text-muted-foreground lg:text-left"
+              ? "flex-1 border-b-2 border-foreground px-4 py-3 text-center text-sm font-bold"
+              : "flex-1 px-4 py-3 text-center text-sm text-muted-foreground"
           }
         >
           {t(`myRoom.tab.${k}`)}

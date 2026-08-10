@@ -23,7 +23,7 @@ export function WearShotGrid({
   const t = useTranslations();
 
   return (
-    <ul className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-5">
+    <ul className="grid grid-cols-3 gap-3">
       {shots.map((s) => (
         <li key={s.id}>
           <Link href={`/items/${s.itemId}`} className="block">
