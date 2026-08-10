@@ -62,7 +62,10 @@ const COMMON_ATTRIBUTES = [
   { key: "size", type: "text", ko: "사이즈", ja: "サイズ", en: "Size" },
   { key: "year", type: "number", ko: "제조년도", ja: "製造年", en: "Year" },
   { key: "accessories", type: "multiselect", ko: "포함 부속품", ja: "付属品", en: "Accessories" },
-  { key: "note", type: "textarea", ko: "메모", ja: "メモ", en: "Note" },
+  // ⚠️ **"메모"가 아니라 "설명"이다** (D-147). 타인에게 그대로 보이는 필드인데
+  // "메모"라는 이름이 사적 기록으로 오해되게 했다. 비공개 처리는 구매 정보
+  // 3개에만 걸려 있다 (`data/item.ts` `OWNER_ONLY_KEYS`)
+  { key: "note", type: "textarea", ko: "설명", ja: "説明", en: "Description" },
   { key: "referenceUrl", type: "url", ko: "참고 링크", ja: "参考リンク", en: "Reference link" },
 ] as const;
 
