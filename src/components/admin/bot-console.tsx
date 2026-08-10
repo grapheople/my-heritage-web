@@ -7,6 +7,7 @@ import {
   createBot,
   verifyBot,
 } from "@/lib/actions/bot";
+import { BrandSelect } from "@/components/domain/brand-select";
 
 /**
  * A-15 봇 콘솔 (D-146).
@@ -259,17 +260,21 @@ export function BotConsole({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-sm">
+              {/*
+                ⚠️ **브랜드는 마스터에서 골라야 한다** (D-043). 타이핑으로 두면
+                "목록에서 브랜드를 선택해주세요" 로 계속 막힌다 — 실제로 그
+                실패가 났다 (D-150). 유저 폼과 같은 컴포넌트를 쓴다
+              */}
+              <div className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">브랜드</span>
-                <input
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  placeholder="마스터에 있는 이름"
-                  className="w-40 rounded-md border px-3 py-2 text-sm"
-                />
-              </label>
+                <div className="w-52">
+                  <BrandSelect value={brand} onChange={setBrand} category={category} />
+                </div>
+              </div>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-semibold">모델명</span>
+                <span className="font-semibold">
+                  모델명 <span className="text-destructive">*</span>
+                </span>
                 <input
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -278,7 +283,7 @@ export function BotConsole({
               </label>
               <button
                 type="button"
-                disabled={pending}
+                disabled={pending || !model.trim()}
                 onClick={() =>
                   run(async () => {
                     const r = await botPostItem({
@@ -319,6 +324,9 @@ export function BotConsole({
               {/* 고유번호를 지어내지 않는다 (D-146) */}
               ⚠️ 고유번호는 넣지 않습니다 — 실재하지 않는 도감이 자동 생성되면
               검증 큐가 가짜로 찹니다 (D-015·D-032).
+              <br />
+              ⚠️ <b>모델명은 필수</b>입니다 (전 카테고리, D-118). 브랜드는 비워도
+              됩니다 — 마스터에 없는 이름은 받지 않습니다 (D-043).
             </p>
           </>
         )}
