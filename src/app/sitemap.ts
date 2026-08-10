@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
+import { activeCategoryKeys } from "@/lib/category-scope";
 import { allCodexIds } from "@/lib/data/codex";
 import { indexableItemIds } from "@/lib/data/item";
 import { absolute, localeAlternates } from "@/lib/site";
@@ -47,10 +48,12 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
-  const [codexIds, itemIds] = await Promise.all([
+  const [codexIds, itemIds, categoryKeys] = await Promise.all([
     allCodexIds(),
     // 색인 판정은 조회 계층 한 곳에서 한다 (D-093) — 여기서 다시 세지 않는다
     indexableItemIds(),
+    // 활성 카테고리 — 어드민이 늘리면 sitemap 도 따라 늘어난다
+    activeCategoryKeys(),
   ]);
 
   // 홈 — 색인 대상이다 (D-109). 브랜드 검색 유입의 진입점이라 우선순위가 가장 높다
@@ -61,6 +64,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
       alternates: { languages: localeAlternates("/") },
     });
+  }
+
+  /*
+    카테고리별 홈 — 카테고리가 **축**이 된 이상 6개가 각각 색인돼야 한다
+    (D-137·D-142). 넣지 않으면 **기본 카테고리 하나만** 색인되고, 캠핑을
+    찾는 사람은 서비스에 닿지 못한다.
+
+    ⚠️ **`/{locale}` 과 기본 카테고리 URL 은 같은 화면이다.** 브랜드 검색용
+    진입점(`/{locale}`)을 남기려면 감수해야 하는 중복이다 — 검색엔진이 둘 중
+    하나를 고른다. 트래픽이 쌓인 뒤 다시 볼 문제로 남긴다 (D-142)
+  */
+  for (const locale of routing.locales) {
+    for (const key of categoryKeys) {
+      entries.push({
+        url: absolute(`/${locale}?category=${key}`),
+        changeFrequency: "hourly",
+        priority: 0.9,
+        alternates: { languages: localeAlternates(`?category=${key}`) },
+      });
+    }
   }
 
   // 마켓 목록 — 로케일별
