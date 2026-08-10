@@ -1,4 +1,5 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { SideNav } from "@/components/layout/side-nav";
 import { redirect } from "@/i18n/navigation";
@@ -50,16 +51,22 @@ export default async function UserLayout({
       </SideNav>
 
       <div className={`flex min-w-0 flex-1 flex-col ${CONTENT_MAX}`}>
-        {/* sm·md 알림 진입점 (FR-08-A-02). lg 는 사이드바 안에 있다.
-            로그인 유저에게만 (FR-08-A-07) */}
-        {loggedIn && (
-          <div className="flex justify-end border-b px-2 lg:hidden">
-            <NotificationBell />
-          </div>
-        )}
-        {/* sm·md 는 유동 폭이다. `max-w-screen-sm`(v3)은 Tailwind v4 에서 동작하지
-            않아 캡이 걸리지 않았고, md(640~1023)에서 진열 4열을 쓰려면 애초에
-            640 캡이 맞지 않는다 (D-089). lg 에서만 1200 으로 묶는다 */}
+        {/*
+          sm·md 상단 슬림 헤더 — **좌측 뒤로가기 + 우측 알림함** (D-159).
+          lg 에는 없다(내비가 좌측 사이드바이고 알림함이 그 안에 있다).
+
+          ⚠️ **`loggedIn` 으로 헤더 전체를 가리지 않는다.** 예전에는 알림함만
+          있어서 그래도 됐지만, 뒤로가기는 **비로그인 유저에게도 필요**하다
+          (아이템 상세·도감을 로그인 없이 본다). 비어 있을 때 렌더하지 않는
+          판정은 `MobileHeader` 안에서 한다.
+
+          알림함은 **엘리먼트로 넘긴다** — 서버 컴포넌트라 클라이언트 안에서
+          만들 수 없다. 로그인 유저에게만 (FR-08-A-07)
+        */}
+        <MobileHeader bell={loggedIn ? <NotificationBell /> : null} />
+        {/* 폭 캡은 위 컬럼(`CONTENT_MAX`)이 전 구간 걸고 있다 (D-156).
+            ⚠️ `max-w-screen-sm`(v3)은 Tailwind v4 에서 동작하지 않는다 —
+            폭 제한은 `max-w-[500px]` 처럼 명시값으로 쓴다 */}
         <main className="w-full flex-1 pb-2 lg:px-6 lg:pb-10">{children}</main>
 
         {/*
