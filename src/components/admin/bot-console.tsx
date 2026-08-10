@@ -7,7 +7,7 @@ import {
   createBot,
   verifyBot,
 } from "@/lib/actions/bot";
-import { BrandSelect } from "@/components/domain/brand-select";
+import { AdminBrandPicker } from "@/components/admin/admin-brand-picker";
 
 /**
  * A-15 봇 콘솔 (D-146).
@@ -262,15 +262,18 @@ export function BotConsole({
               </label>
               {/*
                 ⚠️ **브랜드는 마스터에서 골라야 한다** (D-043). 타이핑으로 두면
-                "목록에서 브랜드를 선택해주세요" 로 계속 막힌다 — 실제로 그
-                실패가 났다 (D-150). 유저 폼과 같은 컴포넌트를 쓴다
+                "목록에서 브랜드를 선택해주세요" 로 계속 막힌다 (D-150).
+                ⚠️ 유저 폼의 `BrandSelect` 를 쓸 수 없다 — `useTranslations` 를
+                쓰는데 **어드민은 `[locale]` 밖이라 i18n 컨텍스트가 없다** (D-151)
               */}
-              <div className="flex flex-col gap-1 text-sm">
+              <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">브랜드</span>
-                <div className="w-52">
-                  <BrandSelect value={brand} onChange={setBrand} category={category} />
-                </div>
-              </div>
+                <AdminBrandPicker
+                  value={brand}
+                  onChange={setBrand}
+                  category={category}
+                />
+              </label>
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">
                   모델명 <span className="text-destructive">*</span>
