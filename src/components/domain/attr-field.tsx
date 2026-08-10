@@ -97,14 +97,21 @@ export function AttrField({
         <ul className="mt-1.5 flex flex-wrap gap-2">
           {def.options?.map((o) => {
             const k = o.key;
-            const on = value.split(",").filter(Boolean).includes(k);
+            /*
+              ⚠️ **구분자는 `;` 다** (D-157). 서버가 `v.split(";")` 로 쪼갠다
+              (`actions/item.ts`). `,` 로 조인해 보내면 부속품 2개가
+              `["box,manual"]` **한 덩어리**로 저장되고, 표시에서도 옵션 키를
+              못 찾아 그대로 노출된다. 읽을 때는 `,` 도 받아준다 — 그렇게
+              저장된 값이 남아 있을 수 있다
+            */
+            const on = value.split(/[;,]/).filter(Boolean).includes(k);
             return (
               <li key={k}>
                 <button type="button" aria-pressed={on}
                   onClick={() => {
-                    const cur = value.split(",").filter(Boolean);
+                    const cur = value.split(/[;,]/).filter(Boolean);
                     onChange(
-                      (on ? cur.filter((x) => x !== k) : [...cur, k]).join(","),
+                      (on ? cur.filter((x) => x !== k) : [...cur, k]).join(";"),
                     );
                   }}
                   className={cn(

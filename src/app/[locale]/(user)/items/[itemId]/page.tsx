@@ -193,9 +193,21 @@ export default async function ItemDetailPage({
         </section>
       )}
 
-      {/* 소유자 액션 — 판매 전환·취소·완료 (market F-01) */}
+      {/* 소유자 액션 — 수정·판매 전환·취소·완료 (market F-01) */}
       {isOwner && (
         <section className="flex flex-col gap-2 border-t px-4 py-4 lg:px-0">
+          {/*
+            ⚠️ **수정 진입점** (D-157). 화면(`/edit`)과 `updateItem` 액션은
+            처음부터 있었는데 **여기로 오는 링크가 한 개도 없었다** — 유저는
+            등록한 아이템을 고칠 방법이 없었다. D-133(등록 진입점 0개)과 같은
+            유형이다: 구현 완료와 도달 가능은 다른 문제다.
+          */}
+          <Link
+            href={`/items/${item.id}/edit`}
+            className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
+          >
+            {t("reg.editTitle")}
+          </Link>
           {/* 떠난 아이템은 다시 팔 수 없다 (D-023) — 되돌리기만 제공한다 */}
           {item.saleStatus !== "SOLD" && (
             <Link

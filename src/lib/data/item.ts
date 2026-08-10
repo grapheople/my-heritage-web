@@ -221,6 +221,92 @@ export async function getItemDetail(
 }
 
 /**
+ * S-04 수정 화면용 **원본 값** (D-157).
+ *
+ * ## ⚠️ `getItemDetail` 을 폼에 먹이면 안 된다
+ * 그건 **표시용**이다. 수정 화면이 그걸 재사용하고 있었고 세 가지가 깨졌다:
+ *
+ * | 증상 | 원인 |
+ * |---|---|
+ * | `상태` 가 빈 값으로 리셋되고 저장 시 **지워진다** | D-155 로 `select` 값이 **라벨**("사용감 적음")이 됐다. `<select>` 의 `value` 는 옵션 **키**라 매칭 실패 |
+ * | `포함 부속품` 이 하나도 선택 안 된 상태로 열린다 | 표시용은 `", "` 로 조인한다. 폼 구분자는 `;` 다 |
+ * | **구매가가 저장할 때마다 사라진다** | 수정 화면이 `purchasedFrom`·`purchaseDate` 만 복사하고 `purchasePrice` 를 빠뜨렸다 |
+ *
+ * 앞의 둘은 표시 계층을 고칠 때마다 다시 터진다. **원본을 주는 경로를
+ * 따로 두는 것**이 구조적인 해결이다 — 라벨·포맷을 거치지 않는다.
+ *
+ * ## ⚠️ 소유자만
+ * 수정 화면은 소유자 전용이다 (FR-05-B-01, D-019). 없는 것과 남의 것을
+ * 구분하지 않는다 (D-083).
+ */
+export async function getItemForEdit(
+  itemId: string,
+  viewer: Viewer,
+): Promise<{
+  categoryKey: string;
+  /** 속성 key → 폼이 그대로 쓰는 문자열. 별칭은 `__nickname` */
+  values: Record<string, string>;
+  photos: string[];
+} | null> {
+  if (!viewer.roomId) return null;
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, roomId: viewer.roomId },
+    select: {
+      nickname: true,
+      category: { select: { key: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" } },
+      attributeValues: {
+        select: {
+          value: true,
+          categoryAttribute: {
+            select: {
+              active: true,
+              attributeDefinition: { select: { key: true, type: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!item) return null;
+
+  const values: Record<string, string> = {};
+  for (const v of item.attributeValues) {
+    // 비활성 속성은 폼에 칸이 없다 — 넣어도 쓰이지 않고 값은 보존된다 (D-036)
+    if (!v.categoryAttribute.active) continue;
+    const { key, type } = v.categoryAttribute.attributeDefinition;
+    if (type === "multiselect") {
+      // ⚠️ 배열 → **`;` 조인**. 폼·서버가 쓰는 구분자다 (D-157).
+      // 각 원소를 한 번 더 쪼개는 이유: 옛 폼이 `,` 로 조인해 보내면
+      // `["box,manual"]` 처럼 **한 덩어리로 저장된 값**이 남아 있을 수 있다
+      const list = Array.isArray(v.value) ? v.value : [v.value];
+      values[key] = list
+        .flatMap((x) => String(x).split(/[;,]/))
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .join(";");
+      continue;
+    }
+    if (typeof v.value === "boolean") {
+      values[key] = v.value ? "true" : "false";
+      continue;
+    }
+    values[key] = v.value === null || v.value === undefined ? "" : String(v.value);
+  }
+  // 별칭은 속성이 아니라 별개 컬럼이다 (D-112) — `__` 로 구분한다
+  if (item.nickname) values.__nickname = item.nickname;
+
+  return {
+    categoryKey: item.category.key,
+    values,
+    // 스토리지 전 플레이스홀더는 없는 것으로 다룬다 (OI-47 잔재)
+    photos: item.photos
+      .map((p) => realPhotoUrl(p.url))
+      .filter((u): u is string => !!u),
+  };
+}
+
+/**
  * 조건부 색인 판정 (D-093).
  *
  * **판매중 + 아이템 공개 + 방 공개**일 때만 색인한다. 판매 의사가 없는
