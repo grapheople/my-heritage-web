@@ -466,3 +466,35 @@ export async function getCodexKeyForms() {
     };
   });
 }
+
+/** A-15 봇 목록 (D-146) */
+export async function getBots() {
+  const bots = await prisma.botAccount.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      loginId: true,
+      lastActedAt: true,
+      user: {
+        select: {
+          id: true,
+          language: true,
+          room: {
+            select: {
+              name: true,
+              _count: { select: { items: true, diaries: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  return bots.map((b) => ({
+    botId: b.user.id,
+    loginId: b.loginId,
+    roomName: b.user.room?.name ?? "",
+    language: b.user.language,
+    items: b.user.room?._count.items ?? 0,
+    diaries: b.user.room?._count.diaries ?? 0,
+    lastActedAt: b.lastActedAt?.toISOString().slice(0, 16).replace("T", " "),
+  }));
+}

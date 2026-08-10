@@ -49,6 +49,23 @@ const SECTIONS = [
   },
 ] as const;
 
+/**
+ * ⚠️ **로컬 전용 메뉴** (D-146). 프로덕션에서는 그리지 않는다 — 화면 자체가
+ * 404 지만, 링크가 보이면 누군가 누르고 "왜 안 되냐"를 묻게 된다.
+ *
+ * 클라이언트 컴포넌트라 `NODE_ENV` 를 직접 본다. 이 값은 **빌드 시점에
+ * 인라인**되므로 프로덕션 번들에는 조건이 `false` 로 굳어 들어간다.
+ */
+const LOCAL_SECTION =
+  process.env.NODE_ENV === "development"
+    ? {
+        title: "로컬 전용",
+        items: [
+          { href: "/admin/bots", label: "봇 콘텐츠 시딩", id: "A-15" },
+        ],
+      }
+    : null;
+
 export function AdminNav() {
   const pathname = usePathname();
 
@@ -56,7 +73,7 @@ export function AdminNav() {
     <nav className="w-60 shrink-0 border-r bg-muted/30 p-4">
       <p className="px-2 pb-4 text-sm font-semibold">Zroom 어드민</p>
       <div className="space-y-5">
-        {SECTIONS.map((section) => (
+        {[...SECTIONS, ...(LOCAL_SECTION ? [LOCAL_SECTION] : [])].map((section) => (
           <div key={section.title}>
             <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">
               {section.title}
