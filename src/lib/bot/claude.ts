@@ -1,5 +1,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import {
+  fieldsTable,
+  jsonSkeleton,
+  sanitize,
+  type BotField,
+  type Sanitized,
+} from "@/lib/bot/fields";
+import { loadPrompt } from "@/lib/bot/prompts";
 
 /**
  * 봇 글 생성 — **로컬 Claude Code CLI** (D-149).
@@ -29,8 +37,10 @@ const execFileAsync = promisify(execFile);
 const BIN = process.env.CLAUDE_CLI_PATH || "claude";
 /** 한 번 호출 상한. 넘으면 죽인다 — 어드민이 무한정 기다리지 않게 */
 const TIMEOUT_MS = 120_000;
+/** 자료 수집은 항목이 10개가 넘어 더 오래 걸린다 (D-153) */
+const RESEARCH_TIMEOUT_MS = 240_000;
 
-async function ask(prompt: string): Promise<string> {
+async function ask(prompt: string, timeoutMs = TIMEOUT_MS): Promise<string> {
   try {
     const { stdout } = await execFileAsync(
       BIN,
@@ -39,7 +49,7 @@ async function ask(prompt: string): Promise<string> {
       // 섞여도 주입되지 않는다 (`execFile` 은 셸을 쓰지 않는다)
       ["-p", prompt],
       {
-        timeout: TIMEOUT_MS,
+        timeout: timeoutMs,
         maxBuffer: 1024 * 1024,
         // ⚠️ 웹 프로세스의 CWD 가 저장소 루트다. CLI 가 그 컨텍스트를 읽지
         // 않도록 홈으로 옮긴다 — 프로젝트 파일을 프롬프트에 끌어올 이유가 없다
@@ -120,4 +130,68 @@ export async function writeItemNickname(input: {
 - 따옴표·설명·이모지 없이 별칭만 출력`,
   );
   return unwrap(text).split("\n")[0].slice(0, 30);
+}
+
+/**
+ * 아이템 항목 **전체**를 자료 수집으로 채운다 (D-153).
+ *
+ * ## ⚠️ 프롬프트는 이 파일에 없다
+ * `prompts/bot-item-research.md` 를 읽는다. 문구를 고칠 때 코드를 만지지 않게
+ * 하려는 것이 목적이다 — 프롬프트는 정책 문서에 가깝다.
+ *
+ * ## ⚠️ 응답을 그대로 저장하지 않는다
+ * `sanitize` 를 반드시 통과시킨다. `createItemAs` 는 옵션 키·날짜 형식을 보지
+ * 않으므로(`lib/bot/fields.ts` 참조) 여기서 걸러야 한다.
+ *
+ * ## ⚠️ 등록하지 않고 **돌려준다**
+ * 어드민이 화면에서 확인·수정한 뒤 등록한다. 곧바로 저장하면 잘못된 고유값이
+ * 검토 없이 도감이 된다 (D-015) — 사람이 한 번 보는 단계를 남긴다.
+ */
+export async function researchItemContent(input: {
+  fields: BotField[];
+  categoryKey: string;
+  categoryLabel: string;
+  brand: string;
+  hint: string;
+  locale: "ko" | "ja" | "en";
+  today: string;
+}): Promise<Sanitized> {
+  const lang = { ko: "한국어", ja: "일본어", en: "영어" }[input.locale];
+  const prompt = await loadPrompt("bot-item-research", {
+    categoryKey: input.categoryKey,
+    categoryLabel: input.categoryLabel,
+    brand: input.brand || "(지정되지 않음 — 힌트에서 판단)",
+    hint: input.hint || "(없음 — 이 브랜드의 대표적인 제품 하나를 고르세요)",
+    today: input.today,
+    lang,
+    fields: fieldsTable(input.fields),
+    jsonSkeleton: jsonSkeleton(input.fields),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  return sanitize(input.fields, parseJson(text), input.today);
+}
+
+/**
+ * 응답에서 JSON 을 건져낸다.
+ *
+ * ⚠️ **`JSON.parse(text)` 만 쓰면 자주 실패한다.** 모델이 코드펜스로 감싸거나
+ * 앞뒤에 한 줄 설명을 붙인다. 첫 `{` 부터 마지막 `}` 까지를 잘라 쓴다.
+ */
+function parseJson(text: string): Record<string, unknown> {
+  const body = unwrap(text);
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start === -1 || end <= start) {
+    throw new Error(`JSON 을 찾을 수 없습니다 — 응답: ${body.slice(0, 120)}`);
+  }
+  try {
+    const parsed = JSON.parse(body.slice(start, end + 1));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("객체가 아님");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (e) {
+    throw new Error(`JSON 파싱 실패 — ${(e as Error).message}`);
+  }
 }

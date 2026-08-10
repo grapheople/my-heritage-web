@@ -4,10 +4,15 @@ import { useState, useTransition } from "react";
 import {
   botPostDiary,
   botPostItem,
+  botResearchItem,
   createBot,
   verifyBot,
 } from "@/lib/actions/bot";
 import { AdminBrandPicker } from "@/components/admin/admin-brand-picker";
+import { BotItemFields } from "@/components/admin/bot-item-fields";
+// 타입만 가져온다 — `lib/bot/fields.ts` 는 prisma 를 import 하므로 값으로
+// 들고 오면 클라이언트 번들에 들어간다
+import type { BotField } from "@/lib/bot/fields";
 
 /**
  * A-15 봇 콘솔 (D-146).
@@ -36,9 +41,12 @@ type Bot = {
 export function BotConsole({
   bots,
   categories,
+  /** 카테고리 → 채울 항목. 서버에서 A-02 조합을 읽어 넘긴다 (D-153) */
+  fieldsByCategory,
 }: {
   bots: Bot[];
   categories: { key: string; label: string }[];
+  fieldsByCategory: Record<string, BotField[]>;
 }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState("");
@@ -60,7 +68,37 @@ export function BotConsole({
   /* ── 아이템 입력 ── */
   const [category, setCategory] = useState(categories[0]?.key ?? "watch");
   const [brand, setBrand] = useState("");
-  const [model, setModel] = useState("");
+  /** 힌트 — 어떤 제품을 찾을지. 비우면 브랜드의 대표 제품을 고르게 한다 */
+  const [hint, setHint] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [nickname, setNickname] = useState("");
+  /** 자료 수집에서 버린 값 — 조용히 버리면 왜 빈칸인지 알 수 없다 */
+  const [dropped, setDropped] = useState<string[]>([]);
+
+  const fields = fieldsByCategory[category] ?? [];
+  // 매칭 키가 모두 채워졌을 때만 도감에 연결된다 (D-032·D-153).
+  // 서버가 같은 판정을 다시 한다 — 화면은 미리 보여주기만 한다
+  const keyFields = fields.filter((f) => f.isMatchingKey);
+  // ⚠️ **브랜드를 빠뜨리지 않는다.** 옷·캠핑·데스크테리어·자전거는 브랜드가
+  // 매칭 키 구성 요소다 (D-118). 브랜드는 별도 state 라 `values` 에 없다 —
+  // 빼면 서버 판정과 반대로 표시된다
+  const codexLinked =
+    keyFields.length > 0 &&
+    keyFields.every((f) =>
+      f.key === "brand" ? brand.trim() : values[f.key]?.trim(),
+    );
+
+  /** 카테고리를 바꾸면 채운 값은 버린다 — 속성 조합이 다르다 */
+  function changeCategory(key: string) {
+    setCategory(key);
+    setValues({});
+    setNickname("");
+    setDropped([]);
+  }
+
+  function setValue(key: string, value: string) {
+    setValues((v) => ({ ...v, [key]: value }));
+  }
 
   function run(fn: () => Promise<{ ok: boolean; msg?: string; err?: string }>) {
     setMsg("");
@@ -245,12 +283,14 @@ export function BotConsole({
               <b>{active.roomName}</b> 으로 올립니다. 사진은 플레이스홀더가
               자동 생성됩니다 — 아이템은 사진 1장이 필수입니다 (FR-07-A-03).
             </p>
+
+            {/* ── 3-1. 대상 지정 + 자료 수집 ── */}
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold">카테고리</span>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => changeCategory(e.target.value)}
                   className="w-36 rounded-md border px-3 py-2 text-sm"
                 >
                   {categories.map((c) => (
@@ -275,61 +315,150 @@ export function BotConsole({
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-semibold">
-                  모델명 <span className="text-destructive">*</span>
-                </span>
+                <span className="font-semibold">힌트</span>
                 <input
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-44 rounded-md border px-3 py-2 text-sm"
+                  value={hint}
+                  onChange={(e) => setHint(e.target.value)}
+                  placeholder="예: SKX007 다이버"
+                  className="w-56 rounded-md border px-3 py-2 text-sm"
                 />
               </label>
-              <button
-                type="button"
-                disabled={pending || !model.trim()}
-                onClick={() =>
-                  run(async () => {
-                    const r = await botPostItem({
-                      botId: active.botId,
-                      categoryKey: category,
-                      brand,
-                      model,
-                    });
-                    if (!r.ok) {
-                      return {
-                        ok: false,
-                        err: r.formError ?? Object.values(r.fieldErrors)[0],
-                      };
-                    }
-                    return { ok: true, msg: "아이템 등록" };
-                  })
-                }
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
-              >
-                아이템 올리기
-              </button>
               <button
                 type="button"
                 disabled={pending}
                 onClick={() =>
                   run(async () => {
-                    const r = await botPostDiary({ botId: active.botId });
+                    const r = await botResearchItem({
+                      botId: active.botId,
+                      categoryKey: category,
+                      brand,
+                      hint,
+                    });
                     if (!r.ok) return { ok: false, err: r.formError };
-                    return { ok: true, msg: "기록 작성 (Claude)" };
+                    // 손으로 채운 값을 지우지 않는다 — 수집된 값만 덮어쓴다
+                    setValues((v) => ({ ...v, ...r.values }));
+                    if (r.nickname) setNickname(r.nickname);
+                    setDropped(r.dropped);
+                    const n = Object.keys(r.values).length;
+                    return { ok: true, msg: `자료 수집 — ${n}개 항목 채움` };
                   })
                 }
                 className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent disabled:opacity-40"
               >
-                기록 올리기
+                자료 수집해서 채우기
               </button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {/* 고유번호를 지어내지 않는다 (D-146) */}
-              ⚠️ 고유번호는 넣지 않습니다 — 실재하지 않는 도감이 자동 생성되면
-              검증 큐가 가짜로 찹니다 (D-015·D-032).
-              <br />
+
+            {/* ── 3-2. 채운 값 확인·수정 ── */}
+            <div className="mt-4 border-t pt-4">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {/* 사람이 한 번 보는 단계를 남긴다 (D-153) */}
+                  수집된 값을 <b>확인·수정한 뒤</b> 등록하세요. 지어낸 고유값은
+                  실재하지 않는 도감을 만듭니다 (D-015).
+                </p>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="font-semibold">
+                    별칭
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      비우면 자동 생성
+                    </span>
+                  </span>
+                  <input
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className="w-44 rounded-md border px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3">
+                <BotItemFields
+                  fields={fields}
+                  values={values}
+                  onChange={setValue}
+                  disabled={pending}
+                />
+              </div>
+
+              {dropped.length > 0 && (
+                <div className="mt-3 rounded-md border border-warn bg-warn-bg p-2 text-xs text-warn">
+                  <b>버린 값 {dropped.length}건</b> — 저장 가능한 형식이 아니어서
+                  비웠습니다.
+                  <ul className="mt-1 list-disc pl-4">
+                    {dropped.map((d) => (
+                      <li key={d}>{d}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={pending || !values.model?.trim()}
+                  onClick={() =>
+                    run(async () => {
+                      const r = await botPostItem({
+                        botId: active.botId,
+                        categoryKey: category,
+                        brand,
+                        values,
+                        nickname,
+                      });
+                      if (!r.ok) {
+                        return {
+                          ok: false,
+                          err: r.formError ?? Object.values(r.fieldErrors)[0],
+                        };
+                      }
+                      setValues({});
+                      setNickname("");
+                      setDropped([]);
+                      return {
+                        ok: true,
+                        msg: r.codexLinked
+                          ? "아이템 등록 — 도감 연결됨"
+                          : "아이템 등록 — 도감 연결 없음(고유값 비어 있음)",
+                      };
+                    })
+                  }
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+                >
+                  아이템 올리기
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      const r = await botPostDiary({ botId: active.botId });
+                      if (!r.ok) return { ok: false, err: r.formError };
+                      return { ok: true, msg: "기록 작성 (Claude)" };
+                    })
+                  }
+                  className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent disabled:opacity-40"
+                >
+                  기록 올리기
+                </button>
+                {keyFields.length > 0 && (
+                  <span
+                    className={`text-xs ${codexLinked ? "text-warn" : "text-muted-foreground"}`}
+                  >
+                    {codexLinked
+                      ? `⚠️ 고유값(${keyFields.map((f) => f.label).join("·")})이 채워져 도감이 생성·연결됩니다`
+                      : `도감 연결 없음 — 고유값(${keyFields.map((f) => f.label).join("·")})을 비워두면 안전합니다`}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">
               ⚠️ <b>모델명은 필수</b>입니다 (전 카테고리, D-118). 브랜드는 비워도
               됩니다 — 마스터에 없는 이름은 받지 않습니다 (D-043).
+              <br />
+              ⚠️ 프롬프트는 <code>prompts/bot-item-research.md</code> 입니다 —
+              코드를 고치지 않고 문구를 조정할 수 있습니다 (D-153).
             </p>
           </>
         )}
