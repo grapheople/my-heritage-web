@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { FilterBar } from "@/components/domain/filter-bar";
 import { Link } from "@/i18n/navigation";
-import { localeAlternates } from "@/lib/site";
+import { absolute, localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
 import { resolveCategory } from "@/lib/category-scope";
@@ -37,11 +37,30 @@ import { CategoryGate } from "@/components/domain/category-gate";
  *
  * 유저 통제 수단은 그대로다 — 아이템별 비공개(D-019)·방 비공개로 피드에서 빠진다.
  */
-export const metadata: Metadata = {
-  // 기본값이 noindex 이므로 여기서 명시적으로 켠다 (D-109)
-  robots: { index: true, follow: true },
-  alternates: { languages: localeAlternates("/") },
-};
+/**
+ * ⚠️ **카테고리별로 canonical 이 갈려야 색인된다** (D-142).
+ *
+ * 카테고리가 축이 된 이상(D-137) `?category=camping` 은 **다른 콘텐츠**다.
+ * canonical 을 `/{locale}` 하나로 고정하면 검색엔진이 6개를 같은 페이지로
+ * 보고 **기본 카테고리만 색인한다** — 캠핑을 찾는 사람이 서비스에 닿지 못한다.
+ */
+export async function generateMetadata({
+  params,
+  searchParams,
+}: PageProps<"/[locale]">): Promise<Metadata> {
+  const [{ locale }, sp] = await Promise.all([params, searchParams]);
+  const category = typeof sp.category === "string" ? sp.category : undefined;
+  const suffix = category ? `?category=${category}` : "";
+  return {
+    // 기본값이 noindex 이므로 여기서 명시적으로 켠다 (D-109)
+    robots: { index: true, follow: true },
+    alternates: {
+      // 자기 자신을 가리킨다 — sitemap 이 내는 URL 과 같아야 한다
+      canonical: absolute(`/${locale}${suffix}`),
+      languages: localeAlternates(category ? suffix : "/"),
+    },
+  };
+}
 export default async function FeedPage({
   searchParams,
 }: PageProps<"/[locale]">) {
