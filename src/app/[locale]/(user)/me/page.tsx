@@ -49,7 +49,9 @@ export default async function MyRoomPage({
         bio={room.bio}
         level={room.level}
         itemCount={total}
-          imageUrl={room.imageUrl}
+        imageUrl={room.imageUrl}
+        // 톱니바퀴(프로필 설정)는 본인 방에서만 (D-158)
+        owner
       />
       <RoomTabs active="items" />
       <RoomDisplay

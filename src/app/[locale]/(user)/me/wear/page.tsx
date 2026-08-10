@@ -48,6 +48,8 @@ export default async function MyWearShotsPage({
         roomName={room.name} bio={room.bio}
         level={room.level} itemCount={itemCount}
         imageUrl={room.imageUrl}
+        // 톱니바퀴(프로필 설정)는 본인 방에서만 (D-158)
+        owner
       />
       <RoomTabs active="wear" />
       <div className="lg:min-w-0 lg:py-6">
