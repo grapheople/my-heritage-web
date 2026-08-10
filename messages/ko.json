@@ -13,7 +13,8 @@
   "myRoom": {
     "tab": {
       "items": "아이템",
-      "records": "기록"
+      "records": "기록",
+      "wear": "착용샷"
     },
     "leftItems": "떠난 아이템",
     "itemCount": "{count, plural, other {아이템 #개}}",
@@ -365,5 +366,17 @@
   },
   "unit": {
     "year": "년"
+  },
+  "wear": {
+    "title": "오늘의 착용샷",
+    "new": "새 착용샷",
+    "edit": "오늘의 착용샷 수정",
+    "save": "남기기",
+    "cancel": "취소",
+    "notePlaceholder": "오늘 한 도마리 (선택)",
+    "empty": "아직 착용샷이 없어요",
+    "listTitle": "착용샷",
+    "count": "착용샷 {count}",
+    "emptyDesc": "아이템 상세에서 오늘의 착용샷을 남길 수 있어요"
   }
 }

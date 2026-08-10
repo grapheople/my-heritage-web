@@ -13,7 +13,8 @@
   "myRoom": {
     "tab": {
       "items": "アイテム",
-      "records": "記録"
+      "records": "記録",
+      "wear": "着用ショット"
     },
     "leftItems": "旅立ったアイテム",
     "itemCount": "{count, plural, other {アイテム#点}}",
@@ -365,5 +366,17 @@
   },
   "unit": {
     "year": "年"
+  },
+  "wear": {
+    "title": "今日の着用ショット",
+    "new": "新しい着用ショット",
+    "edit": "今日の着用ショットを編集",
+    "save": "残す",
+    "cancel": "キャンセル",
+    "notePlaceholder": "今日のひとこと（任意）",
+    "empty": "まだ着用ショットがありません",
+    "listTitle": "着用ショット",
+    "count": "着用ショット {count}",
+    "emptyDesc": "アイテム詳細から今日の着用ショットを残せます"
   }
 }

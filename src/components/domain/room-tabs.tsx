@@ -2,7 +2,11 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
 /**
- * 마이룸 하위 **2메뉴** — 아이템 / 기록 (D-130).
+ * 마이룸 하위 **3메뉴** — 아이템 / 착용샷 / 기록 (D-130, D-148).
+ *
+ * ⚠️ **착용샷을 메인 탭(4개)에 넣지 않았다.** D-081·D-089 가 메인 4개를
+ * 확정했고 하단 탭바가 4열이다. 착용샷은 **방 안의 기록**이므로 여기가 맞다 —
+ * "아이템 리스트와 같은 방식"이라는 요구도 방 진열을 뜻한다.
  *
  * ⚠️ **프로필 탭을 뺐다.** 초안은 3메뉴였는데(프로필/아이템/기록) 프로필에
  * 담을 것이 **헤더(`RoomProfile`)에 이미 전부 있다** — 방 이름·사진·소개·
@@ -16,16 +20,16 @@ export function RoomTabs({
   /** 본인 방은 `/me`, 타인 방은 `/rooms/{id}` */
   basePath = "/me",
 }: {
-  active: "items" | "records";
+  active: "items" | "wear" | "records";
   basePath?: string;
 }) {
   const t = useTranslations();
-  const href = (k: "items" | "records") =>
+  const href = (k: "items" | "wear" | "records") =>
     k === "items" ? basePath : `${basePath}/${k}`;
 
   return (
     <nav className="sticky top-0 z-10 flex border-b bg-background lg:h-fit lg:flex-col lg:self-start lg:rounded-lg lg:border">
-      {(["items", "records"] as const).map((k) => (
+      {(["items", "wear", "records"] as const).map((k) => (
         <Link
           key={k}
           href={href(k)}
