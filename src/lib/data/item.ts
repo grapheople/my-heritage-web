@@ -6,7 +6,7 @@ import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import type { Locale } from "@/i18n/routing";
-import { pickAttrLabel } from "@/lib/data/label";
+import { pickAttrLabel, pickLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -30,6 +30,36 @@ function displayValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(String).join(", ");
   if (typeof value === "boolean") return value ? "true" : "false";
   return String(value);
+}
+
+/**
+ * `select`·`multiselect` 값을 **로케일 라벨로** 바꾼다 (D-155).
+ *
+ * ## ⚠️ 저장값은 옵션 **키**다 — 그대로 내면 영어가 보인다
+ * `condition` 은 `lightlyUsed`, `accessories` 는 `["box","manual"]` 로 저장된다.
+ * D-135 에서 **속성 라벨**을 DB 에서 읽도록 고쳤지만 **옵션 라벨은 빠뜨렸다** —
+ * `AttributeOption.labelKo/Ja/En` 이 존재하는데 아무도 읽지 않았다.
+ * 그래서 한국어 화면에 "상태: lightlyUsed"가 나왔다.
+ *
+ * ## ⚠️ 키를 못 찾으면 키를 그대로 낸다
+ * 옵션이 비활성화됐거나(`active: false`) 삭제된 뒤에도 **값은 보존된다**
+ * (D-036, M-09). 빈 문자열로 만들면 값이 있는데 화면에서 사라진다 — 영어 키가
+ * 보이는 것보다 값이 없어 보이는 것이 더 나쁘다.
+ */
+function optionLabel(
+  locale: Locale,
+  options: { key: string; labelKo: string; labelJa: string; labelEn: string }[],
+  raw: unknown,
+): string {
+  const one = (k: string) => {
+    const hit = options.find((o) => o.key === k);
+    return hit
+      ? pickLabel(locale, { ko: hit.labelKo, ja: hit.labelJa, en: hit.labelEn }) || k
+      : k;
+  };
+  // 다중선택은 배열로 저장된다 — 표시 순서는 저장 순서를 따른다
+  if (Array.isArray(raw)) return raw.map((v) => one(String(v))).join(", ");
+  return one(String(raw));
 }
 
 export async function getItemDetail(
@@ -68,6 +98,18 @@ export async function getItemDetail(
                   labelKo: true,
                   labelJa: true,
                   labelEn: true,
+                  // ⚠️ **옵션 라벨도 DB 에서** 온다 (D-155). 저장값은 옵션
+                  // 키(`lightlyUsed`)라 그대로 내면 한국어 화면에 영어가 보인다.
+                  // 비활성 옵션도 가져온다 — 값이 보존되므로(D-036) 라벨이
+                  // 필요하다
+                  options: {
+                    select: {
+                      key: true,
+                      labelKo: true,
+                      labelJa: true,
+                      labelEn: true,
+                    },
+                  },
                 },
               },
             },
@@ -105,11 +147,16 @@ export async function getItemDetail(
   const labels: Record<string, string> = {};
 
   for (const v of values) {
-    const key = v.categoryAttribute.attributeDefinition.key;
-    const text = displayValue(v.value);
+    const def = v.categoryAttribute.attributeDefinition;
+    const key = def.key;
+    // 선택형은 옵션 라벨로 바꾼다 (D-155). 나머지는 저장값이 곧 표시값이다
+    const text =
+      def.type === "select" || def.type === "multiselect"
+        ? optionLabel(locale, def.options, v.value)
+        : displayValue(v.value);
     if (!text) continue; // 값이 빈 항목은 렌더하지 않는다 (FR-06-A-02)
 
-    labels[key] = pickAttrLabel(locale, v.categoryAttribute.attributeDefinition);
+    labels[key] = pickAttrLabel(locale, def);
 
     if (OWNER_ONLY_KEYS.has(key)) {
       // ⚠️ 타인에게는 **응답에 넣지 않는다.** 화면에서 감추는 것이 아니다
