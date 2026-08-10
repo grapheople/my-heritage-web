@@ -46,11 +46,11 @@ export function FilterBar({
   }
 
   return (
-    <div className="sticky top-0 z-20 flex items-center gap-3 border-b bg-background px-4 py-3 lg:top-15 lg:px-0">
-      {/* 카테고리 축 — 왼쪽 (D-138) */}
+    <div className="sticky top-0 z-20 flex items-center justify-end gap-3 border-b bg-background px-4 py-3 lg:top-15 lg:px-0">
+      {/* ⚠️ 둘 다 **우측**에 모은다 (D-141). 왼쪽에 하나, 오른쪽에 하나로
+          갈라놓으면 시선이 두 번 움직인다 — 같은 성격의 조작이라 붙여 둔다.
+          카테고리가 축이므로 언어권보다 앞(왼쪽)에 온다 */}
       <CategorySelect keys={categoryKeys} active={category} />
-
-      <span className="flex-1" />
 
       {/* 언어권 — 우측 끝. 기본값 '전체'라 작게 둔다 (D-027) */}
       <div className="flex shrink-0 items-center border-l pl-3">
