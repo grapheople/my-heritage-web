@@ -58,8 +58,9 @@ export function SearchBar({ q, tab, categoryKeys, category }: {
         </div>
       </form>
 
-      {/* 카테고리 축 — 검색도 한 카테고리 안에서다 (D-137·D-138) */}
-      <div className="flex items-center gap-3 px-4 pt-3 lg:px-0">
+      {/* 카테고리 축 — 검색도 한 카테고리 안에서다 (D-137·D-138).
+          다른 화면과 같은 자리(우측)에 둔다 (D-141) */}
+      <div className="flex items-center justify-end gap-3 px-4 pt-3 lg:px-0">
         <CategorySelect keys={categoryKeys} active={category} />
       </div>
 

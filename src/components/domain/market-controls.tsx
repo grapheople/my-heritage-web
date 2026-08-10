@@ -54,10 +54,9 @@ export function MarketControls({
 
   return (
     <div className="sticky top-0 z-20 border-b bg-background lg:top-15">
-      {/* 카테고리 축(왼쪽) + 통화 (D-138) */}
-      <div className="flex items-center gap-3 px-4 py-2.5 lg:px-0">
+      {/* 카테고리 + 통화를 **우측**에 모은다 (D-141) */}
+      <div className="flex items-center justify-end gap-3 px-4 py-2.5 lg:px-0">
         <CategorySelect keys={categoryKeys} active={category} />
-        <span className="flex-1" />
         <div className="flex shrink-0 items-center border-l pl-3">
           <label className="relative flex items-center gap-1 text-sm text-muted-foreground">
             <span className="sr-only">{t("filter.currency")}</span>
