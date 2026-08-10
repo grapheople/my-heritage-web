@@ -55,11 +55,20 @@ export function ItemForm({
   itemId,
   /** 수정 모드의 기존 사진 — 안 넘기면 수정 저장에서 "사진 없음"으로 막힌다 */
   initialPhotos,
+  /**
+   * "고유값을 모르겠어요" 초기 상태 (D-164).
+   *
+   * ⚠️ **수정 모드에서 반드시 넘겨야 한다.** 고유값 없이 등록한 아이템인데
+   * 이 값이 `false` 로 시작하면, 유저가 **한 번도 입력한 적 없는 칸**에서
+   * "필수 항목이에요"로 막혀 저장이 안 된다 (D-032 면제가 풀린다).
+   */
+  initialUnknownKey = false,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
   itemId?: string;
   initialPhotos?: string[];
+  initialUnknownKey?: boolean;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -69,7 +78,7 @@ export function ItemForm({
   const [codexName, setCodexName] = useState<string | null>(null);
   const [codexVerified, setCodexVerified] = useState(false);
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
-  const [unknownKey, setUnknownKey] = useState(false);
+  const [unknownKey, setUnknownKey] = useState(initialUnknownKey);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
   /** 유저 별칭(선택) — 명칭을 대체하지 않는다 (D-112) */

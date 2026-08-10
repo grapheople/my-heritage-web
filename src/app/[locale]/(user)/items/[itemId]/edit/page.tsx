@@ -43,6 +43,8 @@ export default async function EditItemPage({
           fixedCategory={item.categoryKey}
           initialValues={item.values}
           initialPhotos={item.photos}
+          // 고유값 없이 등록한 아이템을 저장할 수 있게 (D-164)
+          initialUnknownKey={item.unknownMatchingKey}
         />
       </div>
     </div>

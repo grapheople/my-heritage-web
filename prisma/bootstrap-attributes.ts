@@ -45,7 +45,15 @@ const ORDER = [
   "referenceUrl", "note",
 ] as const;
 
-const PRIVATE = ["purchaseDate", "purchasedFrom", "purchasePrice"];
+/**
+ * 소유자에게만 보이는 항목 (FR-06-A-05).
+ *
+ * ⚠️ **`purchasePrice` 는 빼두었다** (D-163). 기존 환경은
+ * `prisma/deactivate-purchase-price.ts` 로 비활성화했고, 새 환경에는 애초에
+ * 붙지 않는다. 속성 **정의**는 `seed.ts` 에 남아 있어 필요하면 어드민이
+ * A-02 에서 다시 붙일 수 있다.
+ */
+const PRIVATE = ["purchaseDate", "purchasedFrom"];
 const TAIL = ["referenceUrl", "note"];
 
 const PLAN: Record<string, { matchingKey: string[]; attrs: Attr[] }> = {
