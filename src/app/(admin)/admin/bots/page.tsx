@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminPage } from "@/components/admin/ui";
 import { BotConsole } from "@/components/admin/bot-console";
 import { botEnabled, botTargetDb, claudeConfigured } from "@/lib/bot/guard";
+import { categoryFields, type BotField } from "@/lib/bot/fields";
 import { getAdminCategories } from "@/lib/data/admin";
 import { getBots } from "@/lib/data/admin";
 
@@ -21,6 +22,16 @@ export default async function AdminBotsPage() {
   if (!botEnabled()) notFound();
 
   const [bots, categories] = await Promise.all([getBots(), getAdminCategories()]);
+
+  // 카테고리별 채울 항목을 미리 읽어 넘긴다 (D-153). 클라이언트에서 fetch 하면
+  // 카테고리를 바꿀 때마다 계단식 상태 갱신이 필요해진다 (D-151 에서 겪었다)
+  const fieldsByCategory: Record<string, BotField[]> = Object.fromEntries(
+    await Promise.all(
+      categories.map(
+        async (c) => [c.slug, await categoryFields(c.slug)] as const,
+      ),
+    ),
+  );
 
   return (
     <AdminPage
@@ -52,6 +63,7 @@ export default async function AdminBotsPage() {
           key: c.slug,
           label: c.labelKey.replace("category.", ""),
         }))}
+        fieldsByCategory={fieldsByCategory}
       />
     </AdminPage>
   );

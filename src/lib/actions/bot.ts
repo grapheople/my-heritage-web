@@ -5,7 +5,14 @@ import { fail, revalidate, type ActionResult } from "@/lib/actions/shared";
 import { createItemAs } from "@/lib/actions/item";
 import { createDiaryAs } from "@/lib/actions/diary";
 import { botEnabled } from "@/lib/bot/guard";
-import { writeDiaryBody, writeItemNickname } from "@/lib/bot/claude";
+import {
+  researchItemContent,
+  writeDiaryBody,
+  writeItemNickname,
+} from "@/lib/bot/claude";
+import { categoryFields, sanitize } from "@/lib/bot/fields";
+import { userLocalDate } from "@/lib/format";
+import { userTimezone } from "@/lib/actions/shared";
 import { hashBotPassword, verifyBotPassword } from "@/lib/bot/password";
 import { makeBotPhoto } from "@/lib/bot/photo";
 import { prisma } from "@/lib/prisma";
@@ -46,9 +53,12 @@ async function guard(): Promise<{ actorId: string } | { error: string }> {
 function reason(
   res: { formError?: string; fieldErrors: Record<string, string> },
   fallback: string,
+  labels: Record<string, string> = {},
 ): string {
   if (res.formError) return res.formError;
-  const parts = Object.entries(res.fieldErrors).map(([k, v]) => `${LABEL[k] ?? k}: ${v}`);
+  const parts = Object.entries(res.fieldErrors).map(
+    ([k, v]) => `${labels[k] ?? LABEL[k] ?? k}: ${v}`,
+  );
   return parts.length > 0 ? parts.join(" · ") : fallback;
 }
 
@@ -152,26 +162,102 @@ async function botViewer(botId: string) {
   };
 }
 
+/** 봇 타임존 기준 오늘 — 미래 구매일을 걸러내는 기준 (D-056) */
+async function botToday(userId: string): Promise<string> {
+  return userLocalDate(await userTimezone(userId));
+}
+
 /**
- * 봇이 아이템을 올린다.
+ * 자료를 수집해 **모든 항목**을 채운다 — 등록하지 않고 돌려준다 (D-153).
  *
- * ⚠️ **매칭 키 값을 봇이 만들지 않는다.** 고유번호를 지어내면 실재하지 않는
- * 도감이 자동 생성되고(D-015), 어드민 검증 큐가 가짜로 찬다. "모르겠어요"를
- * 써서 도감 연결을 건너뛴다 (D-032, FR-01-A-02b).
+ * ## ⚠️ 바로 저장하지 않는 이유
+ * 고유값(레퍼런스 번호)이 틀리면 **실재하지 않는 도감이 생기고**(D-015) 남에게
+ * "같은 물건 가진 사람"으로 노출된다. 어드민이 한 번 보는 단계를 남긴다 —
+ * 프롬프트에 "모르면 비운다"를 박아두는 것만으로는 부족하다.
  */
-export async function botPostItem(input: {
+export async function botResearchItem(input: {
   botId: string;
   categoryKey: string;
   brand: string;
-  model: string;
-}): Promise<ActionResult<{ itemId: string }>> {
+  hint: string;
+}): Promise<
+  ActionResult<{
+    values: Record<string, string>;
+    nickname: string;
+    dropped: string[];
+  }>
+> {
   const g = await guard();
   if ("error" in g) return fail({}, g.error);
 
   const b = await botViewer(input.botId);
   if (!b) return fail({}, "봇을 찾을 수 없습니다");
 
-  const itemName = [input.brand, input.model].filter(Boolean).join(" ");
+  const fields = await categoryFields(input.categoryKey);
+  if (fields.length === 0) {
+    return fail({}, "이 카테고리에 속성 조합이 설정되지 않았습니다 (A-02)");
+  }
+
+  try {
+    const r = await researchItemContent({
+      fields,
+      categoryKey: input.categoryKey,
+      // 어드민은 ko 전용이라 카테고리 라벨을 키로 넘겨도 충분하다 (D-030)
+      categoryLabel: input.categoryKey,
+      brand: input.brand,
+      hint: input.hint,
+      locale: b.locale,
+      today: await botToday(b.viewer.userId),
+    });
+    return { ok: true, values: r.values, nickname: r.nickname, dropped: r.dropped };
+  } catch (e) {
+    // ⚠️ 예외를 흘리지 않는다 — 화면에 크래시가 뜨면 어드민은 CLI 문제인지
+    // 프롬프트 문제인지 구분할 수 없다 (D-150)
+    return fail({}, `자료 수집 실패 — ${(e as Error).message}`);
+  }
+}
+
+/**
+ * 봇이 아이템을 올린다.
+ *
+ * ## ⚠️ 값은 **정제해서** 저장한다
+ * `createItemAs` 는 옵션 키·날짜 형식·숫자 여부를 검증하지 않는다. 화면에서
+ * 넘어온 값도 한 번 더 `sanitize` 를 통과시킨다 — 자료 수집을 건너뛰고 손으로
+ * 채운 값도 있고, 클라이언트를 신뢰할 이유가 없다.
+ *
+ * ## ⚠️ 고유값이 비어 있으면 도감을 만들지 않는다
+ * 값이 있을 때만 도감에 연결·생성한다. 지어낸 고유값을 넣으면 실재하지 않는
+ * 도감이 생기므로(D-015), **비우는 쪽이 안전한 기본값**이다 (D-032).
+ */
+export async function botPostItem(input: {
+  botId: string;
+  categoryKey: string;
+  brand: string;
+  /** 속성 키 → 값. 자료 수집 결과 또는 어드민이 손으로 고친 값 */
+  values: Record<string, string>;
+  nickname?: string;
+}): Promise<ActionResult<{ itemId: string; codexLinked: boolean }>> {
+  const g = await guard();
+  if ("error" in g) return fail({}, g.error);
+
+  const b = await botViewer(input.botId);
+  if (!b) return fail({}, "봇을 찾을 수 없습니다");
+
+  const fields = await categoryFields(input.categoryKey);
+  if (fields.length === 0) {
+    return fail({}, "이 카테고리에 속성 조합이 설정되지 않았습니다 (A-02)");
+  }
+
+  const clean = sanitize(fields, input.values, await botToday(b.viewer.userId), {
+    // 화면에서 온 값은 어드민이 확인한 것이다 — 링크를 받는다
+    allowUrls: true,
+  });
+  const values: Record<string, string> = {
+    ...clean.values,
+    brand: input.brand,
+  };
+
+  const itemName = [input.brand, values.model].filter(Boolean).join(" ");
 
   // ⚠️ 사진은 필수다 (FR-07-A-03) — 플레이스홀더를 만든다. 스토리지 업로드가
   // 실패하면 예외가 아니라 **메시지로** 돌려준다. 크래시가 뜨면 어드민은
@@ -184,23 +270,31 @@ export async function botPostItem(input: {
   }
 
   // 별칭은 있으면 좋고 없어도 된다 — 실패해도 등록을 막지 않는다
-  let nickname: string | undefined;
-  try {
-    nickname = await writeItemNickname({ itemName, locale: b.locale });
-  } catch {
-    nickname = undefined;
+  let nickname = input.nickname?.trim() || undefined;
+  if (!nickname) {
+    try {
+      nickname = await writeItemNickname({ itemName, locale: b.locale });
+    } catch {
+      nickname = undefined;
+    }
   }
+
+  // 매칭 키 속성이 **모두** 채워졌을 때만 도감을 연결·생성한다.
+  // 하나라도 비면 "모르겠어요" 로 넘긴다 (D-032, FR-01-A-02b)
+  const keyFields = fields.filter((f) => f.isMatchingKey);
+  const codexLinked =
+    keyFields.length > 0 && keyFields.every((f) => values[f.key]?.trim());
 
   const res = await createItemAs(b.viewer, {
     category: input.categoryKey,
-    values: { brand: input.brand, model: input.model },
+    values,
     photoUrls: [photoUrl],
     nickname,
-    // 위 주석 참조 — 고유번호를 지어내지 않는다
-    unknownMatchingKey: true,
+    unknownMatchingKey: !codexLinked,
   });
   if (!res.ok) {
-    return fail(res.fieldErrors, reason(res, "등록에 실패했습니다"));
+    const labels = Object.fromEntries(fields.map((f) => [f.key, f.label]));
+    return fail(res.fieldErrors, reason(res, "등록에 실패했습니다", labels));
   }
 
   await prisma.botAccount.update({
@@ -208,7 +302,7 @@ export async function botPostItem(input: {
     data: { lastActedAt: new Date() },
   });
   revalidate("/admin/bots", "/[locale]", "/[locale]/me");
-  return { ok: true, itemId: res.itemId };
+  return { ok: true, itemId: res.itemId, codexLinked };
 }
 
 /** 봇이 기록을 올린다 — 자기 아이템 중 하나에 연결한다 */
