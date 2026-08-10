@@ -12,6 +12,14 @@ import type { ItemThumbData } from "./item-thumb";
  * - 정렬은 등록순 고정. 유저가 바꿀 수 없다 (D-070)
  * - 아이템이 없는 카테고리는 호출부에서 숨긴다 (FR-01-A-04)
  *
+ * ## 갤러리형 리듬 (D-144)
+ * 섹션 여백을 키우고 **섹션 사이에 경계선**을 둔다. 예전에는 섹션 간격이
+ * 타일 간격과 비슷해서 **하나의 긴 목록**으로 읽혔다 — 구역이 갈려야
+ * "방을 둘러본다"가 된다 (원칙 2).
+ *
+ * ⚠️ 첫 섹션에는 경계선을 붙이지 않는다 (`first-of-type`). 방 헤더 아래
+ * 선이 두 줄로 겹친다.
+ *
  * "더 보기"는 **상한을 넘을 때만** 낸다 (FR-01-A-17). `lg`는 15개까지 보이므로
  * 13~15개 구간에서는 모바일에만 보여야 한다.
  */
@@ -34,8 +42,8 @@ export function Section({
   const overLg = totalCount > DISPLAY_CAP.lg;
 
   return (
-    <section className="px-4 py-5 lg:px-0 lg:py-6">
-      <div className="mb-3 flex items-baseline gap-2">
+    <section className="border-t px-4 py-7 first-of-type:border-t-0 lg:px-0 lg:py-10">
+      <div className="mb-4 flex items-baseline gap-2 lg:mb-5">
         <h2 className="text-lg font-bold tracking-tight">{t(categoryKey)}</h2>
         <span className="text-sm font-semibold text-muted-foreground">
           {formatNumber(totalCount)}
@@ -50,8 +58,8 @@ export function Section({
           className={
             // 13~15개면 lg 에서는 전부 보이므로 "더 보기"를 감춘다
             overLg
-              ? "mt-3 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
-              : "mt-3 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent lg:hidden"
+              ? "mt-5 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
+              : "mt-5 block rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent lg:hidden"
           }
         >
           {t("display.more")}{" "}
