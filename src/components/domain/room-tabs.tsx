@@ -24,7 +24,7 @@ export function RoomTabs({
     k === "items" ? basePath : `${basePath}/${k}`;
 
   return (
-    <nav className="sticky top-0 z-10 flex border-b bg-background lg:top-19 lg:h-fit lg:flex-col lg:self-start lg:rounded-lg lg:border">
+    <nav className="sticky top-0 z-10 flex border-b bg-background lg:h-fit lg:flex-col lg:self-start lg:rounded-lg lg:border">
       {(["items", "records"] as const).map((k) => (
         <Link
           key={k}
