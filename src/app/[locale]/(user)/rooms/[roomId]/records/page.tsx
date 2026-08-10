@@ -37,7 +37,7 @@ export default async function RoomRecordsPage({
       <RoomProfile
         roomName={room.name} bio={room.bio}
         level={room.level} itemCount={publicCount}
-          imageUrl={room.imageUrl}
+        imageUrl={room.imageUrl}
       />
       <RoomTabs active="records" basePath={`/rooms/${room.id}`} />
       <div className="lg:min-w-0">
