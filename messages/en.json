@@ -13,7 +13,8 @@
   "myRoom": {
     "tab": {
       "items": "Items",
-      "records": "Records"
+      "records": "Records",
+      "wear": "Shots"
     },
     "leftItems": "Items that left",
     "itemCount": "{count, plural, =1 {# item} other {# items}}",
@@ -365,5 +366,17 @@
   },
   "unit": {
     "year": "yr"
+  },
+  "wear": {
+    "title": "Today's shot",
+    "new": "New shot",
+    "edit": "Edit today's shot",
+    "save": "Save",
+    "cancel": "Cancel",
+    "notePlaceholder": "A line about today (optional)",
+    "empty": "No shots yet",
+    "listTitle": "Shots",
+    "count": "Shots {count}",
+    "emptyDesc": "Leave today's shot from an item page"
   }
 }

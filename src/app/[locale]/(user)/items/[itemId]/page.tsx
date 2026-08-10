@@ -9,6 +9,10 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail, isItemIndexable } from "@/lib/data/item";
+import { getItemWearShots } from "@/lib/data/wear-shot";
+import { todaysWearShot } from "@/lib/actions/wear-shot";
+import { WearShotForm } from "@/components/domain/wear-shot-form";
+import { WearShotGrid } from "@/components/domain/wear-shot-grid";
 import { formatPrice, ownershipDuration } from "@/lib/format";
 import { localeAlternates } from "@/lib/site";
 
@@ -69,6 +73,13 @@ export default async function ItemDetailPage({
   const owned = item.owner.purchaseDate
     ? ownershipDuration(new Date(item.owner.purchaseDate))
     : null;
+
+  // 착용샷 (D-148). 공개 판정은 조회 계층이 끝낸다 — 타인에게는 공개
+  // 아이템의 것만 온다
+  const [wearShots, today] = await Promise.all([
+    getItemWearShots(itemId, viewer),
+    isOwner ? todaysWearShot(itemId) : Promise.resolve(null),
+  ]);
 
   return (
     <div>
@@ -197,6 +208,33 @@ export default async function ItemDetailPage({
             </Link>
           )}
           <SaleStatusActions itemId={item.id} saleStatus={item.saleStatus} />
+
+          {/*
+            오늘의 착용샷 (D-148). **아이템당 하루 1장**이므로 오늘 이미
+            남겼으면 수정 모드로 열린다 — 새로 만들려 하면 유니크 제약에
+            막히는데, 화면이 미리 알고 헛수고를 막는다
+          */}
+          <WearShotForm
+            itemId={item.id}
+            existing={today ? { id: today.id, note: today.note } : undefined}
+            labels={{
+              title: t("wear.title"),
+              edit: t("wear.edit"),
+              save: t("wear.save"),
+              cancel: t("wear.cancel"),
+              notePlaceholder: t("wear.notePlaceholder"),
+            }}
+          />
+        </section>
+      )}
+
+      {/* 착용샷 목록 — 이 아이템의 기록. 타인에게도 보인다 */}
+      {wearShots.length > 0 && (
+        <section className="border-t px-4 py-6 lg:px-0">
+          <h2 className="mb-4 text-sm font-bold">
+            {t("wear.count", { count: wearShots.length })}
+          </h2>
+          <WearShotGrid shots={wearShots} showItemName={false} />
         </section>
       )}
 

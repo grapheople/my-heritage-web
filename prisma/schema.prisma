@@ -560,6 +560,8 @@ model Item {
   @@index([saleStatus, onSaleAt])
   @@index([roomId, categoryId])
   @@index([codexItemId])
+  /// 착용샷 (D-148) — 아이템 종속 1:N. 일기(N:M, D-054)와 다른 층이다
+  wearShots WearShot[]
 }
 
 /// D-037 — 최대 10장, 1장 이상 필수 (M-07). 첫 장이 대표 이미지
@@ -727,4 +729,47 @@ model Notification {
   /// 목록은 최신순 (FR-08-A-04). 미읽음 뱃지 판정도 이 인덱스를 쓴다
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+/**
+ * 착용샷 — "오늘 이거 썼다" (D-148).
+ *
+ * ## ⚠️ 일기와 다른 층이다
+ * | | 일기 (D-054) | 착용샷 |
+ * |---|---|---|
+ * | 아이템 | **N:M** — 여러 아이템, 연결은 선택 | **1:N** — 아이템 하나에 종속 |
+ * | 본문 | 1000자 | **짧은 노트 1개** |
+ * | 사진 | 최대 10장, **선택** | **1장 필수** |
+ * | 성격 | **사건** 기록 ("이번 캠핑에…") | **하루** 기록 ("오늘 이거 찼다") |
+ *
+ * D-054 가 1:N 을 탈락시킨 이유는 "일기가 아이템 설명과 구분되지 않는다" 였다.
+ * 착용샷은 **애초에 아이템에 붙는 기록**이므로 그 문제가 없다.
+ *
+ * ## ⚠️ 아이템당 하루 1장 (D-148)
+ * `@@unique([itemId, wornOn])` 이 **유일한 보장**이다. 애플리케이션에서
+ * "오늘 있나"를 세는 방식은 동시 요청에 뚫린다 — `ExperienceLog` 와 같은 구조다.
+ *
+ * `wornOn` 은 **유저 타임존 기준 날짜 문자열**(`YYYY-MM-DD`)이다 (D-056).
+ * `DateTime` 으로 두면 자정 근처에서 UTC 로 하루가 갈린다.
+ */
+model WearShot {
+  id     String @id @default(cuid())
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  /// 1장 필수 — 착용샷의 본질이다
+  photoUrl String
+  /// 짧은 한 도마리. 비어 있을 수 있다 (사진만으로 성립)
+  note     String?
+
+  /// ⚠️ 유저 타임존 기준 `YYYY-MM-DD` (D-056). `DateTime` 금지
+  wornOn String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 아이템당 하루 1장 — 위 주석 참조
+  @@unique([itemId, wornOn])
+  /// 목록은 최신순 (S-25)
+  @@index([itemId, wornOn])
 }
