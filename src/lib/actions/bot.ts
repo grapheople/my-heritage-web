@@ -16,6 +16,7 @@ import { userTimezone } from "@/lib/actions/shared";
 import { hashBotPassword, verifyBotPassword } from "@/lib/bot/password";
 import { makeBotPhoto } from "@/lib/bot/photo";
 import { prisma } from "@/lib/prisma";
+import { MAX_UPLOAD_BYTES, storeImage, validateUpload } from "@/lib/storage";
 import type { Locale } from "@/i18n/routing";
 
 /**
@@ -162,6 +163,54 @@ async function botViewer(botId: string) {
   };
 }
 
+/**
+ * 봇 아이템 사진 **직접 업로드** (D-154).
+ *
+ * ## ⚠️ `/api/upload` 를 쓸 수 없다
+ * 그 라우트는 **유저 세션이 필수**다 (열어두면 스토리지가 아무나 쓰는 파일
+ * 서버가 된다). 어드민은 유저 세션이 아니므로 401 이 난다. 그렇다고 그 라우트를
+ * 열면 **봇을 위해 전체 업로드 경로를 여는 것**이 되므로, 봇 가드를 그대로 타는
+ * 별도 액션을 둔다.
+ *
+ * ## ⚠️ 저장은 **일반 경로**를 탄다
+ * `storeImage` 를 그대로 쓴다 — 정방형·500KB 이하·EXIF 제거가 봇 사진에도
+ * 똑같이 적용된다 (D-128·D-129). 위치정보가 붙은 채로 나가면 D-031 절도
+ * 리스크가 실제 주소가 된다
+ *
+ * ## ⚠️ 크롭 UI 는 붙이지 않는다
+ * 유저는 `SquareCropper` 로 구도를 잡지만(D-129), 시딩 사진에 그 단계를 두면
+ * 어드민이 장마다 조작해야 한다. `storeImage` 의 **중앙 크롭**에 맡긴다
+ */
+export async function botUploadPhoto(
+  form: FormData,
+): Promise<ActionResult<{ url: string }>> {
+  const g = await guard();
+  if ("error" in g) return fail({}, g.error);
+
+  const botId = String(form.get("botId") ?? "");
+  const b = await botViewer(botId);
+  if (!b) return fail({}, "봇을 찾을 수 없습니다");
+
+  const file = form.get("file");
+  if (!(file instanceof File)) return fail({}, "파일이 없습니다");
+
+  const check = validateUpload(file.type, file.size);
+  if (!check.ok) return fail({}, check.message);
+
+  // Content-Length 를 믿지 않는다 — 실제 바이트로 다시 본다
+  const bytes = await file.arrayBuffer();
+  if (bytes.byteLength > MAX_UPLOAD_BYTES) return fail({}, "파일이 너무 큽니다");
+
+  try {
+    // 아이템이 아직 없으므로 봇 id + 타임스탬프로 키를 만든다
+    const key = `${b.viewer.userId}/${Date.now()}-${bytes.byteLength}`;
+    const stored = await storeImage(bytes, key);
+    return { ok: true, url: stored.url };
+  } catch (e) {
+    return fail({}, `업로드 실패 — ${(e as Error).message}`);
+  }
+}
+
 /** 봇 타임존 기준 오늘 — 미래 구매일을 걸러내는 기준 (D-056) */
 async function botToday(userId: string): Promise<string> {
   return userLocalDate(await userTimezone(userId));
@@ -228,6 +277,9 @@ export async function botResearchItem(input: {
  * ## ⚠️ 고유값이 비어 있으면 도감을 만들지 않는다
  * 값이 있을 때만 도감에 연결·생성한다. 지어낸 고유값을 넣으면 실재하지 않는
  * 도감이 생기므로(D-015), **비우는 쪽이 안전한 기본값**이다 (D-032).
+ *
+ * ## 사진은 올린 것이 있으면 그것을 쓴다 (D-154)
+ * 없으면 플레이스홀더를 만든다 — 아이템은 사진 1장이 필수다 (FR-07-A-03).
  */
 export async function botPostItem(input: {
   botId: string;
@@ -236,6 +288,8 @@ export async function botPostItem(input: {
   /** 속성 키 → 값. 자료 수집 결과 또는 어드민이 손으로 고친 값 */
   values: Record<string, string>;
   nickname?: string;
+  /** 직접 업로드한 사진. 비면 플레이스홀더를 만든다. 첫 장이 대표 (FR-07-A-04) */
+  photoUrls?: string[];
 }): Promise<ActionResult<{ itemId: string; codexLinked: boolean }>> {
   const g = await guard();
   if ("error" in g) return fail({}, g.error);
@@ -259,14 +313,22 @@ export async function botPostItem(input: {
 
   const itemName = [input.brand, values.model].filter(Boolean).join(" ");
 
-  // ⚠️ 사진은 필수다 (FR-07-A-03) — 플레이스홀더를 만든다. 스토리지 업로드가
-  // 실패하면 예외가 아니라 **메시지로** 돌려준다. 크래시가 뜨면 어드민은
-  // 브랜드가 문제인지 스토리지가 문제인지 구분할 수 없다
-  let photoUrl: string;
-  try {
-    photoUrl = await makeBotPhoto(itemName || input.categoryKey, b.viewer.userId);
-  } catch (e) {
-    return fail({}, `사진 생성·업로드 실패 — ${(e as Error).message}`);
+  // ⚠️ 사진은 필수다 (FR-07-A-03). 직접 올린 것이 있으면 쓰고(D-154), 없으면
+  // 플레이스홀더를 만든다. 스토리지가 실패하면 예외가 아니라 **메시지로**
+  // 돌려준다 — 크래시가 뜨면 어드민은 브랜드가 문제인지 스토리지가 문제인지
+  // 구분할 수 없다
+  const uploaded = (input.photoUrls ?? []).filter((u) => u.trim());
+  let photoUrls: string[];
+  if (uploaded.length > 0) {
+    photoUrls = uploaded;
+  } else {
+    try {
+      photoUrls = [
+        await makeBotPhoto(itemName || input.categoryKey, b.viewer.userId),
+      ];
+    } catch (e) {
+      return fail({}, `사진 생성·업로드 실패 — ${(e as Error).message}`);
+    }
   }
 
   // 별칭은 있으면 좋고 없어도 된다 — 실패해도 등록을 막지 않는다
@@ -288,7 +350,7 @@ export async function botPostItem(input: {
   const res = await createItemAs(b.viewer, {
     category: input.categoryKey,
     values,
-    photoUrls: [photoUrl],
+    photoUrls,
     nickname,
     unknownMatchingKey: !codexLinked,
   });

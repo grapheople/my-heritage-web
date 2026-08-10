@@ -5,6 +5,7 @@ import {
   botPostDiary,
   botPostItem,
   botResearchItem,
+  botUploadPhoto,
   createBot,
   verifyBot,
 } from "@/lib/actions/bot";
@@ -74,6 +75,9 @@ export function BotConsole({
   const [nickname, setNickname] = useState("");
   /** 자료 수집에서 버린 값 — 조용히 버리면 왜 빈칸인지 알 수 없다 */
   const [dropped, setDropped] = useState<string[]>([]);
+  /** 직접 올린 사진. 비면 플레이스홀더가 만들어진다 (D-154) */
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const fields = fieldsByCategory[category] ?? [];
   // 매칭 키가 모두 채워졌을 때만 도감에 연결된다 (D-032·D-153).
@@ -94,10 +98,40 @@ export function BotConsole({
     setValues({});
     setNickname("");
     setDropped([]);
+    setPhotos([]);
   }
 
   function setValue(key: string, value: string) {
     setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  /**
+   * 사진 업로드 (D-154).
+   *
+   * ⚠️ **`startTransition` 을 쓰지 않는다.** 여러 장을 순차로 올리는 동안
+   * 진행 상태를 따로 보여야 하고, 한 장이 실패해도 나머지는 살린다 —
+   * 트랜지션 하나로 묶으면 어느 장이 실패했는지 알 수 없다.
+   */
+  async function upload(botId: string, files: FileList) {
+    setMsg("");
+    setErr("");
+    setUploading(true);
+    const added: string[] = [];
+    const failed: string[] = [];
+    // ⚠️ 선택 순서를 지킨다 — **첫 장이 대표 이미지**다 (FR-07-A-04).
+    // `Promise.all` 은 완료 순서가 섞이므로 쓰지 않는다
+    for (const file of Array.from(files)) {
+      const form = new FormData();
+      form.set("botId", botId);
+      form.set("file", file);
+      const r = await botUploadPhoto(form);
+      if (r.ok) added.push(r.url);
+      else failed.push(`${file.name}: ${r.formError ?? "실패"}`);
+    }
+    setPhotos((p) => [...p, ...added]);
+    setUploading(false);
+    if (added.length > 0) setMsg(`사진 ${added.length}장 업로드`);
+    if (failed.length > 0) setErr(failed.join(" · "));
   }
 
   function run(fn: () => Promise<{ ok: boolean; msg?: string; err?: string }>) {
@@ -251,6 +285,9 @@ export function BotConsole({
                 if (!r.ok) return { ok: false, err: r.formError };
                 setActive({ botId: r.botId, roomName: r.roomName });
                 setAuthPw("");
+                // ⚠️ 올려둔 사진은 **이전 봇의 경로**에 저장돼 있다. 봇이
+                // 바뀌면 버린다 — 남의 방 사진을 붙여 올리게 될 이유가 없다
+                setPhotos([]);
                 return { ok: true, msg: `"${r.roomName}" 으로 로그인` };
               })
             }
@@ -261,7 +298,10 @@ export function BotConsole({
           {active && (
             <button
               type="button"
-              onClick={() => setActive(null)}
+              onClick={() => {
+                setActive(null);
+                setPhotos([]);
+              }}
               className="px-2 py-2 text-sm text-muted-foreground underline"
             >
               로그아웃
@@ -280,8 +320,9 @@ export function BotConsole({
         ) : (
           <>
             <p className="mt-1 text-xs text-muted-foreground">
-              <b>{active.roomName}</b> 으로 올립니다. 사진은 플레이스홀더가
-              자동 생성됩니다 — 아이템은 사진 1장이 필수입니다 (FR-07-A-03).
+              <b>{active.roomName}</b> 으로 올립니다. 아이템은 사진 1장이
+              필수이므로(FR-07-A-03), 직접 올리지 않으면 플레이스홀더가 자동
+              생성됩니다.
             </p>
 
             {/* ── 3-1. 대상 지정 + 자료 수집 ── */}
@@ -381,6 +422,87 @@ export function BotConsole({
                 />
               </div>
 
+              {/* ── 사진 (D-154) ── */}
+              <div className="mt-4 border-t pt-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold">사진</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    multiple
+                    disabled={pending || uploading}
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) upload(active.botId, files);
+                      // 같은 파일을 다시 고를 수 있게 비운다
+                      e.target.value = "";
+                    }}
+                    className="text-sm"
+                  />
+                  {uploading && (
+                    <span className="text-xs text-muted-foreground">
+                      업로드 중…
+                    </span>
+                  )}
+                  {photos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPhotos([])}
+                      className="text-xs text-muted-foreground underline"
+                    >
+                      전체 비우기
+                    </button>
+                  )}
+                </div>
+
+                {photos.length === 0 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {/* 사진 1장 필수 (FR-07-A-03) — 없으면 만들어 넣는다 */}
+                    비워두면 <b>플레이스홀더가 자동 생성</b>됩니다. 직접 올리면
+                    그 사진을 씁니다 — <b>첫 장이 대표 이미지</b>입니다
+                    (FR-07-A-04).
+                  </p>
+                ) : (
+                  <>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {photos.map((url, i) => (
+                        <li key={url} className="relative">
+                          {/*
+                            어드민 전용 화면이라 `next/image` 최적화를 붙이지
+                            않는다 — 저장 시 이미 정방형·500KB 이하다 (D-128·D-129)
+                          */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt=""
+                            className="size-20 rounded-md border object-cover"
+                          />
+                          {i === 0 && (
+                            <span className="absolute left-1 top-1 rounded-sm bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                              대표
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            aria-label="사진 제거"
+                            onClick={() =>
+                              setPhotos((p) => p.filter((u) => u !== url))
+                            }
+                            className="absolute right-1 top-1 rounded-sm bg-background/90 px-1 text-xs font-bold"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {photos.length}장 · 첫 장이 대표입니다. 저장 시 정방형으로
+                      중앙 크롭되고 500KB 이하로 압축됩니다 (D-128·D-129).
+                    </p>
+                  </>
+                )}
+              </div>
+
               {dropped.length > 0 && (
                 <div className="mt-3 rounded-md border border-warn bg-warn-bg p-2 text-xs text-warn">
                   <b>버린 값 {dropped.length}건</b> — 저장 가능한 형식이 아니어서
@@ -396,7 +518,7 @@ export function BotConsole({
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  disabled={pending || !values.model?.trim()}
+                  disabled={pending || uploading || !values.model?.trim()}
                   onClick={() =>
                     run(async () => {
                       const r = await botPostItem({
@@ -405,6 +527,7 @@ export function BotConsole({
                         brand,
                         values,
                         nickname,
+                        photoUrls: photos,
                       });
                       if (!r.ok) {
                         return {
@@ -415,11 +538,16 @@ export function BotConsole({
                       setValues({});
                       setNickname("");
                       setDropped([]);
+                      setPhotos([]);
+                      const pic =
+                        photos.length > 0
+                          ? `사진 ${photos.length}장`
+                          : "플레이스홀더 사진";
                       return {
                         ok: true,
                         msg: r.codexLinked
-                          ? "아이템 등록 — 도감 연결됨"
-                          : "아이템 등록 — 도감 연결 없음(고유값 비어 있음)",
+                          ? `아이템 등록 — 도감 연결됨 · ${pic}`
+                          : `아이템 등록 — 도감 연결 없음(고유값 비어 있음) · ${pic}`,
                       };
                     })
                   }
