@@ -67,6 +67,46 @@ export async function getRoomWearShots(
   return rows.map(toCard);
 }
 
+/**
+ * **한 도감의 착용샷** — 도감 상세용 (D-162).
+ *
+ * ## ⚠️ 서버 컴포넌트에서 부르면 안 된다
+ * 도감 상세는 **색인 대상**이고(D-078·D-098), 이 목록은 "이 물건을 가진 사람이
+ * 실제로 쓰는 사진 + 방 이름 + 날짜"다 — **보유자 목록보다 강한 노출**이다.
+ * 서버 렌더 결과에 실리면 크롤러가 읽고, D-031 에서 수용한 절도 리스크가
+ * 검색엔진 규모로 커진다. **`/api/codex/[codexId]/wear-shots` 를 경유한다.**
+ *
+ * ## ⚠️ 판매완료 아이템의 착용샷은 제외한다
+ * 이 섹션이 **보유자 목록을 대체**하므로 같은 기준을 쓴다 — 판매완료는
+ * **현재 보유자가 아니다** (D-023, FR-07-B-06). `visibleItemWhere` 는 SOLD 를
+ * 걸러내지 않으므로 여기서 따로 건다.
+ *
+ * ## ⚠️ 소유자 예외를 두지 않는다
+ * `getItemWearShots` 는 소유자에게 자기 비공개 아이템의 착용샷도 보여준다.
+ * 여기서는 **공개된 것만** 낸다 — 도감 상세는 남에게 보여주는 화면이고,
+ * 내 비공개 아이템이 남과 같은 목록에 섞이면 무엇이 공개인지 알 수 없다.
+ */
+export async function getCodexWearShots(
+  codexId: string,
+  viewer: Viewer | null,
+): Promise<WearShotCard[]> {
+  const blockedIds = await blockedUserIds(viewer);
+  const rows = await prisma.wearShot.findMany({
+    where: {
+      item: {
+        codexItemId: codexId,
+        ...visibleItemWhere(blockedIds),
+        // 위 주석 참조 — 떠난 아이템은 이 목록에 없다 (D-023)
+        saleStatus: { not: "SOLD" },
+      },
+    },
+    orderBy: [{ wornOn: "desc" }, { createdAt: "desc" }],
+    take: 60,
+    select: shotSelect,
+  });
+  return rows.map(toCard);
+}
+
 /** 내 착용샷 — 방 착용샷 탭용. 비공개 아이템의 것도 보인다 */
 export async function getMyWearShots(
   viewer: Viewer,

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { Locale } from "@/i18n/routing";
-import { CodexOwners } from "@/components/domain/codex-owners";
+import { CodexWearShots } from "@/components/domain/codex-wear-shots";
 import { MarketCard } from "@/components/domain/market-card";
 import { StatusBadge } from "@/components/domain/status-badge";
 import {
@@ -23,13 +23,16 @@ import { localeAlternates } from "@/lib/site";
  * |---|---|:---:|
  * | 제품 정보 (명칭·고유값·속성·설명·검증 배지) | 서버 | **O** |
  * | 이 도감의 판매중 매물 | 서버 | O |
- * | **소유자 방 목록 · 보유자 수** | **클라이언트 fetch** | **✕** |
+ * | **착용샷 목록 (사진·방 이름·날짜)** | **클라이언트 fetch** | **✕** |
  *
- * **소유자 목록을 서버에서 조회하면 안 된다.** HTML 응답에 실려 크롤러가
- * 읽고, 검색엔진에 "고가 시계 보유자 목록"이 색인된다 — D-031 에서 수용한
- * 절도 리스크가 검색엔진 규모로 커진다.
+ * **착용샷 목록을 서버에서 조회하면 안 된다.** HTML 응답에 실려 크롤러가
+ * 읽고, 검색엔진에 "고가 시계를 착용한 사진 + 소유자 방"이 색인된다 —
+ * D-031 에서 수용한 절도 리스크가 검색엔진 규모로 커진다.
  *
- * 게다가 차단 관계 때문에 **보유자 수가 조회 유저마다 다르다** (E-07-07) —
+ * ⚠️ 이 자리에는 **소유자 목록**이 있었다 (D-078). D-162 에서 착용샷으로
+ * 바꿨고, **노출은 오히려 강해졌다** — 같은 규칙을 더 엄격하게 지켜야 한다.
+ *
+ * 게다가 차단 관계 때문에 **결과가 조회 유저마다 다르다** (E-07-07) —
  * 애초에 정적 생성할 수 없는 값이다.
  *
  * ## 색인
@@ -154,8 +157,12 @@ export default async function CodexDetailPage({
         </section>
       )}
 
-      {/* ── ⚠️ 소유자 목록 — 클라이언트 전용 (D-078) ── */}
-      <CodexOwners codexId={codexId} />
+      {/*
+        ── ⚠️ 착용샷 목록 — 클라이언트 전용 (D-162, D-078 상속) ──
+        옛 소유자 목록을 대체한다. **노출은 더 강하다**(사진·방 이름·날짜) —
+        서버 컴포넌트로 바꾸면 크롤러가 읽는다.
+      */}
+      <CodexWearShots codexId={codexId} />
 
       {/* 이 도감의 판매중 매물 (FR-07-A-04). 색인 대상이라 서버에서 낸다 */}
       {listings.length > 0 && (

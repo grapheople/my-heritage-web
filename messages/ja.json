@@ -166,16 +166,16 @@
   "codex": {
     "unverified": "未検証",
     "owners": "{count}人が所有",
-    "ownersTitle": "同じアイテムを持つ人",
-    "noOwners": "まだこのアイテムを展示した人がいません",
-    "ownersLoginRequired": "ログインすると、このアイテムを持つ人の部屋を見られます。",
     "onSaleHere": "このアイテムの販売中の出品",
     "originalText": "運営確認前の原文です",
     "goToCodex": "このアイテムの図鑑を見る",
     "notLinked": "図鑑に紐づいていないアイテムです",
     "empty": "このカテゴリにはまだ図鑑がありません",
     "recent": "最近追加された図鑑",
-    "more": "{shown}件表示 · 全{total}件。検索で探してください"
+    "more": "{shown}件表示 · 全{total}件。検索で探してください",
+    "wearTitle": "この物を使っている様子",
+    "noWear": "まだ着用ショットがありません",
+    "wearLoginRequired": "ログインするとこの物の着用ショットを見られます"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
