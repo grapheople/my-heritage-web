@@ -91,12 +91,12 @@ export default async function ItemDetailPage({
         가장 중요한 사진에서 40% 넘게 사라진다.
       */}
       {/*
-        ⚠️ **데스크톱에서 폭을 묶는다** (D-136). 모바일은 화면을 꽉 채우는
-        것이 맞지만, `lg` 에서 그대로 두면 정사각형 대표 이미지가 **672px**,
-        썸네일이 **장당 300px** 로 나온다 — 사진이 화면을 잡아먹고 정보가
-        한참 아래로 밀린다. 정방형으로 바꾸면서(D-131) 세로가 커진 결과다.
+        ⚠️ **D-136 의 `lg:max-w-[420px]` 를 제거했다** (D-156). 그 캡은 컨테이너가
+        1200px 이라 대표 이미지가 672px 로 나오던 문제를 막으려던 것이다.
+        콘텐츠 폭이 **500px 로 고정**되면서 그 문제 자체가 없어졌고, 캡을 남기면
+        데스크톱에서만 사진이 본문보다 좁아 어긋난다.
       */}
-      <div className="lg:max-w-[420px]">
+      <div>
         <div className="relative aspect-square w-full overflow-hidden border-b bg-muted">
           {item.photos[0] && (
             <Image
@@ -104,7 +104,7 @@ export default async function ItemDetailPage({
               alt={item.name}
               fill
               // 실제로 그려지는 크기와 맞춰야 필요 이상으로 큰 파일을 받지 않는다
-              sizes="(min-width:1024px) 420px, 100vw"
+              sizes="(min-width:640px) 500px, 100vw"
               className="object-cover"
               priority
             />
@@ -120,7 +120,7 @@ export default async function ItemDetailPage({
                   src={url}
                   alt=""
                   fill
-                  sizes="(min-width:1024px) 104px, 25vw"
+                  sizes="(min-width:640px) 116px, 25vw"
                   className="object-cover"
                 />
               </div>

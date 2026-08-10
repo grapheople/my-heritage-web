@@ -163,7 +163,7 @@ export default async function CodexDetailPage({
           <h2 className="text-base font-bold tracking-tight">
             {t("codex.onSaleHere")}
           </h2>
-          <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5 md:grid-cols-3 lg:grid-cols-4">
+          <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5">
             {listings.map((l) => (
               <li key={l.id}>
                 <MarketCard listing={l} />

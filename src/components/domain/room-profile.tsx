@@ -29,7 +29,7 @@ export function RoomProfile({
   const t = useTranslations();
 
   return (
-    <header className="border-b bg-card px-4 py-5 lg:col-span-2 lg:border-0 lg:px-0">
+    <header className="border-b bg-card px-4 py-5">
       <div className="flex items-center gap-4">
         <span className="relative size-15 shrink-0 overflow-hidden rounded-full bg-muted">
           {imageUrl && (
