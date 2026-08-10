@@ -53,9 +53,15 @@ export default async function UserLayout({
             않아 캡이 걸리지 않았고, md(640~1023)에서 진열 4열을 쓰려면 애초에
             640 캡이 맞지 않는다 (D-089). lg 에서만 1200 으로 묶는다 */}
         <main className="w-full flex-1 pb-2 lg:px-6 lg:pb-10">{children}</main>
-      </div>
 
-      <BottomTabBar />
+        {/*
+          ⚠️ **세로 컬럼 안에 있어야 한다** (D-145). 탭바는 `sticky bottom-0`
+          이라 **세로 flow 안에서만** 하단에 붙는다. 바깥(가로 flex)에 두면
+          콘텐츠 옆으로 밀려나 모바일 레이아웃이 깨진다 — D-143 으로 셸을
+          `flex-col` 에서 가로 flex 로 바꿀 때 여기까지 옮기지 않아 실제로 깨졌다.
+        */}
+        <BottomTabBar />
+      </div>
     </div>
   );
 }
