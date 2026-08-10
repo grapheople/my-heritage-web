@@ -140,7 +140,7 @@ const CODEX_SELECT = {
 } as const;
 
 /**
- * 도감 검색 (S-08 도감 탭) — 원문 명칭·고유값·전 언어 alias 를 모두 매칭
+ * 도감 검색 (S-25 도감 탭 — 옛 S-08) — 원문 명칭·고유값·전 언어 alias 를 모두 매칭
  * (FR-06-B-01·02, D-009).
  *
  * ⚠️ **정규화는 D-014 규칙을 공유한다.** 검색·매칭·import 가 다른 규칙을 쓰면
@@ -206,6 +206,66 @@ export async function searchCodex(
     ownerCount: opts.withOwnerCount ? (counts.get(s.row.id) ?? 0) : undefined,
     matchedAlias: s.alias,
   }));
+}
+
+/** 도감 탭 브라우즈 상한 (D-160). 넘치면 개수를 함께 보여 절단을 숨기지 않는다 */
+export const CODEX_BROWSE_LIMIT = 60;
+
+/**
+ * 도감 목록 브라우즈 (S-25, D-160).
+ *
+ * ## ⚠️ `searchCodex("")` 로는 안 된다
+ * 그 함수는 빈 검색어에 **빈 배열**을 낸다(정규화 결과가 비면 즉시 반환).
+ * 검색과 브라우즈는 다른 동작이므로 함수를 따로 둔다.
+ *
+ * ## 정렬은 **최근 추가순**이다
+ * 사전순은 첫 화면이 늘 같아 죽어 보이고, **보유자 수 순은 쓸 수 없다** —
+ * 보유자 수는 로그인 유저에게만 주는 값이라(D-096) 정렬에 쓰면 비로그인
+ * 화면의 순서로 그 크기가 드러난다.
+ *
+ * ## ⚠️ 전체 열람이 목적이 아니다
+ * 도감은 수천 건까지 늘 수 있고 페이징이 없다. **찾는 수단은 검색**이고
+ * 브라우즈는 "무엇이 있는지 감을 준다"까지다 — 상한과 전체 개수를 함께 낸다
+ * (OI-80).
+ */
+export async function listCodex(opts: {
+  category?: string;
+  viewer: Viewer | null;
+  withOwnerCount: boolean;
+}): Promise<{
+  total: number;
+  hits: { entry: CodexPublic; ownerCount?: number }[];
+}> {
+  const where = {
+    // 병합으로 흡수된 도감은 내지 않는다 — survivor 를 보여줘야 한다 (D-016)
+    mergedIntoId: null,
+    ...(opts.category ? { category: { key: opts.category } } : {}),
+  };
+  const [total, rows] = await Promise.all([
+    prisma.codexItem.count({ where }),
+    prisma.codexItem.findMany({
+      where,
+      select: CODEX_SELECT,
+      orderBy: { createdAt: "desc" },
+      take: CODEX_BROWSE_LIMIT,
+    }),
+  ]);
+
+  const [counts, images] = await Promise.all([
+    opts.withOwnerCount
+      ? ownerCounts(rows.map((r) => r.id), await blockedUserIds(opts.viewer))
+      : Promise.resolve(new Map<string, number>()),
+    codexImages(rows.map((r) => r.id)),
+  ]);
+
+  return {
+    total,
+    hits: rows.map((row) => ({
+      entry: toPublic(row, images.get(row.id)),
+      // ⚠️ 비로그인이면 **키 자체가 없다.** 0 을 넣으면 "0명 보유"가 렌더된다
+      ownerCount: opts.withOwnerCount ? (counts.get(row.id) ?? 0) : undefined,
+    })),
+  };
 }
 
 /**

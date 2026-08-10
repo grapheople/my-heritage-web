@@ -96,6 +96,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
+  /*
+    도감 목록 — 로케일별 (D-160). 마켓 목록과 같은 성격의 탭 랜딩이다.
+    ⚠️ **크롤러가 도감 상세로 들어가는 경로**이기도 하다 — 도감이 이 서비스의
+    색인 자산인데(D-098) 상세만 올리면 내부 링크로 닿는 길이 없다.
+    카테고리별로 갈라 넣지 않는다: 기본 카테고리 하나만 색인되는 문제(D-142)는
+    홈에만 해당하고, 여기는 목록이 최근 추가순이라 카테고리를 나눠도 같은
+    도감 상세로 수렴한다.
+  */
+  for (const locale of routing.locales) {
+    entries.push({
+      url: absolute(`/${locale}/codex`),
+      changeFrequency: "daily",
+      priority: 0.8,
+      alternates: { languages: localeAlternates("/codex") },
+    });
+  }
+
   // 도감 상세 — 콘텐츠가 거의 안 바뀐다 (ISR revalidate 1h)
   for (const codexId of codexIds) {
     for (const locale of routing.locales) {

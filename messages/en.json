@@ -9,7 +9,8 @@
     "search": "Search",
     "market": "Market",
     "notifications": "Notifications",
-    "back": "Back"
+    "back": "Back",
+    "codex": "Codex"
   },
   "myRoom": {
     "tab": {
@@ -171,7 +172,10 @@
     "onSaleHere": "On sale now",
     "originalText": "Original text, not yet reviewed",
     "goToCodex": "View in codex",
-    "notLinked": "Not linked to a codex entry"
+    "notLinked": "Not linked to a codex entry",
+    "empty": "No codex entries in this category yet",
+    "recent": "Recently added",
+    "more": "Showing {shown} of {total}. Use search to find more"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",

@@ -9,7 +9,8 @@
     "search": "검색",
     "market": "마켓",
     "notifications": "알림",
-    "back": "뒤로"
+    "back": "뒤로",
+    "codex": "도감"
   },
   "myRoom": {
     "tab": {
@@ -171,7 +172,10 @@
     "onSaleHere": "이 물건의 판매중 매물",
     "originalText": "운영자 검수 전 원문입니다",
     "goToCodex": "이 물건의 도감 보기",
-    "notLinked": "도감에 연결되지 않은 아이템이에요"
+    "notLinked": "도감에 연결되지 않은 아이템이에요",
+    "empty": "이 카테고리에 아직 도감이 없어요",
+    "recent": "최근 추가된 도감",
+    "more": "{shown}개 표시 · 전체 {total}개. 검색으로 찾아보세요"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",

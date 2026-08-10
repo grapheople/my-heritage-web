@@ -1,4 +1,4 @@
-import { Compass, Home, Search, Store } from "lucide-react";
+import { BookOpen, Compass, Home, Store } from "lucide-react";
 
 /**
  * 메인 메뉴 4개 (myroom-service §1-1).
@@ -12,7 +12,9 @@ import { Compass, Home, Search, Store } from "lucide-react";
 export const NAV_ITEMS = [
   { href: "/", labelKey: "new", Icon: Compass },
   { href: "/me", labelKey: "myRoom", Icon: Home },
-  { href: "/search", labelKey: "search", Icon: Search },
+  // ⚠️ 검색 탭을 **도감 탭으로 교체**했다 (D-160). 검색 기능은 없어지지 않고
+  // `/codex` 안으로 들어갔다 — 아이템·방 검색은 FR-04-A-05·06·07 이 요구한다
+  { href: "/codex", labelKey: "codex", Icon: BookOpen },
   { href: "/market", labelKey: "market", Icon: Store },
 ] as const;
 
