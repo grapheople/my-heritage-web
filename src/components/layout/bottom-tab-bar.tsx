@@ -7,7 +7,7 @@ import { isNavActive, NAV_ITEMS } from "./nav-items";
 
 /**
  * 하단 탭 4개 — `sm`·`md`(~1023px) 전용 (myroom-service §1-1, D-089).
- * `lg`에서는 숨기고 TopNav가 같은 메뉴를 상단에 낸다. 배열은 NAV_ITEMS 공유.
+ * `lg`에서는 숨기고 `SideNav`가 같은 메뉴를 **좌측**에 낸다 (D-143). 배열은 NAV_ITEMS 공유.
  *
  * D-069 — 비로그인·정지 상태에서도 **항상 노출되고 누를 수 있다.**
  * 회색 처리나 숨김을 쓰지 않는다. 권한이 없으면 이동한 화면에서 안내를 띄운다

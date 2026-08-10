@@ -41,7 +41,7 @@ export function SearchBar({ q, tab, categoryKeys, category }: {
   }
 
   return (
-    <div className="sticky top-0 z-20 border-b bg-background lg:top-15">
+    <div className="sticky top-0 z-20 border-b bg-background">
       <form
         onSubmit={(e) => { e.preventDefault(); apply({}); }}
         className="px-4 pt-3 lg:px-0"
