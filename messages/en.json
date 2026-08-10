@@ -166,16 +166,16 @@
   "codex": {
     "unverified": "Unverified",
     "owners": "{count} owners",
-    "ownersTitle": "Collectors with this item",
-    "noOwners": "No one has displayed this item yet",
-    "ownersLoginRequired": "Sign in to see the rooms of collectors who own this item.",
     "onSaleHere": "On sale now",
     "originalText": "Original text, not yet reviewed",
     "goToCodex": "View in codex",
     "notLinked": "Not linked to a codex entry",
     "empty": "No codex entries in this category yet",
     "recent": "Recently added",
-    "more": "Showing {shown} of {total}. Use search to find more"
+    "more": "Showing {shown} of {total}. Use search to find more",
+    "wearTitle": "In use",
+    "noWear": "No shots yet",
+    "wearLoginRequired": "Log in to see shots of this item"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",

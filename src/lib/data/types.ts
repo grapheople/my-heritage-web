@@ -53,12 +53,6 @@ export type CodexEntry = {
   imageUrl?: string;
 };
 
-/** 도감 소유자 — ⚠️ 서버 렌더 결과에 포함되면 안 된다 (FR-07-A-08, D-078) */
-export type CodexOwner = {
-  roomId: string;
-  roomName: string;
-  level: number;
-};
 
 export type MarketListing = {
   id: string;

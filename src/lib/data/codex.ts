@@ -1,8 +1,7 @@
-import type { CodexAttr, CodexEntry, CodexOwner, MarketListing } from "@/lib/data/types";
+import type { CodexAttr, CodexEntry, MarketListing } from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
-import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
 import type { Locale } from "@/i18n/routing";
@@ -393,32 +392,6 @@ export async function getCodexDesc(
   return c.description ? { text: c.description, translated: false } : null;
 }
 
-/**
- * 도감 소유자 목록 — ⚠️ **서버 렌더 결과에 넣지 않는다** (D-078, FR-07-A-08).
- * 이 함수는 인증된 API route 에서만 호출한다.
- */
-export async function getCodexOwners(
-  codexId: string,
-  viewer: Viewer | null,
-): Promise<CodexOwner[]> {
-  const blockedIds = await blockedUserIds(viewer);
-  const items = await prisma.item.findMany({
-    where: { codexItemId: codexId, ...ownerItemWhere(blockedIds) },
-    select: { room: { select: { id: true, name: true, userId: true } } },
-  });
-
-  // 사람 단위로 접는다 (E-07-01)
-  const rooms = new Map<string, { id: string; name: string; userId: string }>();
-  for (const i of items) rooms.set(i.room.id, i.room);
-
-  return Promise.all(
-    [...rooms.values()].map(async (r) => ({
-      roomId: r.id,
-      roomName: r.name,
-      level: await levelOf(r.userId),
-    })),
-  );
-}
 
 /**
  * 이 도감의 판매중 매물 (FR-07-A-04).
