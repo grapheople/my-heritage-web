@@ -176,7 +176,7 @@
     "more": "Showing {shown} of {total}. Use search to find more",
     "wearTitle": "Worn & used",
     "noWear": "No shots yet",
-    "wearLoginRequired": "Log in to see shots of this item"
+    "wearLoginRequired": "Log in to see the shots"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",

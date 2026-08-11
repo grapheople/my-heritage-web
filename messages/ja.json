@@ -167,7 +167,7 @@
   "codex": {
     "unverified": "未検証",
     "owners": "{count}人が所有",
-    "onSaleHere": "このアイテムの販売中の出品",
+    "onSaleHere": "この{category}の販売中の出品",
     "originalText": "運営確認前の原文です",
     "goToCodex": "この{category}の図鑑を見る",
     "notLinked": "図鑑に紐づいていないアイテムです",
@@ -176,7 +176,7 @@
     "more": "{shown}件表示 · 全{total}件。検索で探してください",
     "wearTitle": "着用・使用ショット",
     "noWear": "まだ着用ショットがありません",
-    "wearLoginRequired": "ログインするとこの物の着用ショットを見られます"
+    "wearLoginRequired": "ログインするとこの{category}の着用・使用ショットを見られます"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",

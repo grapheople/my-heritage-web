@@ -16,9 +16,14 @@ import type { WearShotCard } from "@/lib/data/wear-shot";
  * 나간다. 그러면 D-031 에서 수용한 절도 리스크가 검색엔진 규모로 커진다.
  *
  * ## ⚠️ 옛 `CodexOwners` 를 대체한다
- * "이 물건을 가진 사람" 목록 대신 **"이 물건을 쓰는 모습"** 을 보여준다
- * (D-162). 로그인 게이트·차단 제외·판매완료 제외는 **그대로 물려받는다** —
- * 이 섹션도 결국 누가 가졌는지를 드러내기 때문이다.
+ * "이 물건을 가진 사람" 목록 대신 **착용샷·사용샷**을 보여준다 (D-162).
+ * 로그인 게이트·차단 제외·판매완료 제외는 **그대로 물려받는다** — 이 섹션도
+ * 결국 누가 가졌는지를 드러내기 때문이다.
+ *
+ * ⚠️ 제목은 **카테고리 이름을 넣지 않는다** (D-172). 한국어에서 `이 {category}을`
+ * 은 종성에 따라 을/를 이 갈리고 ICU 가 맞춰주지 못한다("이 운동를"). 그래서
+ * 제목은 중립어(`착용샷 · 사용샷`)로 두고, **`의` 조사만 쓰는 문장**(로그인 안내)에서만
+ * 카테고리를 끼워 넣는다.
  */
 type State =
   | { status: "loading" }
@@ -26,7 +31,17 @@ type State =
   | { status: "ready"; shots: WearShotCard[]; count: number }
   | { status: "error" };
 
-export function CodexWearShots({ codexId }: { codexId: string }) {
+export function CodexWearShots({
+  codexId,
+  /**
+   * `category.workout` 형태의 메시지 키 (D-172). 로그인 안내 문구에 카테고리
+   * 이름을 끼워 넣는다 — "이 물건의 착용샷"은 소유물 전제라 운동에서 어색하다.
+   */
+  categoryKey,
+}: {
+  codexId: string;
+  categoryKey: string;
+}) {
   const t = useTranslations();
   const [state, setState] = useState<State>({ status: "loading" });
 
@@ -70,7 +85,7 @@ export function CodexWearShots({ codexId }: { codexId: string }) {
       {state.status === "unauthorized" && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-4">
           <p className="text-sm text-muted-foreground">
-            {t("codex.wearLoginRequired")}
+            {t("codex.wearLoginRequired", { category: t(categoryKey) })}
           </p>
           <Link
             href="/login"
