@@ -94,12 +94,28 @@ export async function grantExperience(
 export async function ownItem(
   viewer: Viewer,
   itemId: string,
-): Promise<{ id: string; categoryId: string; saleStatus: string; visibility: string } | null> {
+): Promise<{
+  id: string;
+  categoryId: string;
+  saleStatus: string;
+  visibility: string;
+  /** 이 카테고리를 마켓에 올릴 수 있는가 (D-173) */
+  sellable: boolean;
+} | null> {
   if (!viewer.roomId) return null;
-  return prisma.item.findFirst({
+  const item = await prisma.item.findFirst({
     where: { id: itemId, roomId: viewer.roomId },
-    select: { id: true, categoryId: true, saleStatus: true, visibility: true },
+    select: {
+      id: true,
+      categoryId: true,
+      saleStatus: true,
+      visibility: true,
+      category: { select: { sellable: true } },
+    },
   });
+  if (!item) return null;
+  const { category, ...rest } = item;
+  return { ...rest, sellable: category.sellable };
 }
 
 export async function ownDiary(

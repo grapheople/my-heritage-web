@@ -208,8 +208,12 @@ export default async function ItemDetailPage({
           >
             {t("reg.editTitle")}
           </Link>
-          {/* 떠난 아이템은 다시 팔 수 없다 (D-023) — 되돌리기만 제공한다 */}
-          {item.saleStatus !== "SOLD" && (
+          {/*
+            떠난 아이템은 다시 팔 수 없다 (D-023) — 되돌리기만 제공한다.
+            ⚠️ **판매할 수 없는 카테고리도 숨긴다** (D-173) — 눌러도 액션이
+            막지만, 누를 수 있게 두면 "왜 안 되냐"가 문의로 온다
+          */}
+          {item.sellable && item.saleStatus !== "SOLD" && (
             <Link
               href={`/items/${item.id}/sell`}
               className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
@@ -219,7 +223,10 @@ export default async function ItemDetailPage({
                 : t("sell.convert")}
             </Link>
           )}
-          <SaleStatusActions itemId={item.id} saleStatus={item.saleStatus} />
+          {/* 판매 상태 전환(취소·완료·되돌리기)도 판매 가능한 카테고리에만 (D-173) */}
+          {item.sellable && (
+            <SaleStatusActions itemId={item.id} saleStatus={item.saleStatus} />
+          )}
 
           {/*
             오늘의 착용샷 (D-148). **아이템당 하루 1장**이므로 오늘 이미

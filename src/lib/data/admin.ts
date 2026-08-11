@@ -39,6 +39,8 @@ export async function getAdminCategories() {
       key: true,
       displayOrder: true,
       active: true,
+      // 마켓 판매 허용 (D-173) — A-01 에서 토글한다
+      sellable: true,
       _count: { select: { items: true } },
     },
   });
@@ -47,6 +49,7 @@ export async function getAdminCategories() {
     labelKey: `category.${c.key}`,
     order: c.displayOrder + 1,
     active: c.active,
+    sellable: c.sellable,
     itemCount: c._count.items,
   }));
 }

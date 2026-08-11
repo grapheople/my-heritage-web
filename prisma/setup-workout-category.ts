@@ -42,7 +42,11 @@ import {
  * pnpm attrs:workout
  * ```
  */
-const CATEGORY = { key: "workout", displayOrder: 6 };
+/**
+ * ⚠️ **`sellable: false`** (D-173) — 운동 종목은 마켓에 올릴 수 없다. 넣지 않으면
+ * "벤치프레스 판매중"이 마켓에 뜬다 (OI-85 가 그 문제였다).
+ */
+const CATEGORY = { key: "workout", displayOrder: 6, sellable: false };
 
 type Def = {
   key: string;
@@ -230,11 +234,20 @@ async function main() {
   /* ── 1. 카테고리 ── */
   const category = await prisma.category.upsert({
     where: { key: CATEGORY.key },
-    update: { displayOrder: CATEGORY.displayOrder, active: true },
-    create: { key: CATEGORY.key, displayOrder: CATEGORY.displayOrder, active: true },
+    update: {
+      displayOrder: CATEGORY.displayOrder,
+      active: true,
+      sellable: CATEGORY.sellable,
+    },
+    create: {
+      key: CATEGORY.key,
+      displayOrder: CATEGORY.displayOrder,
+      active: true,
+      sellable: CATEGORY.sellable,
+    },
     select: { id: true },
   });
-  console.log(`카테고리 \`${CATEGORY.key}\` 준비`);
+  console.log(`카테고리 \`${CATEGORY.key}\` 준비 (판매 가능=${CATEGORY.sellable})`);
 
   /* ── 2. 속성 정의 + 옵션 ── */
   for (const d of DEFS) {

@@ -77,7 +77,7 @@ export async function getItemDetail(
       currency: true,
       externalUrl: true,
       codexItemId: true,
-      category: { select: { key: true } },
+      category: { select: { key: true, sellable: true } },
       room: {
         select: { id: true, name: true, visibility: true, userId: true, user: { select: { deletedAt: true } } },
       },
@@ -213,6 +213,7 @@ export async function getItemDetail(
     ownerLevel: await levelOf(item.room.userId),
     visibility: item.visibility,
     saleStatus: item.saleStatus,
+    sellable: item.category.sellable,
     roomPublic: item.room.visibility === "PUBLIC",
     codexId: item.codexItemId ?? undefined,
     // 스토리지 전 플레이스홀더는 없는 것으로 다룬다 (OI-47 잔재)
