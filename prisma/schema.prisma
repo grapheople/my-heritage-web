@@ -362,6 +362,19 @@ model CategoryAttribute {
   active       Boolean @default(true)
   displayOrder Int     @default(0)
 
+  /// 카테고리별 라벨 override (D-168, OI-83 해소).
+  ///
+  /// ⚠️ 라벨은 `AttributeDefinition` 에 있어 **키 단위 전역**이었다. 그래서 운동
+  /// 카테고리의 `model` 이 등록 폼에 **"모델명"** 으로 떴다 — 종목명이어야 한다.
+  /// 아이템 명칭이 `Item.model` 컬럼 파생이라(D-073·D-118) 다른 키로 대체할 수도
+  /// 없어서, **카테고리마다 다른 이름을 붙일 자리**가 필요했다.
+  ///
+  /// `null` 이면 `AttributeDefinition` 의 라벨을 쓴다. 3개 언어를 함께 채운다
+  /// (D-010 — 하나만 채우면 그 언어 유저만 다른 이름을 본다).
+  labelKo String?
+  labelJa String?
+  labelEn String?
+
   values ItemAttributeValue[]
 
   @@unique([categoryId, attributeDefinitionId])

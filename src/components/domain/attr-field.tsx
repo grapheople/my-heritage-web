@@ -68,6 +68,18 @@ export function AttrField({
         )}
       </label>
 
+      {/*
+        ⚠️ **"고유값을 모르겠어요" 체크박스를 대체한다** (D-169). 체크박스는
+        비어 있음과 같은 뜻이라 불필요했다 — 대신 **비워도 된다는 사실과 그
+        결과**를 항목 옆에서 알린다. 안내가 없으면 유저는 필수인 줄 알고 아무
+        값이나 넣고, 그것이 곧 가짜 도감이다 (D-015).
+      */}
+      {def.matchingKey && !def.required && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("reg.matchingKeyHint")}
+        </p>
+      )}
+
       {def.brandSelect ? (
         brandSlot
       ) : def.type === "textarea" ? (

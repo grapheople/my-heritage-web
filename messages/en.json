@@ -329,8 +329,6 @@
     "autoFilled": "Auto · editable",
     "autoFillNotice": "Found in the codex. Changing a value re-runs the lookup.",
     "brandSearch": "Search brands (Korean and Japanese work too)",
-    "unknownKey": "I don't know the reference number",
-    "unknownKeyNotice": "Without it the item isn't linked to a codex entry, so it won't show under “collectors with this item”. You can add it later.",
     "urlWarnNotice": "Opening this shows an external-link warning first.",
     "noDraft": "Nothing is saved if you leave before submitting.",
     "saved": "Item added",
@@ -345,7 +343,8 @@
     "photoMax": "Up to {max} photos",
     "photoMoveLeft": "Move earlier",
     "nickname": "Your nickname",
-    "nicknameHint": "To tell apart two of the same item. e.g. “daily”"
+    "nicknameHint": "To tell apart two of the same item. e.g. “daily”",
+    "matchingKeyHint": "Leave blank if you don't know it — the item is saved without a codex link"
   },
   "opt": {
     "auto": "Automatic",

@@ -34,6 +34,7 @@ type Attr = { key: string; required?: boolean };
  * |---|---|
  * | 매칭 키 | `codex` D-013 표 (캠핑의 `modelNo` 는 `model` 로 읽는다 — D-118) |
  * | `model` 전 카테고리 필수 | 명칭은 저장하지 않는 파생값이다 (D-073). 도감·브랜드·고유값이 **동시에 빌 수 있는 경로가 실재**해서, 하나는 보장해야 이름 없는 아이템이 안 생긴다 |
+ * | **매칭 키는 전부 필수 아님** (D-169 — 비어 있음이 "모르겠어요"다). `model` 만 예외 |
  * | `brand` 는 매칭 키여도 **필수 아님** | 마스터에 없는 브랜드는 요청 대기로 비어 있을 수 있다 (D-046). 필수로 하면 그 유저는 첫 아이템을 등록하지 못한다. `FR-01-A-02` 의 의도적 예외 |
  * | `serialNo` 제외 | 비공개 처리는 구매 정보 3개에만 걸려 있다. 켜면 시리얼번호가 타인에게 그대로 보인다 |
  *
@@ -61,7 +62,8 @@ const PLAN: Record<string, { matchingKey: string[]; attrs: Attr[] }> = {
     matchingKey: ["uniqueId"],
     attrs: [
       { key: "brand" }, { key: "model", required: true },
-      { key: "uniqueId", required: true }, { key: "year" },
+      // ⚠️ **매칭 키는 필수가 아니다** (D-169) — 비어 있음이 곧 "모르겠어요"다
+      { key: "uniqueId" }, { key: "year" },
       { key: "color" }, { key: "condition" }, { key: "accessories" },
       ...PRIVATE.map((key) => ({ key })), ...TAIL.map((key) => ({ key })),
     ],
@@ -70,7 +72,7 @@ const PLAN: Record<string, { matchingKey: string[]; attrs: Attr[] }> = {
     matchingKey: ["uniqueId"],
     attrs: [
       { key: "brand" }, { key: "model", required: true },
-      { key: "uniqueId", required: true }, { key: "size" },
+      { key: "uniqueId" }, { key: "size" },
       { key: "color" }, { key: "condition" }, { key: "accessories" },
       ...PRIVATE.map((key) => ({ key })), ...TAIL.map((key) => ({ key })),
     ],
@@ -80,7 +82,7 @@ const PLAN: Record<string, { matchingKey: string[]; attrs: Attr[] }> = {
     matchingKey: ["brand", "model", "year"],
     attrs: [
       { key: "brand" }, { key: "model", required: true },
-      { key: "year", required: true }, { key: "size" },
+      { key: "year" }, { key: "size" },
       { key: "color" }, { key: "condition" },
       ...PRIVATE.map((key) => ({ key })), ...TAIL.map((key) => ({ key })),
     ],

@@ -54,20 +54,11 @@ export function ItemForm({
   itemId,
   /** 수정 모드의 기존 사진 — 안 넘기면 수정 저장에서 "사진 없음"으로 막힌다 */
   initialPhotos,
-  /**
-   * "고유값을 모르겠어요" 초기 상태 (D-164).
-   *
-   * ⚠️ **수정 모드에서 반드시 넘겨야 한다.** 고유값 없이 등록한 아이템인데
-   * 이 값이 `false` 로 시작하면, 유저가 **한 번도 입력한 적 없는 칸**에서
-   * "필수 항목이에요"로 막혀 저장이 안 된다 (D-032 면제가 풀린다).
-   */
-  initialUnknownKey = false,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
   itemId?: string;
   initialPhotos?: string[];
-  initialUnknownKey?: boolean;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -76,8 +67,6 @@ export function ItemForm({
   const [autoKeys, setAutoKeys] = useState<string[]>([]);
   const [codexName, setCodexName] = useState<string | null>(null);
   const [codexVerified, setCodexVerified] = useState(false);
-  /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
-  const [unknownKey, setUnknownKey] = useState(initialUnknownKey);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
   /** 유저 별칭(선택) — 명칭을 대체하지 않는다 (D-112) */
@@ -161,9 +150,12 @@ export function ItemForm({
 
     const next: Record<string, string> = {};
     for (const a of attrs) {
-      // 매칭 키는 "모르겠어요" 시 면제 (D-032)
-      const req = a.required && !(a.matchingKey && unknownKey);
-      if (req && !values[a.key]?.trim()) next[a.key] = t("reg.required");
+      /*
+        ⚠️ **면제 계산이 없어졌다** (D-169). 매칭 키를 `required` 에서 풀었으므로
+        "모르겠어요"라는 상태가 따로 필요 없다 — 비어 있음이 곧 그 뜻이다.
+        `model` 은 매칭 키여도 필수로 남는다 (D-118 — 이름 없는 아이템 방지).
+      */
+      if (a.required && !values[a.key]?.trim()) next[a.key] = t("reg.required");
     }
     // 사진 1장 필수 (FR-07-A-03)
     if (photos.length === 0) next.__photos = t("reg.photoRequired");
@@ -179,7 +171,6 @@ export function ItemForm({
           values,
           photoUrls: photos,
           nickname,
-          unknownMatchingKey: unknownKey,
         });
         if (res.ok) {
           setSaved({ itemId, expGranted: false, codexLinked: false, codexCreated: false });
@@ -194,7 +185,6 @@ export function ItemForm({
         values,
         photoUrls: photos,
         nickname,
-        unknownMatchingKey: unknownKey,
       });
       if (res.ok) {
         setSaved({
@@ -310,21 +300,6 @@ export function ItemForm({
           }
         />
       ))}
-
-      {/* 고유값을 모를 때 (D-032, FR-01-A-02b) */}
-      {attrs.some((a) => a.matchingKey) && (
-        <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
-          <input type="checkbox" checked={unknownKey}
-            onChange={(e) => setUnknownKey(e.target.checked)} className="mt-0.5" />
-          <span>
-            {t("reg.unknownKey")}
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {/* 도감에 연결되지 않으면 "같은 물건 가진 사람"에 안 나타난다 (D-032) */}
-              {t("reg.unknownKeyNotice")}
-            </span>
-          </span>
-        </label>
-      )}
 
       {/* 별칭 — 선택. 같은 도감 아이템을 2개 가졌을 때 구분용 (D-112) */}
       <div>

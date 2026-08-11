@@ -138,6 +138,7 @@ export async function getAdminCategoryAttributes() {
         select: {
           required: true,
           active: true,
+          labelKo: true, // 카테고리별 override (D-168)
           attributeDefinition: { select: { key: true, type: true, labelKo: true } },
         },
       },
@@ -149,7 +150,7 @@ export async function getAdminCategoryAttributes() {
       slug: c.key,
       attrs: c.attributes.map((a) => ({
         key: a.attributeDefinition.key,
-        label: a.attributeDefinition.labelKo,
+        label: a.labelKo ?? a.attributeDefinition.labelKo,
         type: a.attributeDefinition.type,
         required: a.required,
         active: a.active,
