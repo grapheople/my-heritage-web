@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
+import { FeedTabs } from "@/components/domain/feed-tabs";
 import { FilterBar } from "@/components/domain/filter-bar";
 import { Link } from "@/i18n/navigation";
 import { absolute, localeAlternates } from "@/lib/site";
@@ -16,7 +17,8 @@ import { CategoryGate } from "@/components/domain/category-gate";
  * | 규칙 | 근거 |
  * |---|---|
  * | 아이템 등록 시각 역순. 공개 전환·판매 복귀로 갱신하지 않는다 | D-070, FR-03-A-01·09 |
- * | 팔로우와 무관하게 전체 유저 | D-006, FR-03-A-02 |
+ * | **전체 탭**은 팔로우와 무관하게 전체 유저 | D-006, FR-03-A-02 |
+ * | **팔로잉 탭**은 팔로우한 방만. 기본은 전체 탭 | **D-175** (OI-86) |
  * | 비공개 아이템·비공개 방은 제외 | D-019, FR-03-A-04 |
  * | 카드에 이미지·명칭·**카테고리**·소유자 방 이름 | FR-03-A-05 |
  * | 카테고리 + 언어권 필터를 **동시 적용**, 한 줄 배치 | D-082, FR-03-B-06 |
@@ -51,9 +53,19 @@ export async function generateMetadata({
   const [{ locale }, sp] = await Promise.all([params, searchParams]);
   const category = typeof sp.category === "string" ? sp.category : undefined;
   const suffix = category ? `?category=${category}` : "";
+
+  /*
+    ⚠️ **팔로잉 탭은 색인하지 않는다** (D-175). 결과가 **조회 유저마다 다르므로**
+    색인하면 크롤러가 본 누군가의 팔로잉 피드가 검색 결과가 된다. D-109 가 홈을
+    열어준 근거("서비스가 검색에 안 나온다")는 **전체 탭에만** 해당한다.
+    canonical 도 전체 탭을 가리켜, 탭이 홈의 중복 URL 이 되지 않게 한다.
+  */
+  const following = sp.tab === "following";
   return {
-    // 기본값이 noindex 이므로 여기서 명시적으로 켠다 (D-109)
-    robots: { index: true, follow: true },
+    robots: following
+      ? { index: false, follow: true }
+      : // 기본값이 noindex 이므로 여기서 명시적으로 켠다 (D-109)
+        { index: true, follow: true },
     alternates: {
       // 자기 자신을 가리킨다 — sitemap 이 내는 URL 과 같아야 한다
       canonical: absolute(`/${locale}${suffix}`),
@@ -69,6 +81,8 @@ export default async function FeedPage({
 
   const lang = typeof sp.lang === "string" ? sp.lang : "all";
   const viewer = await getViewer();
+  // 기본은 전체다 — URL 에서 `?tab=all` 을 생략한다 (D-175)
+  const tab = sp.tab === "following" ? "following" : "all";
 
   // ⚠️ **카테고리는 필터가 아니라 축이다** (D-137). 항상 하나가 정해져 있고
   // 피드는 그 안에서만 보여준다. `전체` 는 없다
@@ -79,10 +93,15 @@ export default async function FeedPage({
 
   // 필터는 **조회 조건**이다 — 다 가져와서 걸러내면 비공개·차단이 응답에
   // 실린 뒤 화면에서만 사라진다 (D-083)
-  const items = await getFeed({ category, lang }, viewer);
+  const items = await getFeed(
+    { category, lang, following: tab === "following" },
+    viewer,
+  );
 
   return (
     <div>
+      {/* 전체 / 팔로잉 (D-175, OI-86 해소) */}
+      <FeedTabs tab={tab} />
       <FilterBar lang={lang} categoryKeys={scope.keys} category={category} />
 
       {/* ⚠️ 콘텐츠 **위에** 덮는다. 대체하지 않는다 — 크롤러는 피드를 읽어야
@@ -91,14 +110,28 @@ export default async function FeedPage({
 
       {items.length === 0 ? (
         <EmptyState
-          title={t("empty.feed")}
+          title={
+            tab === "following"
+              ? // 비로그인은 애초에 결과가 0 이다 — 로그인 유도가 먼저다 (D-175)
+                viewer
+                ? t("feed.emptyFollowing")
+                : t("feed.followingLoginRequired")
+              : t("empty.feed")
+          }
           description={
-            lang !== "all" ? t("feed.emptyByLang") : undefined
+            tab === "all" && lang !== "all" ? t("feed.emptyByLang") : undefined
           }
           action={
             /* 선택한 언어권에 아이템이 없으면 '전체'로 돌아갈 경로를 준다
                (FR-03-B-05) */
-            lang !== "all" ? (
+            tab === "following" && !viewer ? (
+              <Link
+                href="/login"
+                className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent"
+              >
+                {t("auth.login")}
+              </Link>
+            ) : tab === "all" && lang !== "all" ? (
               <Link
                 href={category ? `/?category=${category}` : "/"}
                 className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent"

@@ -180,7 +180,11 @@
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
-    "showAllLangs": "Show all languages"
+    "showAllLangs": "Show all languages",
+    "tabAll": "All",
+    "tabFollowing": "Following",
+    "emptyFollowing": "No new items from rooms you follow",
+    "followingLoginRequired": "Log in to see new items from rooms you follow"
   },
   "room": {
     "privateDesc": "The owner has not made this room public."
