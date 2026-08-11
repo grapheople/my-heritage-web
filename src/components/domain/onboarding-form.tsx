@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { CATEGORY_KEYS } from "@/lib/categories";
 import { useRouter } from "@/i18n/navigation";
 import { completeOnboarding } from "@/lib/actions/onboarding";
 import { recordTimezone } from "@/lib/actions/settings";
@@ -21,10 +22,6 @@ import { PhotoUploader } from "@/components/domain/photo-uploader";
  * 그 압박이 곧 이탈이다. 화면에서 그 사실을 **말로** 알린다 — 설정에 있다는
  * 것을 모르면 없는 것과 같다.
  */
-const CATEGORY_KEYS = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
-
 export function OnboardingForm({
   roomNameMax,
   categoryLabels,

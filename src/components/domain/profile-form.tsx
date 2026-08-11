@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { CATEGORY_KEYS } from "@/lib/categories";
 import { updateProfile } from "@/lib/actions/settings";
 import { PhotoUploader } from "@/components/domain/photo-uploader";
 
@@ -14,10 +15,6 @@ import { PhotoUploader } from "@/components/domain/photo-uploader";
  * ⚠️ **예전에는 저장 버튼이 없었다.** 입력칸은 있는데 어떤 액션에도 연결돼
  * 있지 않아 값이 남지 않았다 — `updateProfile` 을 호출하는 코드가 0곳이었다.
  */
-const CATEGORY_KEYS = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
-
 export function ProfileForm({
   initial,
   categoryLabels,

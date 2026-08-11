@@ -2,6 +2,7 @@
 import "./env";
 import { readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { BRANDED_CATEGORY_KEYS } from "../src/lib/categories";
 import { PrismaClient } from "../src/generated/prisma/client";
 import {
   describeDatabase, migrationDatabaseUrl, pgSslConfig, stripSslMode,
@@ -87,10 +88,8 @@ function normalize(s: string): string {
 /* ────────────────────────── 검증 ────────────────────────── */
 
 const HEADER = ["brandName", "aliasKo", "aliasJa", "aliasEn", "categories"];
-/** D-007 — 6개 고정 */
-const VALID_CATEGORIES = new Set([
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-]);
+/** 브랜드 마스터가 있는 카테고리 (D-007 고정 목록에서 운동 제외 — D-166) */
+const VALID_CATEGORIES = new Set<string>(BRANDED_CATEGORY_KEYS);
 
 type Row = {
   line: number;
@@ -134,7 +133,7 @@ function validate(rows: string[][]): { rows: Row[]; errors: string[] } {
     }
     for (const c of categories) {
       if (!VALID_CATEGORIES.has(c)) {
-        errors.push(`${line}행: '${name}' 의 카테고리 '${c}' 는 6개 고정 목록에 없습니다 (D-007)`);
+        errors.push(`${line}행: '${name}' 의 카테고리 '${c}' 는 브랜드가 있는 카테고리 목록에 없습니다 (D-007·D-166)`);
       }
     }
 

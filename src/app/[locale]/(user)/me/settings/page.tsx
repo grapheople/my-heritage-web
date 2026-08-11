@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { CATEGORY_KEYS } from "@/lib/categories";
 import { ProfileForm } from "@/components/domain/profile-form";
 import { RoomVisibilityToggle } from "@/components/domain/room-visibility-toggle";
 import { Link, redirect } from "@/i18n/navigation";
@@ -43,7 +44,7 @@ export default async function ProfileSettingsPage({
           preferredCategories: p.preferredCategories,
         }}
         categoryLabels={Object.fromEntries(
-          ["watch", "shoes", "bicycle", "apparel", "camping", "deskterior"].map(
+          CATEGORY_KEYS.map(
             (k) => [k, t(`category.${k}`)],
           ),
         )}

@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { CATEGORY_KEYS } from "@/lib/categories";
 import { redirect } from "@/i18n/navigation";
 import { ROOM_NAME_MAX } from "@/lib/profile";
 import { getViewer, needsOnboarding } from "@/lib/auth/viewer";
@@ -33,7 +34,7 @@ export default async function OnboardingPage({
   // 카테고리 이름은 메시지 번들에 있다 (`category.*`) — 유저 언어로 넘긴다
   const t = await getTranslations();
   const labels = Object.fromEntries(
-    ["watch", "shoes", "bicycle", "apparel", "camping", "deskterior"].map(
+    CATEGORY_KEYS.map(
       (k) => [k, t(`category.${k}`)],
     ),
   );
