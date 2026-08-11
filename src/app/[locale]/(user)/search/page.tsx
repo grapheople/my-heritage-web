@@ -15,10 +15,9 @@ import { getPathname } from "@/i18n/navigation";
  * **옛 URL 의 평가를 새 URL 로 넘기도록** 영구로 알린다. 임시로 두면 옛 주소가
  * 색인에 계속 남는다. locale 접두는 `getPathname` 이 붙인다.
  *
- * ⚠️ **쿼리를 그대로 넘긴다.** `?q=` 를 잃으면 링크를 눌러 온 사람이 빈 화면을
- * 본다. `tab` 도 유지한다 — 옛 기본 탭은 `items` 였고 `/codex` 의 기본은
- * `codex` 라, `?tab=` 이 없던 옛 링크는 도감 결과로 바뀐다. 같은 검색어의
- * **다른 탭**이므로 빈 화면보다 낫다.
+ * ⚠️ **`q`·`category` 만 넘긴다.** `?q=` 를 잃으면 링크를 눌러 온 사람이 빈
+ * 화면을 본다. `tab` 은 **버린다** — D-165 에서 탭이 없어졌으므로 옛 링크의
+ * `?tab=items` 는 가리킬 화면이 없다. 도감 결과로 보내는 것이 유일한 선택이다.
  */
 export default async function LegacySearchPage({
   params,
@@ -27,7 +26,7 @@ export default async function LegacySearchPage({
   const [{ locale }, sp] = await Promise.all([params, searchParams]);
 
   const query: Record<string, string> = {};
-  for (const key of ["q", "tab", "category"] as const) {
+  for (const key of ["q", "category"] as const) {
     const v = sp[key];
     if (typeof v === "string" && v) query[key] = v;
   }

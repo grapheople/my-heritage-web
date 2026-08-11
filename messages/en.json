@@ -193,13 +193,7 @@
     "dealDisclaimer": "Deals happen off-site and are at your own risk."
   },
   "search": {
-    "placeholder": "Search items, codex, rooms",
-    "prompt": "What are you looking for?",
-    "tab": {
-      "items": "Items",
-      "codex": "Codex",
-      "rooms": "Rooms"
-    },
+    "placeholder": "Search the codex",
     "matchedBy": "Matched “{alias}”"
   },
   "report": {

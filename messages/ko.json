@@ -193,13 +193,7 @@
     "dealDisclaimer": "거래는 외부에서 이뤄지며 본인 책임입니다."
   },
   "search": {
-    "placeholder": "아이템·도감·방 검색",
-    "prompt": "무엇을 찾으시나요?",
-    "tab": {
-      "items": "아이템",
-      "codex": "도감",
-      "rooms": "방"
-    },
+    "placeholder": "도감 검색",
     "matchedBy": "‘{alias}’로 찾았어요"
   },
   "report": {
