@@ -162,13 +162,17 @@ export default async function CodexDetailPage({
         옛 소유자 목록을 대체한다. **노출은 더 강하다**(사진·방 이름·날짜) —
         서버 컴포넌트로 바꾸면 크롤러가 읽는다.
       */}
-      <CodexWearShots codexId={codexId} />
+      <CodexWearShots codexId={codexId} categoryKey={entry.categoryKey} />
 
       {/* 이 도감의 판매중 매물 (FR-07-A-04). 색인 대상이라 서버에서 낸다 */}
       {listings.length > 0 && (
         <section className="border-t px-4 py-5 lg:px-0">
           <h2 className="text-base font-bold tracking-tight">
-            {t("codex.onSaleHere")}
+            {/*
+              ⚠️ 카테고리 이름을 끼워 넣는다 (D-172, D-171 과 같은 방식). 문구를
+              카테고리별로 열거하지 않는다 — 어드민이 늘리면 그때마다 추가해야 한다
+            */}
+            {t("codex.onSaleHere", { category: t(entry.categoryKey) })}
           </h2>
           <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5">
             {listings.map((l) => (
