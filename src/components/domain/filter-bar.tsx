@@ -57,15 +57,20 @@ export function FilterBar({
           카테고리가 축이므로 언어권보다 앞(왼쪽)에 온다 */}
       <CategorySelect keys={categoryKeys} active={category} />
 
-      {/* 언어권 — 우측 끝. 기본값 '전체'라 작게 둔다 (D-027) */}
-      <div className="flex shrink-0 items-center border-l pl-3">
-        <label className="relative flex items-center gap-1 text-sm text-muted-foreground">
+      {/*
+        언어권 — 우측 끝 (D-027).
+        ⚠️ **카테고리 셀렉트와 같은 모양으로 맞춘다** (D-177). 한쪽만 테두리 있는
+        컨트롤이 되면 같은 성격의 조작 두 개가 다르게 보인다. 구분선(`border-l`)은
+        걷었다 — 테두리 있는 두 상자 사이에 선을 또 넣으면 경계가 세 겹이 된다
+      */}
+      <div className="flex shrink-0 items-center">
+        <label className="relative flex h-11 items-center rounded-md border pl-3 pr-2 text-sm text-muted-foreground lg:h-9">
           <span className="sr-only">{t("filter.language")}</span>
           <span aria-hidden>🌐</span>
           <select
             value={lang}
             onChange={(e) => apply({ lang: e.target.value })}
-            className="appearance-none bg-transparent pr-4 text-sm outline-none"
+            className="h-full appearance-none bg-transparent pl-1.5 pr-5 text-sm outline-none"
           >
             {LANGS.map((l) => (
               <option key={l} value={l}>
@@ -75,7 +80,7 @@ export function FilterBar({
           </select>
           <ChevronDown
             aria-hidden
-            className="pointer-events-none absolute right-0 size-3.5"
+            className="pointer-events-none absolute right-2 size-3.5"
           />
         </label>
       </div>
