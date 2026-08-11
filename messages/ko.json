@@ -169,7 +169,7 @@
     "owners": "{count}명 보유",
     "onSaleHere": "이 물건의 판매중 매물",
     "originalText": "운영자 검수 전 원문입니다",
-    "goToCodex": "이 물건의 도감 보기",
+    "goToCodex": "이 {category}의 도감 보기",
     "notLinked": "도감에 연결되지 않은 아이템이에요",
     "empty": "이 카테고리에 아직 도감이 없어요",
     "recent": "최근 추가된 도감",

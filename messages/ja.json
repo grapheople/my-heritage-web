@@ -169,7 +169,7 @@
     "owners": "{count}人が所有",
     "onSaleHere": "このアイテムの販売中の出品",
     "originalText": "運営確認前の原文です",
-    "goToCodex": "このアイテムの図鑑を見る",
+    "goToCodex": "この{category}の図鑑を見る",
     "notLinked": "図鑑に紐づいていないアイテムです",
     "empty": "このカテゴリにはまだ図鑑がありません",
     "recent": "最近追加された図鑑",
