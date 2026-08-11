@@ -15,6 +15,8 @@ import { TriLingualList } from "./tri-lingual-list";
  * (D-047). 그래서 추가 폼에서 alias 를 함께 받는다.
  */
 const CATEGORIES = [
+  // ⚠️ **운동은 없다** (D-166). 운동 종목에는 브랜드가 없으므로 브랜드
+  // 마스터 대상이 아니다 — 여기에 추가하지 말 것 (`BRANDED_CATEGORY_KEYS` 와 같은 기준)
   { key: "watch", label: "시계" }, { key: "shoes", label: "신발" },
   { key: "bicycle", label: "자전거" }, { key: "apparel", label: "옷" },
   { key: "camping", label: "캠핑" }, { key: "deskterior", label: "데스크테리어" },

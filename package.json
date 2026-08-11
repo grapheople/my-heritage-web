@@ -27,7 +27,8 @@
     "storage:init": "tsx prisma/storage-init.ts",
     "dev:docker": "DATABASE_URL=\"postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public\" DIRECT_URL=\"postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public\" next dev --port 3002",
     "attrs:bootstrap": "tsx prisma/bootstrap-attributes.ts",
-    "attrs:drop-price": "tsx prisma/deactivate-purchase-price.ts"
+    "attrs:drop-price": "tsx prisma/deactivate-purchase-price.ts",
+    "attrs:workout": "tsx prisma/setup-workout-category.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

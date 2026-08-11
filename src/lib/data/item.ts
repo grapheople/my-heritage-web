@@ -98,6 +98,12 @@ export async function getItemDetail(
                   labelKo: true,
                   labelJa: true,
                   labelEn: true,
+                  // ⚠️ **단위도 3개 언어다** (D-038, FR-02-A-08). 폼(`attr-field`)은
+                  // 보여주는데 상세가 빠뜨리고 있었다 — "세트 사이 휴식: 180" 이
+                  // 초인지 분인지 알 수 없다 (D-166 에서 드러났다)
+                  unitKo: true,
+                  unitJa: true,
+                  unitEn: true,
                   // ⚠️ **옵션 라벨도 DB 에서** 온다 (D-155). 저장값은 옵션
                   // 키(`lightlyUsed`)라 그대로 내면 한국어 화면에 영어가 보인다.
                   // 비활성 옵션도 가져온다 — 값이 보존되므로(D-036) 라벨이
@@ -150,11 +156,20 @@ export async function getItemDetail(
     const def = v.categoryAttribute.attributeDefinition;
     const key = def.key;
     // 선택형은 옵션 라벨로 바꾼다 (D-155). 나머지는 저장값이 곧 표시값이다
-    const text =
+    const raw =
       def.type === "select" || def.type === "multiselect"
         ? optionLabel(locale, def.options, v.value)
         : displayValue(v.value);
-    if (!text) continue; // 값이 빈 항목은 렌더하지 않는다 (FR-06-A-02)
+    if (!raw) continue; // 값이 빈 항목은 렌더하지 않는다 (FR-06-A-02)
+    /*
+      단위를 붙인다 (D-038, FR-02-A-08). `number` 에만 단위가 있다 — 선택형·날짜에
+      붙이면 "밀기 kg" 같은 값이 나온다. 값이 없으면 단위도 내지 않는다(위 `continue`).
+    */
+    const unit =
+      def.type === "number"
+        ? pickLabel(locale, { ko: def.unitKo, ja: def.unitJa, en: def.unitEn })
+        : "";
+    const text = unit ? `${raw} ${unit}` : raw;
 
     labels[key] = pickAttrLabel(locale, def);
 

@@ -3,6 +3,7 @@
 import { Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
+import { BRANDED_CATEGORY_KEYS } from "@/lib/categories";
 import { submitBrandRequest } from "@/lib/actions/social";
 
 /**
@@ -24,9 +25,8 @@ import { submitBrandRequest } from "@/lib/actions/social";
  * ⚠️ 마지막 항목이 중요하다. alias 를 안 보면 한국 유저가 "롤렉스"로 요청하고
  * 일본 유저가 "ロレックス"로 요청해서 **이미 있는 Rolex 가 3개로 늘어난다.**
  */
-const CATEGORIES = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
+/** ⚠️ 운동은 브랜드가 없다 — 선택지에서 빠진다 (D-166) */
+const CATEGORIES = BRANDED_CATEGORY_KEYS;
 
 export function BrandRequestForm() {
   const t = useTranslations();

@@ -3,6 +3,7 @@
 import { Check, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
+import { CATEGORY_KEYS } from "@/lib/categories";
 import { Link } from "@/i18n/navigation";
 import { createItem, updateItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
@@ -38,9 +39,7 @@ const ITEM_MAX_PHOTOS = 10;
  * | **이탈 시 임시 저장하지 않는다** | FR-05-A-07 |
  * | 수정 시 **카테고리 변경 불가** | FR-05-B-02 |
  */
-const CATEGORIES = [
-  "watch", "shoes", "bicycle", "apparel", "camping", "deskterior",
-] as const;
+const CATEGORIES = CATEGORY_KEYS;
 
 export function ItemForm({
   /** 수정 모드 — 카테고리 고정 (FR-05-B-02) */
