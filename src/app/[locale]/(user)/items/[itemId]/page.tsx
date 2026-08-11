@@ -315,7 +315,18 @@ export default async function ItemDetailPage({
             href={`/codex/${item.codexId}`}
             className="text-sm font-semibold underline"
           >
-            {t("codex.goToCodex")}
+            {/*
+              ⚠️ **카테고리 이름을 끼워 넣는다** (D-171). "이 물건의 도감 보기"는
+              소유물 전제의 문구라 운동에서 어색하다("이 운동의 도감 보기"). 카테고리를
+              열거해 문구를 나누지 않는다 — 어드민이 카테고리를 늘리면(A-01) 그때마다
+              문구를 추가해야 하고, 빠뜨리면 옛 이름이 남는다 (OI-82 와 같은 함정).
+
+              ⚠️ **영어는 이 파라미터를 쓰지 않는다.** 영어 카테고리 라벨이
+              복수·불가산이라 "this Shoes" · "this Camping" 이 비문이 된다.
+              로케일마다 자연스러운 문장을 쓰는 것이 맞고, ICU 는 쓰지 않는
+              파라미터를 그냥 무시한다.
+            */}
+            {t("codex.goToCodex", { category: t(item.categoryKey) })}
           </Link>
         </section>
       ) : (
