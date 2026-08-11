@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { getFollowCounts, isFollowing } from "@/lib/data/follow";
+import { FollowButton } from "@/components/domain/follow-button";
 import { EmptyState } from "@/components/domain/empty-state";
 import { RoomDisplay } from "@/components/domain/room-display";
 import { RoomProfile } from "@/components/domain/room-profile";
@@ -46,6 +48,12 @@ export default async function OtherRoomPage({
   const sections = room.sections;
   const publicCount = sections.reduce((n, s) => n + s.items.length, 0);
 
+  const viewer = await getViewer();
+  const [followCounts, followingNow] = await Promise.all([
+    getFollowCounts(room.id, viewer),
+    isFollowing(viewer, room.id),
+  ]);
+
   return (
     <div>
       <RoomProfile
@@ -54,6 +62,15 @@ export default async function OtherRoomPage({
         level={room.level}
         itemCount={publicCount}
         imageUrl={room.imageUrl}
+        follow={{ ...followCounts, basePath: `/rooms/${room.id}` }}
+        // 타인 방에만 팔로우 버튼 (D-174). 비로그인에게도 보여주고 누르면 로그인으로
+        followButton={
+          <FollowButton
+            roomId={room.id}
+            initialFollowing={followingNow}
+            loggedIn={viewer !== null}
+          />
+        }
       />
       <RoomTabs active="items" basePath={`/rooms/${room.id}`} />
       {publicCount === 0 ? (

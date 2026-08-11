@@ -1,4 +1,5 @@
 import { Settings } from "lucide-react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -29,6 +30,15 @@ export function RoomProfile({
   itemCount,
   imageUrl,
   owner = false,
+  /**
+   * 팔로워·팔로잉 수와 목록 경로 (D-174).
+   *
+   * ⚠️ **조회 유저마다 다른 값이다** — 차단·비공개·탈퇴가 빠진다(E-07-07).
+   * 호출부가 뷰어 기준으로 계산해 넘긴다.
+   */
+  follow,
+  /** 팔로우 버튼 — 타인 방에서만. 서버에서 만들어 넘긴다 */
+  followButton,
 }: {
   roomName: string;
   bio?: string;
@@ -38,6 +48,8 @@ export function RoomProfile({
   imageUrl?: string;
   /** 본인 방인가 — 톱니바퀴(프로필 설정)를 여기서만 낸다 (D-158) */
   owner?: boolean;
+  follow?: { followers: number; following: number; basePath: string };
+  followButton?: ReactNode;
 }) {
   const t = useTranslations();
 
@@ -62,7 +74,30 @@ export function RoomProfile({
           <p className="mt-1 text-sm text-muted-foreground">
             {t("myRoom.itemCount", { count: itemCount })}
           </p>
+
+          {/* 팔로워·팔로잉 (D-174). 숫자를 눌러 목록으로 — 흔한 관례를 따른다 */}
+          {follow && (
+            <p className="mt-1 flex flex-wrap gap-x-3 text-sm">
+              <Link
+                href={`${follow.basePath}/followers`}
+                className="text-muted-foreground hover:underline"
+              >
+                <b className="text-foreground">{follow.followers}</b>{" "}
+                {t("follow.followers")}
+              </Link>
+              <Link
+                href={`${follow.basePath}/following`}
+                className="text-muted-foreground hover:underline"
+              >
+                <b className="text-foreground">{follow.following}</b>{" "}
+                {t("follow.followingCount")}
+              </Link>
+            </p>
+          )}
         </div>
+
+        {/* 팔로우 버튼 — 타인 방에서만 (D-174) */}
+        {followButton}
 
         {/* 프로필 설정 (D-158). 아이콘만이라 `aria-label` 이 유일한 이름이다 */}
         {owner && (
