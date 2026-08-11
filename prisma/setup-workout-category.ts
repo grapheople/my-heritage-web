@@ -12,7 +12,7 @@ import {
  * **운동 카테고리 셋업** (D-166) — 실내 무산소(웨이트 트레이닝) 중심.
  *
  * ## 속성 구성의 근거
- * 분류 4종(`targetMuscle`·`equipmentType`·`mechanic`·`forceType`)과 그 옵션 값은
+ * 분류(`targetMuscle`·`equipmentType`·`forceType` — `mechanic` 은 D-170 에서 제외)와 옵션 값은
  * **`free-exercise-db` 의 공개 스키마**(800여 종목, force / mechanic / equipment /
  * primaryMuscles enum)를 기준으로 골랐다 — 임의로 만든 분류가 아니다.
  * 실내 무산소와 무관한 값(유산소·스트레칭·플라이오메트릭, medicine/exercise ball,
@@ -30,11 +30,11 @@ import {
  * 운동 종목에는 브랜드가 없다. 브랜드 마스터는 카테고리별이므로(D-044) 붙여도
  * 목록이 비어 등록을 막는 칸이 된다. `Item.brandId` 는 optional 이라 문제없다.
  *
- * ## ⚠️ `model` 을 종목명으로 쓴다 — 라벨이 "모델명"으로 뜬다
+ * ## `model` 을 종목명으로 쓴다 — 라벨은 **"운동명"** 이다 (D-168)
  * 아이템 명칭은 `Item.model` 컬럼에서 파생되고(D-073), 그 컬럼을 채우는 것은
  * `model` 속성뿐이다. 다른 키를 쓰면 **이름 없는 아이템**이 된다(D-118 이 막은 것).
- * 그런데 라벨은 `AttributeDefinition` 에 있어 **키 단위 전역**이라 카테고리마다
- * 다른 용어를 쓸 수 없다 → OI-83.
+ * 라벨은 `CategoryAttribute` 의 **카테고리별 override** 로 바꿨다 —
+ * `prisma/relax-matching-keys.ts` 가 `운동명 / 種目名 / Exercise` 를 설정한다.
  *
  * 멱등이다. 여러 번 실행해도 결과가 같다.
  *
@@ -101,6 +101,7 @@ const DEFS: Def[] = [
     ],
   },
   {
+    // ⚠️ **조합에서 빠졌다** (D-170) — 정의만 남긴다. `COMBO` 참조
     key: "mechanic",
     type: "select",
     ko: "동작 유형",
@@ -191,7 +192,8 @@ const COMBO: { key: string; required?: boolean }[] = [
   { key: "model", required: true },
   { key: "targetMuscle" },
   { key: "equipmentType" },
-  { key: "mechanic" },
+  // ⚠️ `mechanic`(동작 유형)은 **제외**했다 (D-170). 정의는 아래 `DEFS` 에 남아
+  // 있으므로 필요하면 어드민 A-02 에서 다시 활성화하면 된다 — 기존 값도 보존된다
   { key: "forceType" },
   { key: "sets" },
   { key: "repsPerSet" },
