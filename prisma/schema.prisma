@@ -193,6 +193,8 @@ model User {
   experienceLogs ExperienceLog[]
   blocksMade     Block[]         @relation("blocker")
   blocksReceived Block[]         @relation("blocked")
+  following      Follow[]        @relation("follower")
+  followers      Follow[]        @relation("following")
   reportsMade    Report[]        @relation("reporter")
   brandRequests  BrandRequest[]
   createdCodex   CodexItem[]     @relation("codexCreator")
@@ -298,6 +300,33 @@ model Block {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+/// 팔로우 (D-174).
+///
+/// ## ⚠️ 방이 아니라 **유저** 기준이다
+/// 화면에서는 방으로 보이지만(방=유저 1:1) 관계의 주체는 사람이다. 방 기준으로
+/// 두면 유저가 방을 지우거나 다시 만드는 경우 관계가 끊어지고, 차단(`Block`)이
+/// 유저 기준인 것과 축이 어긋난다.
+///
+/// ## ⚠️ 일방향이다
+/// 맞팔은 두 행이다. 상호 관계를 한 행으로 두면 "A 는 팔로우했지만 B 는 안 했다"를
+/// 표현할 수 없다.
+model Follow {
+  id          String @id @default(cuid())
+  /// 팔로우하는 쪽
+  followerId  String
+  /// 팔로우당하는 쪽
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  /// ⚠️ **중복 팔로우를 DB 가 막는다.** 애플리케이션에서 미리 세는 방식은
+  /// 동시 요청에 뚫린다 (D-026 경험치·D-148 착용샷과 같은 구조)
+  @@unique([followerId, followingId])
+  @@index([followingId])
 }
 
 // ---------------------------------------------------------------------------

@@ -377,5 +377,15 @@
     "listTitle": "Shots",
     "count": "Shots {count}",
     "emptyDesc": "Leave today's shot from an item page"
+  },
+  "follow": {
+    "follow": "Follow",
+    "following": "Following",
+    "followers": "followers",
+    "followingCount": "following",
+    "followersTitle": "Followers",
+    "followingTitle": "Following",
+    "noFollowers": "No followers yet",
+    "noFollowing": "Not following any rooms yet"
   }
 }

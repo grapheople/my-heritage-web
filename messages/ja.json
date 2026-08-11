@@ -377,5 +377,15 @@
     "listTitle": "着用ショット",
     "count": "着用ショット {count}",
     "emptyDesc": "アイテム詳細から今日の着用ショットを残せます"
+  },
+  "follow": {
+    "follow": "フォロー",
+    "following": "フォロー中",
+    "followers": "フォロワー",
+    "followingCount": "フォロー中",
+    "followersTitle": "フォロワー",
+    "followingTitle": "フォロー中",
+    "noFollowers": "まだフォロワーがいません",
+    "noFollowing": "まだフォローした部屋がありません"
   }
 }

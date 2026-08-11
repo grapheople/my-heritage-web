@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { getFollowCounts } from "@/lib/data/follow";
 import { DiaryList } from "@/components/domain/diary-list";
 import { EmptyState } from "@/components/domain/empty-state";
 import { RoomProfile } from "@/components/domain/room-profile";
@@ -36,6 +37,8 @@ export default async function MyRecordsPage({
   const diaries = await getRoomDiaries(room.id, viewer);
   const itemCount = room.sections.reduce((n, s) => n + s.items.length, 0);
 
+  const followCounts = await getFollowCounts(room.id, viewer);
+
   return (
     <div>
       <RoomProfile
@@ -44,6 +47,8 @@ export default async function MyRecordsPage({
         imageUrl={room.imageUrl}
         // 톱니바퀴(프로필 설정)는 본인 방에서만 (D-158)
         owner
+        // 팔로워·팔로잉 (D-174). 본인 방이라 팔로우 버튼은 없다
+        follow={{ ...followCounts, basePath: `/rooms/${room.id}` }}
       />
       <RoomTabs active="records" />
       {/*
