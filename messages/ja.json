@@ -180,7 +180,11 @@
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
-    "showAllLangs": "すべての言語圏を見る"
+    "showAllLangs": "すべての言語圏を見る",
+    "tabAll": "すべて",
+    "tabFollowing": "フォロー中",
+    "emptyFollowing": "フォロー中の部屋に新しいアイテムがありません",
+    "followingLoginRequired": "ログインするとフォロー中の部屋の新着だけを見られます"
   },
   "room": {
     "privateDesc": "部屋の持ち主が公開していない部屋です。"

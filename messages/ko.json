@@ -180,7 +180,11 @@
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
-    "showAllLangs": "전체 언어권 보기"
+    "showAllLangs": "전체 언어권 보기",
+    "tabAll": "전체",
+    "tabFollowing": "팔로잉",
+    "emptyFollowing": "팔로우한 방에 새 아이템이 없어요",
+    "followingLoginRequired": "로그인하면 팔로우한 방의 새 아이템만 볼 수 있어요"
   },
   "room": {
     "privateDesc": "방 주인이 공개하지 않은 방입니다."

@@ -30,6 +30,15 @@ export type FeedFilter = {
   categories?: string[];
   /** `all` | `ko` | `ja` | `en` — 소유자 설정 언어 기준 (D-027, FR-03-B-02) */
   lang?: string;
+  /**
+   * **팔로우한 방만** (D-175, OI-86 해소).
+   *
+   * ⚠️ 관계로 좁힌다 — 팔로우 id 를 먼저 모아 `in` 으로 넣지 않는다. 팔로우가
+   * 수천 건이면 그 배열이 쿼리에 그대로 실린다.
+   *
+   * ⚠️ **비로그인이면 결과가 0 이다.** 그것이 맞다 — 로그인 유도는 화면이 한다.
+   */
+  following?: boolean;
   limit?: number;
 };
 
@@ -43,9 +52,19 @@ export async function getFeed(
   // 방 조건을 한 번만 만든다 — 언어권 필터는 **소유자의 설정 언어**라서
   // 아이템이 아니라 방(→유저)에 걸린다 (D-027, FR-03-B-02)
   const room = publicRoomWhere(blockedIds);
-  const roomWhere = lang
-    ? { ...room, user: { ...room.user, language: lang as "ko" | "ja" | "en" } }
-    : room;
+  const userWhere = {
+    ...room.user,
+    ...(lang ? { language: lang as "ko" | "ja" | "en" } : {}),
+    /*
+      팔로우한 방만 (D-175). `viewer` 가 없으면 **아무것도 매칭되지 않는 조건**을
+      넣는다 — 조건을 빼면 전체가 나와서 탭이 무의미해진다.
+    */
+    ...(filter.following
+      ? { followers: { some: { followerId: viewer?.userId ?? "" } } }
+      : {}),
+  };
+  const roomWhere =
+    lang || filter.following ? { ...room, user: userWhere } : room;
 
   const items = await prisma.item.findMany({
     where: {
