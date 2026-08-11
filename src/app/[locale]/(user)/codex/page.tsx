@@ -1,48 +1,40 @@
 import { getTranslations } from "next-intl/server";
 import { CodexRow } from "@/components/domain/codex-row";
 import { EmptyState } from "@/components/domain/empty-state";
-import { FeedCard } from "@/components/domain/feed-card";
-import { RoomRow } from "@/components/domain/room-row";
 import { SearchBar } from "@/components/domain/search-bar";
 import { getViewer } from "@/lib/auth/viewer";
 import { resolveCategory } from "@/lib/category-scope";
 import { CODEX_BROWSE_LIMIT, listCodex, searchCodex } from "@/lib/data/codex";
-import { searchItems, searchRooms } from "@/lib/data/search";
 
 /**
  * S-25 도감 탭 — 브라우즈 + 검색 (D-160).
  *
- * ## ⚠️ 이 화면이 옛 S-08(검색 탭)을 흡수한다
- * 하단 탭 3번이 **검색 → 도감**으로 바뀌었다 (D-160). 검색 화면을 **지우지
- * 않고 여기로 옮겼다** — 아이템·방 검색은 `FR-04-A-05·06·07` 이 요구하는
- * 기능이고, 탭만 바꾸면서 화면을 지우면 **진입점 0개**가 된다 (D-133·D-157·D-158
- * 에서 세 번 반복한 실패다).
+ * ## ⚠️ 검색 대상은 **도감뿐이다** (D-165)
+ * D-160 에서 옛 S-08(검색 탭)을 흡수할 때는 아이템·방 서브탭을 함께 옮겼다.
+ * D-165 에서 **그 두 탭을 없앴다** — 이 화면은 도감을 찾는 화면이다.
+ *
+ * ⚠️ **아이템 검색·방 검색은 이 서비스에 더 이상 없다** (D-165). `FR-04-A-05`
+ * (아이템 명칭·속성값 검색)·`FR-04-A-06·07`(방 이름 검색)은 **폐기**됐다.
+ * 되살리려면 화면만 되돌리는 것이 아니라 그 FR 부터 다시 세워야 한다.
  *
  * | 상태 | 화면 |
  * |---|---|
  * | 검색어 없음 | **도감 브라우즈** — 최근 추가순 |
- * | 검색어 있음 | 3개 탭 결과 — **도감이 기본**, 아이템·방은 서브탭 |
+ * | 검색어 있음 | **도감 검색 결과** |
  *
  * | 규칙 | 근거 |
  * |---|---|
- * | **일기는 검색 대상이 아니다** | D-020, FR-04-A-02 |
- * | 비공개 아이템·비공개 방 제외 | D-019, FR-04-A-03 |
  * | 도감은 원문 명칭·고유값·**3개 언어 alias** 전부 대상 | D-009, FR-04-A-04 |
- * | 방은 **방 이름만**. 유저 소개는 제외 | FR-04-A-06·07 |
- * | 카테고리 필터는 아이템·도감 탭에만 | FR-04-A-09 |
+ * | 카테고리 축이 걸린다 | D-137, FR-04-A-09 |
  * | **언어권 필터를 적용하지 않는다** | D-027, FR-03-B-07 |
- * | 탭별 빈 상태 | FR-04-A-08 |
+ * | 병합된 도감은 결과에 없다 (survivor 를 낸다) | D-016 |
  */
-type Tab = "codex" | "items" | "rooms";
-
 export default async function CodexPage({
   searchParams,
 }: PageProps<"/[locale]/codex">) {
   const sp = await searchParams;
 
   const q = typeof sp.q === "string" ? sp.q : "";
-  // ⚠️ 기본 탭이 **도감**이다. 옛 화면은 `items` 였다 (D-160)
-  const tab: Tab = sp.tab === "items" || sp.tab === "rooms" ? sp.tab : "codex";
   // ⚠️ 카테고리는 항상 하나다 (D-137). `전체` 검색은 없다
   const scope = await resolveCategory(
     typeof sp.category === "string" ? sp.category : undefined,
@@ -51,17 +43,13 @@ export default async function CodexPage({
 
   return (
     <div>
-      <SearchBar q={q} tab={tab} categoryKeys={scope.keys} category={category} />
+      <SearchBar q={q} categoryKeys={scope.keys} category={category} />
 
-      {!q ? (
+      {q ? (
+        <CodexResults q={q} category={category} />
+      ) : (
         // 검색어가 없으면 **도감을 둘러본다** — 빈 안내만 두면 탭이 죽는다
         <CodexBrowse category={category} />
-      ) : tab === "codex" ? (
-        <CodexResults q={q} category={category} />
-      ) : tab === "items" ? (
-        <ItemResults q={q} category={category} />
-      ) : (
-        <RoomResults q={q} />
       )}
     </div>
   );
@@ -123,42 +111,6 @@ async function CodexResults({ q, category }: { q: string; category?: string }) {
           matchedAlias={matchedAlias}
           // ⚠️ 비로그인이면 조회 계층이 **애초에 넣지 않았다** (D-096)
           ownerCount={ownerCount}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** 아이템 — 비공개·차단은 **조회 조건**에서 빠진다 (FR-04-A-03, D-083) */
-async function ItemResults({ q, category }: { q: string; category?: string }) {
-  const t = await getTranslations();
-  const hits = await searchItems(q, { category }, await getViewer());
-  if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
-  return (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 py-5 lg:px-0">
-      {hits.map((i) => (
-        <li key={i.id}>
-          <FeedCard item={i} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** 방 — 방 이름만. 비공개 방 제외 (FR-04-A-03·06·07) */
-async function RoomResults({ q }: { q: string }) {
-  const t = await getTranslations();
-  const hits = await searchRooms(q, await getViewer());
-  if (hits.length === 0) return <EmptyState title={t("empty.search")} />;
-  return (
-    <div className="py-1 lg:py-2">
-      {hits.map((r) => (
-        <RoomRow
-          key={r.id}
-          id={r.id}
-          name={r.name}
-          level={r.level}
-          itemCount={r.itemCount}
         />
       ))}
     </div>

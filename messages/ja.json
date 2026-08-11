@@ -193,13 +193,7 @@
     "dealDisclaimer": "取引は外部で行われ、自己責任となります。"
   },
   "search": {
-    "placeholder": "アイテム・図鑑・部屋を検索",
-    "prompt": "何をお探しですか？",
-    "tab": {
-      "items": "アイテム",
-      "codex": "図鑑",
-      "rooms": "部屋"
-    },
+    "placeholder": "図鑑を検索",
     "matchedBy": "「{alias}」で一致しました"
   },
   "report": {
