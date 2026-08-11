@@ -100,9 +100,16 @@ export default async function FeedPage({
 
   return (
     <div>
-      {/* 전체 / 팔로잉 (D-175, OI-86 해소) */}
-      <FeedTabs tab={tab} />
-      <FilterBar lang={lang} categoryKeys={scope.keys} category={category} />
+      {/*
+        ⚠️ **셀렉트 → 탭 순서**이고 **둘이 한 덩어리로 고정된다** (D-176).
+        각자 `sticky` 를 걸면 탭만 스크롤에 밀려 올라간다 — 그래서 `FilterBar` 의
+        sticky 를 걷고 여기서 감싼다. 경계선은 이 블록 하단에 한 줄만 둔다.
+      */}
+      <div className="sticky top-0 z-20 border-b bg-background">
+        <FilterBar lang={lang} categoryKeys={scope.keys} category={category} />
+        {/* 전체 / 팔로잉 (D-175, OI-86 해소) */}
+        <FeedTabs tab={tab} />
+      </div>
 
       {/* ⚠️ 콘텐츠 **위에** 덮는다. 대체하지 않는다 — 크롤러는 피드를 읽어야
           하고(D-109) 관람자는 벽부터 만나면 안 된다(D-069) */}

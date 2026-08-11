@@ -34,7 +34,8 @@ export function FeedTabs({ tab }: { tab: (typeof TABS)[number] }) {
   }
 
   return (
-    <div className="flex border-b px-4 lg:px-0" role="tablist">
+    // 하단 경계선은 감싸는 블록이 낸다 (D-176) — 두 줄로 겹치지 않게
+    <div className="flex px-4 lg:px-0" role="tablist">
       {TABS.map((k) => (
         <button
           key={k}
