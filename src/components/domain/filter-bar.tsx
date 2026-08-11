@@ -46,7 +46,12 @@ export function FilterBar({
   }
 
   return (
-    <div className="sticky top-0 z-20 flex items-center justify-end gap-3 border-b bg-background px-4 py-3 lg:px-0">
+    /*
+      ⚠️ **여기서 `sticky` 를 걸지 않는다** (D-176). 탭이 이 아래로 내려가면서
+      (셀렉트 → 탭 순서) **둘이 한 덩어리로 고정돼야** 한다. 각자 sticky 를 걸면
+      탭만 스크롤에 밀려 올라간다 — 고정은 호출부의 감싸는 블록이 한다.
+    */
+    <div className="flex items-center justify-end gap-3 px-4 py-3 lg:px-0">
       {/* ⚠️ 둘 다 **우측**에 모은다 (D-141). 왼쪽에 하나, 오른쪽에 하나로
           갈라놓으면 시선이 두 번 움직인다 — 같은 성격의 조작이라 붙여 둔다.
           카테고리가 축이므로 언어권보다 앞(왼쪽)에 온다 */}
