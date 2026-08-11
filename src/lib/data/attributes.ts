@@ -1,4 +1,5 @@
 import { pickLabel as pick } from "@/lib/data/label";
+import { pickCategoryAttrLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -60,6 +61,8 @@ export async function getCategoryAttributes(
         orderBy: { displayOrder: "asc" },
         select: {
           required: true,
+          // 카테고리별 라벨 override (D-168)
+          labelKo: true, labelJa: true, labelEn: true,
           attributeDefinition: {
             select: {
               key: true,
@@ -89,7 +92,7 @@ export async function getCategoryAttributes(
     const unit = pick(locale, { ko: d.unitKo, ja: d.unitJa, en: d.unitEn });
     return {
       key: d.key,
-      label: pick(locale, { ko: d.labelKo, ja: d.labelJa, en: d.labelEn }),
+      label: pickCategoryAttrLabel(locale, ca),
       type: d.type,
       required: ca.required,
       unit: unit || undefined,

@@ -329,8 +329,6 @@
     "autoFilled": "자동 · 수정 가능",
     "autoFillNotice": "도감에서 찾았어요. 값을 고치면 도감을 다시 찾습니다.",
     "brandSearch": "브랜드 검색 (한글·일본어도 됩니다)",
-    "unknownKey": "고유번호를 모르겠어요",
-    "unknownKeyNotice": "도감에 연결되지 않아 ‘같은 물건 가진 사람’에는 나타나지 않아요. 나중에 넣으면 연결됩니다.",
     "urlWarnNotice": "누르면 외부로 나간다는 경고가 먼저 표시됩니다.",
     "noDraft": "작성 중 나가면 입력한 내용이 저장되지 않아요.",
     "saved": "등록됐어요",
@@ -345,7 +343,8 @@
     "photoMax": "사진은 최대 {max}장이에요",
     "photoMoveLeft": "앞으로 이동",
     "nickname": "내 별칭",
-    "nicknameHint": "같은 물건을 2개 이상 가졌을 때 구분용이에요. 예: 출근용"
+    "nicknameHint": "같은 물건을 2개 이상 가졌을 때 구분용이에요. 예: 출근용",
+    "matchingKeyHint": "모르면 비워두세요. 도감에 연결되지 않은 채로 등록됩니다"
   },
   "opt": {
     "auto": "오토",

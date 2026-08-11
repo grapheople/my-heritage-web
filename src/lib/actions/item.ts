@@ -39,7 +39,6 @@ export type CreateItemInput = {
   /** 유저 별칭(선택) — 같은 도감 아이템 구분용 (D-112) */
   nickname?: string;
   /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
-  unknownMatchingKey: boolean;
 };
 
 export type CreateItemResult =
@@ -132,17 +131,18 @@ export async function createItemAs(
     where: { categoryId: category.id },
     select: { attributeKeys: true },
   });
-  // 순서가 정규화 순서다 (FR-01-A-05) — Set 으로만 들고 있으면 순서를 잃는다
+  // 순서가 정규화 순서다 (FR-01-A-05) — Set 으로만 들고 있으면 순서를 잃는다.
+  // ⚠️ **면제 판정용 Set 은 없어졌다** (D-169) — 매칭 키가 `required` 가 아니므로
+  // 필수 검증에서 매칭 키를 특별 취급할 필요가 없다
   const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
-  const matchingKeys = new Set(keyOrder);
 
   /* ── 검증 (FR-05-A-03) ── */
   const fieldErrors: Record<string, string> = {};
   for (const a of attrs) {
     const key = a.attributeDefinition.key;
-    // 매칭 키는 "모르겠어요" 시 면제 (D-032)
-    const exempt = matchingKeys.has(key) && input.unknownMatchingKey;
-    if (a.required && !exempt && !input.values[key]?.trim()) {
+    // ⚠️ 면제가 없어졌다 (D-169). 매칭 키는 `required` 가 아니므로 비워도 통과하고,
+    // 비면 아래에서 `buildMatchingKey` 가 `null` 을 내 도감 연결이 건너뛰어진다
+    if (a.required && !input.values[key]?.trim()) {
       fieldErrors[key] = "필수 항목이에요";
     }
   }
@@ -171,7 +171,7 @@ export async function createItemAs(
   /* ── 도감 조회·연결·자동 생성 (D-013·D-015, FR-03-A-01·FR-03-B-01) ── */
   let codexItemId: string | null = null;
   let codexCreated = false;
-  if (!input.unknownMatchingKey) {
+  {
     // ⚠️ **복합 키를 전부 쓴다** (D-013). 첫 키만 쓰면 캠핑에서 Snow Peak
     // 제품이 도감 한 칸으로 뭉친다 — `lib/codex-key.ts` 참조
     const key = buildMatchingKey(keyOrder, input.values);
@@ -296,7 +296,6 @@ export type UpdateItemInput = {
   /** 사진 URL. **순서가 표시 순서**이고 첫 장이 대표다 (FR-07-A-04·05) */
   photoUrls: string[];
   nickname?: string;
-  unknownMatchingKey: boolean;
 };
 
 export async function updateItem(input: UpdateItemInput): Promise<ActionResult> {
@@ -336,14 +335,13 @@ export async function updateItemAs(
     select: { attributeKeys: true },
   });
   const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
-  const matchingKeys = new Set(keyOrder);
 
   /* ── 검증 — 수정 시점에 필수로 바뀐 속성도 요구한다 (FR-05-B-04) ── */
   const fieldErrors: Record<string, string> = {};
   for (const a of attrs) {
     const key = a.attributeDefinition.key;
-    const exempt = matchingKeys.has(key) && input.unknownMatchingKey;
-    if (a.required && !exempt && !input.values[key]?.trim()) {
+    // 면제 없음 (D-169) — 등록과 같은 기준이다
+    if (a.required && !input.values[key]?.trim()) {
       fieldErrors[key] = "필수 항목이에요";
     }
   }
@@ -369,10 +367,10 @@ export async function updateItemAs(
   }
 
   /* ── 도감 재연결 (FR-05-B-03) ── */
-  // ⚠️ **연결을 끊는 경우도 있다.** 고유번호를 지우거나 "모르겠어요"로 바꾸면
-  // null 이 되어야 한다. 기존 연결을 유지하면 다른 물건에 붙은 채로 남는다
+  // ⚠️ **연결을 끊는 경우도 있다.** 고유번호를 지우면 null 이 되어야 한다 —
+  // 기존 연결을 유지하면 다른 물건에 붙은 채로 남는다 (D-169: 빈 값이 곧 "모름")
   let codexItemId: string | null = null;
-  if (!input.unknownMatchingKey) {
+  {
     // 등록과 **같은 규칙**을 써야 한다. 여기만 첫 키를 쓰면 수정 한 번으로
     // 도감 연결이 다른 곳으로 옮겨간다
     const key = buildMatchingKey(keyOrder, input.values);

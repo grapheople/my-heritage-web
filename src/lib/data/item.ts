@@ -6,7 +6,7 @@ import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import type { Locale } from "@/i18n/routing";
-import { pickAttrLabel, pickLabel } from "@/lib/data/label";
+import { pickCategoryAttrLabel, pickLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -89,6 +89,8 @@ export async function getItemDetail(
             select: {
               active: true,
               displayOrder: true,
+              // 카테고리별 라벨 override (D-168)
+              labelKo: true, labelJa: true, labelEn: true,
               // ⚠️ 라벨은 **DB 에서** 온다 (D-135). 어드민이 추가한 속성은
               // 메시지 파일에 키가 없어 `t()` 로는 이름을 낼 수 없다
               attributeDefinition: {
@@ -171,7 +173,7 @@ export async function getItemDetail(
         : "";
     const text = unit ? `${raw} ${unit}` : raw;
 
-    labels[key] = pickAttrLabel(locale, def);
+    labels[key] = pickCategoryAttrLabel(locale, v.categoryAttribute);
 
     if (OWNER_ONLY_KEYS.has(key)) {
       // ⚠️ 타인에게는 **응답에 넣지 않는다.** 화면에서 감추는 것이 아니다
@@ -262,15 +264,6 @@ export async function getItemForEdit(
   /** 속성 key → 폼이 그대로 쓰는 문자열. 별칭은 `__nickname` */
   values: Record<string, string>;
   photos: string[];
-  /**
-   * **"고유값을 모르겠어요" 상태** (D-164, D-032).
-   *
-   * ⚠️ 이걸 내려보내지 않으면 **고유값 없이 등록한 아이템을 수정할 수 없다.**
-   * 폼은 이 체크박스가 꺼진 상태로 시작하는데, 그러면 매칭 키 필수 면제가
-   * 풀려 유저가 **한 번도 입력한 적 없는 칸**에서 "필수 항목이에요"로 막힌다.
-   * 봇이 만든 아이템이 특히 그렇다 — 고유값을 일부러 비운다 (D-153).
-   */
-  unknownMatchingKey: boolean;
 } | null> {
   if (!viewer.roomId) return null;
   const item = await prisma.item.findFirst({
@@ -322,18 +315,9 @@ export async function getItemForEdit(
   // 별칭은 속성이 아니라 별개 컬럼이다 (D-112) — `__` 로 구분한다
   if (item.nickname) values.__nickname = item.nickname;
 
-  /*
-    매칭 키 속성이 **하나라도 비어 있으면** "모르겠어요" 상태다 — 도감 연결
-    판정과 같은 규칙이다 (`actions/bot.ts` 의 `codexLinked` 참조). 정의가
-    없으면 `uniqueId` 가 기본이다 (`createItemAs` 와 같은 기준).
-  */
-  const keyAttrs = item.category.matchingKey?.attributeKeys ?? ["uniqueId"];
-  const unknownMatchingKey = !keyAttrs.every((k) => values[k]?.trim());
-
   return {
     categoryKey: item.category.key,
     values,
-    unknownMatchingKey,
     // 스토리지 전 플레이스홀더는 없는 것으로 다룬다 (OI-47 잔재)
     photos: item.photos
       .map((p) => realPhotoUrl(p.url))

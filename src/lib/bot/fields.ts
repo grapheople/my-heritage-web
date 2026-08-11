@@ -38,6 +38,8 @@ export async function categoryFields(categoryKey: string): Promise<BotField[]> {
         orderBy: { displayOrder: "asc" },
         select: {
           required: true,
+          // 카테고리별 라벨 override (D-168) — 봇 프롬프트도 같은 이름을 봐야 한다
+          labelKo: true,
           attributeDefinition: {
             select: {
               key: true,
@@ -65,7 +67,7 @@ export async function categoryFields(categoryKey: string): Promise<BotField[]> {
       key: d.key,
       type: d.type,
       required: a.required,
-      label: d.labelKo,
+      label: a.labelKo ?? d.labelKo,
       options: d.options.map((o) => ({ key: o.key, label: o.labelKo })),
       isMatchingKey: keys.has(d.key),
     };

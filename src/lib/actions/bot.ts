@@ -350,8 +350,11 @@ export async function botPostItem(input: {
     }
   }
 
-  // 매칭 키 속성이 **모두** 채워졌을 때만 도감을 연결·생성한다.
-  // 하나라도 비면 "모르겠어요" 로 넘긴다 (D-032, FR-01-A-02b)
+  /*
+    도감 연결은 **`createItemAs` 가 값만 보고 판정한다** (D-169) — 매칭 키가 비면
+    `buildMatchingKey` 가 `null` 을 내 건너뛴다. 봇이 따로 플래그를 넘기지 않는다.
+    화면에 알려줄 값만 여기서 같은 규칙으로 미리 계산한다.
+  */
   const keyFields = fields.filter((f) => f.isMatchingKey);
   const codexLinked =
     keyFields.length > 0 && keyFields.every((f) => values[f.key]?.trim());
@@ -361,7 +364,6 @@ export async function botPostItem(input: {
     values,
     photoUrls,
     nickname,
-    unknownMatchingKey: !codexLinked,
   });
   if (!res.ok) {
     const labels = Object.fromEntries(fields.map((f) => [f.key, f.label]));
