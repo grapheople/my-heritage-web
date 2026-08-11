@@ -41,7 +41,16 @@ export async function getMarketListings(
       saleStatus: "ON_SALE",
       visibility: "PUBLIC",
       room: publicRoomWhere(blockedIds),
-      ...(filter.category ? { category: { key: filter.category } } : {}),
+      /*
+        ⚠️ **판매할 수 없는 카테고리는 조회에서 뺀다** (D-173, OI-85).
+        전환 액션이 막고 있어도(`actions/sell.ts`) **이미 ON_SALE 인 행이 남아
+        있을 수 있다** — 카테고리를 나중에 `sellable: false` 로 바꾸는 경우다.
+        화면에서 거르지 않고 **조회 조건**에 둔다 (D-083 과 같은 기준).
+      */
+      category: {
+        sellable: true,
+        ...(filter.category ? { key: filter.category } : {}),
+      },
       ...(filter.currency
         ? { currency: filter.currency as CurrencyCode }
         : {}),

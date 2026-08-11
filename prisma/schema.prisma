@@ -320,6 +320,15 @@ model Category {
   brands      Brand[]
   preferredBy  User[] @relation("userPreferredCategories")
   matchingKey MatchingKeyDefinition?
+  /// 이 카테고리 아이템을 **마켓에 올릴 수 있는가** (D-173, OI-85 해소).
+  ///
+  /// ⚠️ 운동처럼 **소유물이 아닌 카테고리**가 생기면서 필요해졌다 (D-166).
+  /// 운동 종목을 판매 전환할 수 있으면 마켓에 "벤치프레스 판매중"이 뜬다.
+  ///
+  /// 카테고리를 코드에 열거해 예외를 두지 않는다 — 어드민이 카테고리를 늘리면
+  /// (A-01) 그때마다 예외 목록을 고쳐야 하고, 빠뜨리면 팔 수 없는 것이 팔린다.
+  sellable Boolean @default(true)
+
 }
 
 /// D-010 — 공통 속성 라이브러리. 여러 카테고리가 참조한다 (A-01 규칙)

@@ -55,6 +55,18 @@ export async function convertToSaleAs(
     return fail({}, "판매완료된 아이템은 다시 판매할 수 없습니다");
   }
 
+  /*
+    ⚠️ **판매할 수 없는 카테고리** (D-173, OI-85). 운동처럼 소유물이 아닌
+    카테고리가 생기면서 필요해졌다 (D-166).
+
+    ⚠️ **이 검사가 진짜 관문이다.** 화면에서 버튼을 감추는 것만으로는 막히지
+    않는다 — `/items/[id]/sell` 은 URL 로 열 수 있고 서버 액션은 직접 호출할 수
+    있다 (D-133 계열에서 반복 확인한 것: 도달 가능성과 권한은 별개다).
+  */
+  if (!item.sellable) {
+    return fail({}, "이 카테고리는 마켓에 올릴 수 없습니다");
+  }
+
   /* ── 검증 (FR-01-A-03) ── */
   const errors: Record<string, string> = {};
   const price = Number(input.price);

@@ -79,6 +79,8 @@ export type ItemDetail = {
   ownerLevel: number;
   visibility: "PUBLIC" | "PRIVATE";
   saleStatus: "DISPLAYED" | "ON_SALE" | "SOLD";
+  /** 이 카테고리를 마켓에 올릴 수 있는가 (D-173) — 판매 UI 노출 판정 */
+  sellable: boolean;
   /** 방 공개 상태 — 공개 판정은 Room AND Item (M-06, D-019) */
   roomPublic: boolean;
   /** 도감 연결. 없으면 "같은 물건 가진 사람"에 나타나지 않는다 (D-032) */

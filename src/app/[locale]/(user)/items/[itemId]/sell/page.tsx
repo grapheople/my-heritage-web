@@ -38,6 +38,13 @@ export default async function SellPage({
   // 떠난 아이템은 다시 팔 수 없다 (D-023 — 현재 보유자가 아니다)
   if (item.saleStatus === "SOLD") notFound();
 
+  /*
+    ⚠️ **판매할 수 없는 카테고리** (D-173, OI-85). 상세에서 링크를 감추지만
+    **URL 로 직접 열 수 있다** — 화면도 함께 막는다. 진짜 관문은 액션이다
+    (`actions/sell.ts`).
+  */
+  if (!item.sellable) notFound();
+
   return (
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">

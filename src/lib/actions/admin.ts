@@ -65,6 +65,26 @@ export async function setCategoryActive(
   return { ok: true };
 }
 
+/**
+ * 마켓 판매 허용 토글 (D-173, OI-85 해소).
+ *
+ * ⚠️ **끄면 신규 판매 전환이 막히고 기존 매물도 마켓에서 내려간다.**
+ * 조회 조건이 `category.sellable` 을 보기 때문이다 (`data/market.ts`) —
+ * 이미 `ON_SALE` 인 행을 건드리지 않는 것은 의도다. 되돌리면 다시 노출된다
+ * (D-036 의 "값을 지우지 않는다"와 같은 성격).
+ */
+export async function setCategorySellable(
+  key: string,
+  sellable: boolean,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  await prisma.category.update({ where: { key }, data: { sellable } });
+  // 마켓 목록도 함께 갱신한다 — 조회 조건이 바뀌었다
+  revalidate("/admin/categories", "/[locale]/market");
+  return { ok: true };
+}
+
 /* ────────────────────────────────────────────
    A-02 카테고리별 속성 조합 — **출시 필수 단계** (D-097)
    ──────────────────────────────────────────── */
