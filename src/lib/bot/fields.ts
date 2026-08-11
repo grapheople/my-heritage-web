@@ -90,11 +90,17 @@ export function fieldsTable(fields: BotField[]): string {
        * 키에만** 있다 (지어내면 가짜 도감이 생긴다, D-015). 나머지는 틀려도
        * 그 아이템 하나에서 끝나므로 **채우는 쪽이 맞다.**
        */
-      const note = f.isMatchingKey
-        ? " **고유값 · 엄격 — 확실하지 않으면 반드시 비운다**"
-        : f.type === "url"
-          ? " 비워둔다"
-          : " 반드시 채운다";
+      const note =
+        f.isMatchingKey && f.required
+          ? // ⚠️ **매칭 키인데 필수인 경우**가 있다 (운동의 `model` — 종목명이
+            // 곧 매칭 키다, D-166). 여기에 "비운다"를 안내하면 **비워서 등록이
+            // 막힌다.** 필수는 비울 수 없으므로 "확실한 값을 쓴다"로 갈린다
+            " **고유값 · 필수 — 비울 수 없다. 확실히 아는 값만 쓴다**"
+          : f.isMatchingKey
+            ? " **고유값 · 엄격 — 확실하지 않으면 반드시 비운다**"
+            : f.type === "url"
+              ? " 비워둔다"
+              : " 반드시 채운다";
       return `| \`${f.key}\` | ${f.label} | ${kind} |${note}${extra} |`;
     });
   return ["| 키 | 항목 | 형식 | 비고 |", "|---|---|---|---|", ...rows].join("\n");

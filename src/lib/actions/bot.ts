@@ -211,6 +211,14 @@ export async function botUploadPhoto(
   }
 }
 
+/** 카테고리 이름 — 어드민은 ko 전용이다 (D-030). 없으면 키를 그대로 쓴다 */
+async function categoryLabel(key: string): Promise<string> {
+  const messages = (await import("../../../messages/ko.json")).default as {
+    category?: Record<string, string>;
+  };
+  return messages.category?.[key] ?? key;
+}
+
 /** 봇 타임존 기준 오늘 — 미래 구매일을 걸러내는 기준 (D-056) */
 async function botToday(userId: string): Promise<string> {
   return userLocalDate(await userTimezone(userId));
@@ -251,8 +259,9 @@ export async function botResearchItem(input: {
     const r = await researchItemContent({
       fields,
       categoryKey: input.categoryKey,
-      // 어드민은 ko 전용이라 카테고리 라벨을 키로 넘겨도 충분하다 (D-030)
-      categoryLabel: input.categoryKey,
+      // ⚠️ **키가 아니라 이름을 넘긴다** (D-167). `workout` 만 보고는 무엇을
+      // 채우는 화면인지 모른다 — 카테고리 성격이 답을 크게 가른다
+      categoryLabel: await categoryLabel(input.categoryKey),
       brand: input.brand,
       hint: input.hint,
       locale: b.locale,
