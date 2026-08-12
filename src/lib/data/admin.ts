@@ -1,3 +1,4 @@
+import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -528,4 +529,83 @@ export async function getBots() {
     diaries: b.user.room?._count.diaries ?? 0,
     lastActedAt: b.lastActedAt?.toISOString().slice(0, 16).replace("T", " "),
   }));
+}
+
+/**
+ * 병합 후보 제안 (D-181, OI-58 해소).
+ *
+ * ## ⚠️ 유사도 점수를 발명하지 않는다
+ * D-016 은 "시스템 자동 후보 제안"을 요구하지만 **어떤 유사도인지는 정하지
+ * 않았다.** 임의의 점수(편집 거리·가중치)를 만들면 어드민이 그 숫자를 신뢰하게
+ * 되고, 근거를 설명할 수 없다. 그래서 **이미 있는 규칙만** 쓴다:
+ *
+ * | 후보 조건 | 근거 |
+ * |---|---|
+ * | 같은 카테고리 | 매칭 키 체계가 카테고리별이다 (D-013) |
+ * | 둘 다 미병합 | 연쇄 병합을 만들지 않는다 |
+ * | **정규화 명칭이 같다** 또는 **한쪽이 다른 쪽의 접두** | 등록·검색과 **같은 정규화**(D-014)다 |
+ * | 또는 **정규화 고유값이 같다** | 같은 물건인데 도감이 갈린 전형적 형태 |
+ *
+ * 즉 "왜 후보인가"를 항상 한 문장으로 말할 수 있다. 애매한 쌍은 **제안하지
+ * 않는다** — 놓치는 것이 잘못 합치는 것보다 싸다 (병합은 아이템을 옮긴다).
+ *
+ * ## ⚠️ survivor 를 고르지 않는다
+ * D-016 은 **어드민 수동 실행**이다. 어느 쪽을 남길지는 검증 상태·보유자 수를
+ * 보고 사람이 정한다 — 화면이 양쪽 버튼을 준다.
+ */
+export async function getCodexMergeCandidates(): Promise<
+  {
+    reason: "sameName" | "prefix" | "sameUniqueId";
+    a: { id: string; name: string; uniqueId: string; verified: boolean; items: number };
+    b: { id: string; name: string; uniqueId: string; verified: boolean; items: number };
+    categoryKey: string;
+  }[]
+> {
+  const rows = await prisma.codexItem.findMany({
+    where: { mergedIntoId: null },
+    select: {
+      id: true,
+      displayName: true,
+      uniqueId: true,
+      verification: true,
+      category: { select: { key: true } },
+      _count: { select: { items: true } },
+    },
+    // 전수 비교라 상한을 둔다 — 넘으면 배치로 옮겨야 한다
+    take: 500,
+  });
+
+  const norm = (v: string | null) => (v ? normalizeBrandToken(v) : "");
+  const out: Awaited<ReturnType<typeof getCodexMergeCandidates>> = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j < rows.length; j++) {
+      const x = rows[i];
+      const y = rows[j];
+      if (x.category.key !== y.category.key) continue;
+
+      const nx = norm(x.displayName);
+      const ny = norm(y.displayName);
+      const ux = norm(x.uniqueId);
+      const uy = norm(y.uniqueId);
+
+      let reason: "sameName" | "prefix" | "sameUniqueId" | null = null;
+      if (ux && uy && ux === uy) reason = "sameUniqueId";
+      else if (nx && ny && nx === ny) reason = "sameName";
+      else if (nx && ny && (nx.startsWith(ny) || ny.startsWith(nx))) reason = "prefix";
+      if (!reason) continue;
+
+      const shape = (r: (typeof rows)[number]) => ({
+        id: r.id,
+        name: r.displayName,
+        uniqueId: r.uniqueId ?? "",
+        verified: r.verification === "VERIFIED",
+        items: r._count.items,
+      });
+      out.push({ reason, a: shape(x), b: shape(y), categoryKey: x.category.key });
+    }
+  }
+  // 같은 고유값 > 같은 명칭 > 접두 순으로 확실한 것부터
+  const rank = { sameUniqueId: 0, sameName: 1, prefix: 2 };
+  return out.sort((p, q) => rank[p.reason] - rank[q.reason]).slice(0, 50);
 }

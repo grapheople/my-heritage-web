@@ -231,39 +231,6 @@ export async function setCodexVerification(
   return { ok: true };
 }
 
-/**
- * 검증된 도감의 3개 언어 설명 (D-010·D-012, FR-07-A-05).
- *
- * ⚠️ **미검증 도감에는 쓰지 않는다.** 미검증본은 유저가 쓴 원문 1개를 그대로
- * 보여줘야 한다 — 번역하면 운영자가 검수하지 않은 내용을 서비스가 보증하는
- * 것처럼 보인다 (`policies/i18n` Case 1).
- */
-export async function setCodexDescriptions(
-  codexId: string,
-  descriptions: { ko?: string; ja?: string; en?: string },
-): Promise<ActionResult> {
-  const ADMIN_ACTOR = await actor();
-  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
-  const codex = await prisma.codexItem.findUnique({
-    where: { id: codexId },
-    select: { verification: true },
-  });
-  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
-  if (codex.verification !== "VERIFIED") {
-    return fail({}, "검증된 도감에만 다국어 설명을 넣을 수 있습니다");
-  }
-
-  await prisma.codexItem.update({
-    where: { id: codexId },
-    data: {
-      descriptions: Object.fromEntries(
-        Object.entries(descriptions).filter(([, v]) => v?.trim()),
-      ),
-    },
-  });
-  revalidate("/[locale]/codex/[codexId]");
-  return { ok: true };
-}
 
 /* ────────────────────────────────────────────
    A-07 도감 alias (D-009)
@@ -363,6 +330,20 @@ export async function mergeCodex(input: {
     absorbed.reduce<unknown>((acc, a) => mergeAliases(acc, a.aliases), {}),
   );
 
+  /*
+    ⚠️ **이관 전에 "어느 도감의 아이템이었는지"를 기록해야 한다** (D-181, OI-62).
+    `updateMany` 로 옮기면 **원래 `codexItemId` 가 사라져** 되돌릴 수 없다 —
+    되돌리기가 도감만 살리고 아이템은 survivor 에 남는 상태였다.
+  */
+  const movedByAbsorbed = new Map<string, string[]>();
+  for (const a of absorbed) {
+    const items = await prisma.item.findMany({
+      where: { codexItemId: a.id },
+      select: { id: true },
+    });
+    movedByAbsorbed.set(a.id, items.map((i) => i.id));
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     // 아이템 이관 — **속성값은 건드리지 않는다** (FR-05-B-07)
     const moved = await tx.item.updateMany({
@@ -375,10 +356,16 @@ export async function mergeCodex(input: {
     });
     // 삭제하지 않고 survivor 를 가리키게 둔다 (FR-05-B-04).
     // 상세로 접근하면 survivor 로 보낸다 (FR-05-B-05)
-    await tx.codexItem.updateMany({
-      where: { id: { in: absorbedIds } },
-      data: { mergedIntoId: survivorId },
-    });
+    // ⚠️ 흡수된 도감마다 **자기가 내보낸 아이템 목록**을 함께 남긴다 (D-181)
+    for (const a of absorbed) {
+      await tx.codexItem.update({
+        where: { id: a.id },
+        data: {
+          mergedIntoId: survivorId,
+          mergedItemIds: movedByAbsorbed.get(a.id) ?? [],
+        },
+      });
+    }
     // 소유자에게 알린다 — **아이템 명칭이 바뀌기 때문이다** (D-073 파생값)
     if (ownerIds.length > 0) {
       await tx.notification.createMany({
@@ -404,21 +391,58 @@ export async function mergeCodex(input: {
  * 어떤 아이템이 어디서 왔는지 기록하지 않기 때문이다. 지금은 연결만 끊는다 —
  * **불완전한 복구임을 호출부가 알려야 한다.**
  */
-export async function undoMergeCodex(absorbedId: string): Promise<ActionResult> {
+export async function undoMergeCodex(
+  absorbedId: string,
+): Promise<ActionResult<{ restoredItems: number }>> {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const codex = await prisma.codexItem.findUnique({
     where: { id: absorbedId },
-    select: { mergedIntoId: true },
+    select: { mergedIntoId: true, mergedItemIds: true },
   });
   if (!codex?.mergedIntoId) return fail({}, "병합된 도감이 아닙니다");
 
-  await prisma.codexItem.update({
-    where: { id: absorbedId },
-    data: { mergedIntoId: null },
+  /*
+    ⚠️ **아이템을 되돌린다** (D-181, OI-62). 초판은 `mergedIntoId` 만 끊어서
+    **도감은 살아나지만 아이템은 survivor 에 남았다** — 되돌리기가 절반만 됐다.
+
+    ⚠️ **지금도 survivor 를 가리키는 것만** 되돌린다. 그 뒤에 다른 병합으로 또
+    옮겨갔거나 유저가 도감 연결을 바꿨을 수 있다 — 무조건 덮어쓰면 **남의 병합
+    결과를 훔친다.** 삭제된 아이템은 `updateMany` 가 자연히 건너뛴다.
+  */
+  const ids = Array.isArray(codex.mergedItemIds)
+    ? (codex.mergedItemIds as unknown[]).filter(
+        (v): v is string => typeof v === "string",
+      )
+    : [];
+
+  const restored = await prisma.$transaction(async (tx) => {
+    const r =
+      ids.length > 0
+        ? await tx.item.updateMany({
+            where: { id: { in: ids }, codexItemId: codex.mergedIntoId },
+            data: { codexItemId: absorbedId },
+          })
+        : { count: 0 };
+    await tx.codexItem.update({
+      where: { id: absorbedId },
+      // 기록도 지운다 — 되돌린 뒤에 남아 있으면 두 번 되돌릴 수 있다
+      data: { mergedIntoId: null, mergedItemIds: [] },
+    });
+    return r.count;
   });
-  revalidate("/admin/codex/merge");
-  return { ok: true };
+
+  /*
+    ⚠️ **되돌림을 유저에게 알리지 않는다.** 병합 때 "명칭이 바뀔 수 있다"고 알렸고
+    (D-073 파생값), 되돌리면 원래 이름으로 복귀한다 — 어드민의 실수 정정까지
+    알리면 소음이다. 알릴지는 별도 결정이다 (OI-93).
+
+    ⚠️ **alias 는 되돌리지 않는다.** 병합 때 survivor 에 합쳐진 alias 는 남는다 —
+    alias 는 검색 보조값이라 더 있어도 해가 없고(D-009), 어느 alias 가 어디서
+    왔는지 기록하지 않았다. 필요하면 A-07 에서 손으로 지운다.
+  */
+  revalidate("/admin/codex/merge", "/admin/codex");
+  return { ok: true, restoredItems: restored };
 }
 
 /* ────────────────────────────────────────────

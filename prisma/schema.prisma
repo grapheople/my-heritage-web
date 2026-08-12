@@ -568,6 +568,14 @@ model CodexItem {
   createdByUser   User?   @relation("codexCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   /// D-016 — 병합으로 흡수된 경우 살아남은 도감을 가리킨다. 되돌리기 가능해야 한다
+  /// 병합 때 **이 도감에서 survivor 로 옮긴 아이템 id 목록** (D-181, OI-62).
+  ///
+  /// ⚠️ 이것이 없으면 **되돌리기가 절반만 된다** — `mergedIntoId` 만 끊으면 도감은
+  /// 살아나지만 아이템은 survivor 에 남는다. `updateMany` 로 이관하면 원래
+  /// `codexItemId` 가 사라지므로 **이관 전에 기록해야** 한다.
+  ///
+  /// 되돌린 뒤에는 비운다 — 남겨두면 두 번 되돌릴 수 있다.
+  mergedItemIds Json?
   mergedIntoId String?
   mergedInto   CodexItem?  @relation("codexMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom   CodexItem[] @relation("codexMerge")
