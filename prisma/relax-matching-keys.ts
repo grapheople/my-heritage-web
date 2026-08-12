@@ -39,6 +39,17 @@ import {
 /** 카테고리별 라벨 override — `[카테고리, 속성, ko, ja, en]` */
 const LABEL_OVERRIDES: [string, string, string, string, string][] = [
   ["workout", "model", "운동명", "種目名", "Exercise"],
+  /*
+    ⚠️ 시계의 `uniqueId` 는 **레퍼런스**다 (D-187). "고유번호"는 컬렉터가 쓰는
+    말이 아니다 — 시계는 레퍼런스(Ref.), 신발은 스타일 코드라고 부른다. 전역
+    라벨을 바꾸면 신발까지 "레퍼런스"가 되므로 카테고리 override 로 둔다.
+
+    ⚠️ **라벨만 바꾸고 끝내면 안 된다.** `reg.codexNotLinked` 가 "고유번호를
+    넣으면"이라고 하드코딩돼 있었다 — 라벨은 레퍼런스인데 안내문은 고유번호가
+    되는 D-029 워싱 사고와 같은 모양이다. 그 문구는 **매칭 키 라벨을 받아
+    쓰도록** 바꿨다(자전거·옷 등에서 애초에 틀린 문구이기도 했다).
+  */
+  ["watch", "uniqueId", "레퍼런스", "リファレンス", "Reference"],
 ];
 
 async function main() {

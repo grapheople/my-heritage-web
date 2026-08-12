@@ -110,6 +110,11 @@ export function ItemForm({
   }, [category, locale]);
 
   const attrs = loaded?.category === category ? loaded.defs : [];
+  /** 도감 연결에 필요한 항목 이름 — 이미 로케일에 맞게 온다 (`?locale=`) */
+  const matchingKeyLabels = attrs
+    .filter((a) => a.matchingKey)
+    .map((a) => a.label)
+    .join(", ");
 
   function set(key: string, v: string) {
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -238,7 +243,16 @@ export function ItemForm({
               ? t("reg.codexCreated")
               : saved.codexLinked
                 ? t("reg.codexLinked")
-                : t("reg.codexNotLinked")}
+                : /*
+                     ⚠️ **필드 이름을 문구에 하드코딩하지 않는다** (D-187).
+                     예전에는 "고유번호를 넣으면"이었는데, 매칭 키는 카테고리마다
+                     다르다 — 자전거는 브랜드·모델명·제조년도이고 시계의 라벨은
+                     "레퍼런스"다. 문구가 한 카테고리만 맞고 나머지는 틀렸다.
+
+                     ⚠️ 한국어는 `{fields} 항목을` 처럼 **고정 명사를 뒤에 붙인다** —
+                     조사가 보간값 종성에 따라 갈리지 않는다 (`을/를` 문제).
+                   */
+                  t("reg.codexNotLinked", { fields: matchingKeyLabels })}
           </li>
         </ul>
         {/* ⚠️ 예전에는 `/ko/` 가 하드코딩돼 있었다 — 일본어·영어 유저가

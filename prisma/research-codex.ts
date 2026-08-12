@@ -34,15 +34,29 @@ import { prisma } from "../src/lib/prisma";
 /** 동시 CLI 호출 수. 올리면 기기가 버겁고, 1이면 80개 브랜드가 2시간을 넘는다 */
 const CONCURRENCY = 3;
 
-type Outcome = { brand: string; found: number; created: number; dup: number; failed: string[] };
+type Outcome = {
+  brand: string;
+  found: number;
+  created: number;
+  dup: number;
+  failed: string[];
+  /**
+   * ⚠️ **정제 단계에서 버린 후보의 사유.** 초판은 이것을 버렸다 — 신발 30개 중
+   * 23개 브랜드가 0건인데 **왜인지 알 수 없었다.** 어드민 화면은 제외 목록을
+   * 보여주는데(FR-04-A-08) 스크립트만 안 보여주면, 대량 시딩에서 프롬프트 문제와
+   * 정상 동작(식별자가 없는 브랜드)을 구분할 수 없다.
+   */
+  dropped: string[];
+};
 
 async function seedBrand(
   categoryKey: string,
   categoryLabel: string,
   brand: string,
   perBrand: number,
+  hint: string,
 ): Promise<Outcome> {
-  const out: Outcome = { brand, found: 0, created: 0, dup: 0, failed: [] };
+  const out: Outcome = { brand, found: 0, created: 0, dup: 0, failed: [], dropped: [] };
 
   const fields = await categoryFields(categoryKey);
   let r;
@@ -54,7 +68,7 @@ async function seedBrand(
       brand,
       // ⚠️ 힌트를 비우지 않는다. 비우면 모델이 희귀·한정판을 고르는 경향이 있고,
       // 그런 제품은 확실도가 낮아 제외되거나 도감에 아무도 안 붙는다
-      hint: `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`,
+      hint,
       count: perBrand,
     });
   } catch (e) {
@@ -63,6 +77,7 @@ async function seedBrand(
     return out;
   }
   out.found = r.candidates.length;
+  out.dropped = r.dropped;
 
   for (const c of r.candidates) {
     const res = await insertCodex({
@@ -81,13 +96,21 @@ async function seedBrand(
 }
 
 async function main() {
-  const [, , categoryKey, perBrandArg, onlyBrand] = process.argv;
+  const [, , categoryKey, perBrandArg, onlyBrand, hintArg] = process.argv;
   if (!categoryKey) {
-    console.log("사용법: pnpm db:research-codex <카테고리> [브랜드당 건수] [브랜드명]");
+    console.log("사용법: pnpm db:research-codex <카테고리> [브랜드당 건수] [브랜드명] [힌트]");
     console.log("예시:   pnpm db:research-codex watch 5");
     return;
   }
   const perBrand = Math.min(Math.max(Number(perBrandArg) || 5, 1), 10);
+  /*
+    ⚠️ 힌트를 인자로 받는다. 카테고리마다 "대표 제품"의 의미가 다르다 —
+    스니커의 스타일 코드는 **컬러웨이 단위**라(`CW2288-111` = AF1 '07 White)
+    "대표 모델"로는 특정되지 않고 모델이 빈 배열을 낸다.
+    ⚠️ 다만 힌트로 **확실하지 않은 코드를 짜내게 만들면 안 된다** (D-186) —
+    조사 결과는 사람이 표본 확인한 뒤 받아들인다.
+  */
+  const hint = hintArg || `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`;
 
   const url = migrationDatabaseUrl();
   // ⚠️ 비밀번호를 출력하지 않는다 (D-116)
@@ -134,12 +157,16 @@ async function main() {
     while (cursor < brands.length) {
       const i = cursor++;
       const name = brands[i].name;
-      const o = await seedBrand(categoryKey, categoryLabel, name, perBrand);
+      const o = await seedBrand(categoryKey, categoryLabel, name, perBrand, hint);
       results.push(o);
-      const tail = o.failed.length ? ` · 실패 ${o.failed.length}` : "";
+      const tail =
+        (o.dropped.length ? ` · 제외 ${o.dropped.length}` : "") +
+        (o.failed.length ? ` · 실패 ${o.failed.length}` : "");
       console.log(
         `[${results.length}/${brands.length}] ${name} — 후보 ${o.found} · 등록 ${o.created} · 중복 ${o.dup}${tail}`,
       );
+      // 제외 사유를 남긴다 — 0건이 정상인지 프롬프트 문제인지 구분하는 유일한 단서
+      for (const d of o.dropped) console.log(`      · 제외 ${d}`);
       for (const f of o.failed) console.log(`      ✗ ${f}`);
     }
   }
