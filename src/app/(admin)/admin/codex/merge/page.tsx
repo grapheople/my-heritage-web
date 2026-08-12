@@ -1,7 +1,7 @@
-import { AdminPage, Td } from "@/components/admin/ui";
+import { AdminPage, Pill, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
-import { undoMergeCodex } from "@/lib/actions/admin";
-import { getAdminMergeHistory } from "@/lib/data/admin";
+import { mergeCodex, undoMergeCodex } from "@/lib/actions/admin";
+import { getAdminMergeHistory, getCodexMergeCandidates } from "@/lib/data/admin";
 
 /**
  * A-06 도감 병합 큐 (codex F-06).
@@ -25,21 +25,101 @@ import { getAdminMergeHistory } from "@/lib/data/admin";
  * 유사도 계산 로직이 존재하지 않는다. **유사도를 지어내 채우지 않는다** —
  * 화면이 동작하는 것처럼 보이면 미구현 사실이 묻힌다.
  */
+/** 어드민은 ko 단일이다 (D-030) */
+const REASON: Record<string, string> = {
+  sameUniqueId: "고유값 같음",
+  sameName: "명칭 같음",
+  prefix: "접두 일치",
+};
+const CATEGORY_LABEL: Record<string, string> = {
+  watch: "시계", shoes: "신발", bicycle: "자전거",
+  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어", workout: "운동",
+};
+
+/** 검증 배지·보유자 수까지 보여준다 — survivor 판단의 근거다 */
+function describe(c: { name: string; uniqueId: string; verified: boolean; items: number }) {
+  return (
+    <span className="block">
+      <b className="font-semibold">{c.name}</b>
+      {c.verified && <Pill tone="sale">검증</Pill>}
+      <span className="block text-xs text-muted-foreground">
+        {c.uniqueId || "고유값 없음"} · 아이템 {c.items}건
+      </span>
+    </span>
+  );
+}
+
 export default async function AdminCodexMergePage() {
-  const history = await getAdminMergeHistory();
+  const [history, candidates] = await Promise.all([
+    getAdminMergeHistory(),
+    getCodexMergeCandidates(),
+  ]);
   return (
     <AdminPage
       id="A-06" title="도감 병합 큐"
       desc="병합하면 유저 아이템이 survivor 로 옮겨갑니다. 되돌리기가 가능해야 합니다."
     >
-      <section className="rounded-lg border border-dashed p-4">
-        <h2 className="text-sm font-bold">자동 후보 제안 — 미구현</h2>
+      {/*
+        병합 후보 제안 (D-181, OI-58 해소).
+        ⚠️ **유사도 점수를 발명하지 않았다** — 등록·검색과 같은 정규화(D-014)로
+        "같은 고유값 / 같은 명칭 / 한쪽이 접두" 세 가지만 제안한다. 애매한 쌍은
+        제안하지 않는다 — 놓치는 것이 잘못 합치는 것보다 싸다(병합은 아이템을 옮긴다).
+        ⚠️ **survivor 를 시스템이 고르지 않는다** (D-016 — 어드민 수동 실행).
+        검증 배지·보유자 수를 보고 사람이 정하도록 양쪽 버튼을 준다.
+      */}
+      <section>
+        <h2 className="text-sm font-bold">
+          병합 후보
+          <span className="ml-2 font-normal text-muted-foreground">
+            {candidates.length}쌍
+          </span>
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          D-016 은 시스템이 병합 후보를 제안하도록 정했지만 유사도 계산 로직이
-          아직 없습니다 (OI-58). 지금은 <b className="text-foreground">도감 목록에서
-          직접 골라 병합</b>해야 합니다. 유사도 수치를 임시로 채우지 않은 것은,
-          채우면 미구현 사실이 묻히기 때문입니다.
+          같은 카테고리에서 <b className="text-foreground">고유값이 같거나 · 명칭이
+          같거나 · 한쪽이 다른 쪽의 접두</b>인 쌍입니다 (등록·검색과 같은 정규화, D-014).
+          <b className="text-foreground"> 남길 쪽을 직접 고르세요</b> — 아이템이 그쪽으로 옮겨갑니다.
         </p>
+
+        {candidates.length === 0 ? (
+          <p className="mt-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            후보가 없습니다.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/50 text-left">
+                <tr>
+                  {["근거", "카테고리", "도감 A", "도감 B", "조치"].map((h) => (
+                    <th key={h} className="px-3 py-2 font-semibold whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {candidates.map((c) => (
+                  <tr key={`${c.a.id}:${c.b.id}`}>
+                    <Td><Pill tone={c.reason === "prefix" ? undefined : "warn"}>{REASON[c.reason]}</Pill></Td>
+                    <Td className="whitespace-nowrap">{CATEGORY_LABEL[c.categoryKey] ?? c.categoryKey}</Td>
+                    <Td>{describe(c.a)}</Td>
+                    <Td>{describe(c.b)}</Td>
+                    <Td className="flex flex-wrap gap-2">
+                      {/* 남기는 쪽 = survivor. 아이템이 그쪽으로 옮겨간다 */}
+                      <AdminActionButton
+                        label="A 를 남긴다"
+                        confirm={`"${c.b.name}" 의 아이템 ${c.b.items}건이 "${c.a.name}" 로 옮겨갑니다. 되돌릴 수 있습니다.`}
+                        action={mergeCodex.bind(null, { survivorId: c.a.id, absorbedIds: [c.b.id] })}
+                      />
+                      <AdminActionButton
+                        label="B 를 남긴다"
+                        confirm={`"${c.a.name}" 의 아이템 ${c.a.items}건이 "${c.b.name}" 로 옮겨갑니다. 되돌릴 수 있습니다.`}
+                        action={mergeCodex.bind(null, { survivorId: c.b.id, absorbedIds: [c.a.id] })}
+                      />
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="mt-8">
