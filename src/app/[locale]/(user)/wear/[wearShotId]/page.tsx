@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { DeleteButton } from "@/components/domain/delete-button";
+import { deleteWearShot } from "@/lib/actions/wear-shot";
 import { CommentSection } from "@/components/domain/comment-section";
 import { Link } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
@@ -79,13 +81,24 @@ export default async function WearShotPage({
 
       {/* 착용샷 수정은 아이템 상세에서 한다 (D-148 — 하루 1장 판정이 거기 있다) */}
       {shot.owner && (
-        <section className="border-t px-4 py-4 lg:px-0">
+        <section className="flex items-center gap-4 border-t px-4 py-4 lg:px-0">
           <Link
             href={`/items/${shot.itemId}`}
             className="text-sm text-muted-foreground underline"
           >
             {t("wear.goToItem")}
           </Link>
+          {/*
+            ⚠️ **삭제 진입점이 없었다** (D-180). `deleteWearShot` 은 처음부터
+            있었는데 부르는 화면이 없었다 — 하루 1장 제약(D-148) 때문에 잘못 올린
+            착용샷을 **그날 안에는 지울 수도 바꿀 수도 없는** 상태였다
+          */}
+          <DeleteButton
+            action={deleteWearShot.bind(null, shot.id)}
+            confirmText={t("wear.deleteWearShotConfirm")}
+            label={t("wear.deleteWearShot")}
+            redirectTo="/me/wear"
+          />
         </section>
       )}
     </div>

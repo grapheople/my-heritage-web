@@ -57,7 +57,12 @@
     "ownedForLabel": "Owned",
     "ownerOnly": "Only you can see this",
     "ownerOnlyHint": "Where, when and how much you paid are never shown to others.",
-    "linkedDiaries": "Linked entries {count}"
+    "linkedDiaries": "Linked entries {count}",
+    "makePrivate": "Make private",
+    "makePublic": "Make public",
+    "publicNow": "Currently public. Making it private removes it from the feed, search and market",
+    "privateNow": "Currently private. Only you can see it",
+    "privateOnSaleWarn": "This item is on sale. Making it private removes it from the market. Continue?"
   },
   "diary": {
     "visibility": {
@@ -77,7 +82,9 @@
     "linkedItems": "Linked items",
     "errEmpty": "Add some text or at least one photo",
     "photoCount": "{count} photos",
-    "itemCount": "{count} items"
+    "itemCount": "{count} items",
+    "delete": "Delete entry",
+    "deleteConfirm": "Delete this entry? Photos go with it and this cannot be undone. Linked items remain."
   },
   "filter": {
     "all": "All",
@@ -386,7 +393,9 @@
     "listTitle": "Shots",
     "count": "Shots {count}",
     "emptyDesc": "Leave today's shot from an item page",
-    "goToItem": "Edit from the item page"
+    "goToItem": "Edit from the item page",
+    "deleteWearShot": "Delete shot",
+    "deleteWearShotConfirm": "Delete this shot? This cannot be undone."
   },
   "follow": {
     "follow": "Follow",

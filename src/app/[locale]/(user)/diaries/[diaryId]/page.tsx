@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { DeleteButton } from "@/components/domain/delete-button";
+import { deleteDiary } from "@/lib/actions/diary";
 import { DiaryBody } from "@/components/domain/diary-body";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Link } from "@/i18n/navigation";
@@ -112,12 +114,26 @@ export default async function DiaryDetailPage({
 
       <section className="border-t px-4 py-4 lg:px-0">
         {isOwner ? (
-          <Link
-            href={`/diaries/${diary.id}/edit`}
-            className="text-sm font-semibold underline"
-          >
-            {t("common.edit")}
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/diaries/${diary.id}/edit`}
+              className="text-sm font-semibold underline"
+            >
+              {t("common.edit")}
+            </Link>
+            {/*
+              ⚠️ **삭제 진입점이 없었다** (D-180). `deleteDiary` 액션은 처음부터
+              있었는데 부르는 화면이 한 곳도 없어 **유저가 자기 기록을 지울 수
+              없었다.** 사진·아이템 연결은 Cascade 로 함께 지워지고 아이템은 남는다 (M-03)
+            */}
+            <DeleteButton
+              action={deleteDiary.bind(null, diary.id)}
+              confirmText={t("diary.deleteConfirm")}
+              label={t("diary.delete")}
+              // 지운 화면에 남으면 404 다 — 기록 목록으로 보낸다
+              redirectTo="/me/records"
+            />
+          </div>
         ) : (
           /* 일기는 신고 대상이다 (FR-01-C-06, D-029) */
           <Link

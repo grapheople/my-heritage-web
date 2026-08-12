@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { ItemVisibilityToggle } from "@/components/domain/item-visibility-toggle";
 import { SaleStatusActions } from "@/components/domain/sale-status-actions";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { ExternalLinkWarning } from "@/components/common/external-link-warning";
@@ -223,6 +224,17 @@ export default async function ItemDetailPage({
                 : t("sell.convert")}
             </Link>
           )}
+          {/*
+            ⚠️ **공개 전환 진입점이 없었다** (D-180, OI-78 해소). D-109 가 홈을
+            색인으로 열 때 "유저 통제 수단은 그대로다"를 근거로 삼았는데, 그
+            수단(D-019 아이템별 비공개)을 부르는 화면이 한 곳도 없었다
+          */}
+          <ItemVisibilityToggle
+            itemId={item.id}
+            visibility={item.visibility}
+            onSale={item.saleStatus === "ON_SALE"}
+          />
+
           {/* 판매 상태 전환(취소·완료·되돌리기)도 판매 가능한 카테고리에만 (D-173) */}
           {item.sellable && (
             <SaleStatusActions itemId={item.id} saleStatus={item.saleStatus} />
