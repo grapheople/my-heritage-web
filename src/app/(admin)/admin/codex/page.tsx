@@ -3,15 +3,10 @@ import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
 import { CodexCreateForm } from "@/components/admin/codex-create-form";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
+import { CodexResearchPanel } from "@/components/admin/codex-research-panel";
+import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
 import { setCodexVerification } from "@/lib/actions/admin";
 import { getAdminCodex, getCodexKeyForms } from "@/lib/data/admin";
-
-const CAT: Record<string, string> = {
-  "category.watch": "시계", "category.shoes": "신발", "category.camping": "캠핑",
-  // ⚠️ 3개가 빠져 있어 자전거·옷·데스크테리어 도감의 카테고리 칸이 비었다
-  "category.bicycle": "자전거", "category.apparel": "옷",
-  "category.deskterior": "데스크테리어",
-};
 
 /**
  * A-04 도감 목록 · 직접 등록 · 편집 (codex F-04).
@@ -28,19 +23,39 @@ export default async function AdminCodexPage() {
     getAdminCodex(),
     getCodexKeyForms(),
   ]);
+  /*
+    자료 조사는 **로컬 전용**이다 (D-146·D-185) — 프로덕션 런타임에는 `claude`
+    바이너리가 없다. 버튼을 숨기지 않고 이유를 붙여 비활성으로 둔다: 숨기면
+    프로덕션 어드민이 "이 기능이 있는지"조차 알 수 없다
+  */
+  const researchEnabled = botEnabled() && claudeConfigured();
+  const researchReason = !botEnabled()
+    ? "자료 조사는 로컬 개발 모드에서만 동작합니다"
+    : "로컬 claude CLI 를 찾을 수 없습니다 (CLAUDE_CLI_PATH)";
+
   return (
     <AdminPage
       id="A-04" title="도감 목록"
-      desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02)."
-      action={
-        <CodexCreateForm forms={keyForms} />
-      }
+      desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02). 자료 조사로 등록한 도감은 미검증입니다."
+      action={<CodexCreateForm forms={keyForms} />}
     >
+      {/*
+        ⚠️ 헤더 `action` 슬롯이 아니라 **본문 위**에 둔다. 조사 결과가 식별 값
+        칼럼만큼 넓은 표라서(자전거는 3칸) 헤더의 좁은 칸에서는 읽을 수 없다
+      */}
+      <div className="mb-4">
+        <CodexResearchPanel
+          forms={keyForms}
+          enabled={researchEnabled}
+          disabledReason={researchReason}
+        />
+      </div>
+
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
         {codex.map((c) => (
           <tr key={c.id}>
             <Td className="font-semibold">{c.displayName}</Td>
-            <Td>{CAT[c.categoryKey] ?? c.categoryKey}</Td>
+            <Td>{c.categoryLabel}</Td>
             <Td className="font-mono text-xs">{c.uniqueId}</Td>
             <Td>{c.verified ? <Pill tone="sale">검증됨</Pill> : <Pill tone="warn">미검증</Pill>}</Td>
             <Td>{c.ownerCount}</Td>

@@ -3,7 +3,12 @@
 import { getAdmin } from "@/lib/auth/admin";
 import { fail, revalidate, type ActionResult } from "@/lib/actions/shared";
 import { normalizeBrandToken } from "@/lib/brand-search";
-import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
+import { categoryLabelKo } from "@/lib/category-label";
+import { resolveMasterBrand } from "@/lib/brand-master";
+import { insertCodex } from "@/lib/codex-insert";
+import { researchCodexEntries } from "@/lib/bot/claude";
+import { botEnabled, botTargetDb, claudeConfigured } from "@/lib/bot/guard";
+import { categoryFields, matchingKeyFields, type CodexCandidate } from "@/lib/bot/fields";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -983,62 +988,148 @@ export async function createCodexItem(input: {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
 
-  const displayName = input.displayName.trim();
-  if (!displayName) return fail({ displayName: "명칭을 입력해주세요" });
-
-  const category = await prisma.category.findUnique({
-    where: { key: input.categoryKey },
-    select: { id: true, matchingKey: { select: { attributeKeys: true } } },
+  // ⚠️ 삽입 규칙은 `lib/codex-insert.ts` 한 곳에 있다 — 조사 등록 경로와
+  // 매칭 키 생성이 갈리면 도감은 만들어지고 보유자만 영원히 0명이 된다
+  const res = await insertCodex({
+    ...input,
+    // 운영자가 확인해서 넣은 것이다 (FR-04-A-02)
+    verification: "VERIFIED",
+    actorId: ADMIN_ACTOR,
   });
-  if (!category) return fail({}, "카테고리를 찾을 수 없습니다");
+  if (!res.ok) {
+    return res.field ? fail({ [res.field]: res.error }) : fail({}, res.error);
+  }
 
-  const keyOrder = category.matchingKey?.attributeKeys ?? [];
-  if (keyOrder.length === 0) {
-    // A-03 미구성. 여기서 임의로 `uniqueId` 를 가정하면 나중에 운영이 실제
-    // 매칭 키를 정하는 순간 이 도감만 다른 규칙으로 남는다
+  revalidate("/admin/codex", "/admin/codex/verification");
+  return { ok: true, codexId: res.codexId };
+}
+
+/* ────────────────────────────────────────────
+   A-04 도감 자료 조사 등록 (D-185)
+   ──────────────────────────────────────────── */
+
+/** 한 번에 조사할 수 있는 건수 상한 — CLI 응답이 길어지면 잘린다 */
+const RESEARCH_MAX = 10;
+
+/**
+ * 로컬 AI 로 도감 후보를 조사한다 — **등록하지 않고 돌려준다** (D-185).
+ *
+ * ## ⚠️ 두 겹으로 막힌다 (봇과 같은 구조, D-146)
+ * 1. **어드민**이어야 한다 — 액션은 직접 호출될 수 있다 (D-102)
+ * 2. **로컬 개발 모드**여야 한다 — 프로덕션 런타임에는 `claude` 바이너리가 없다
+ *
+ * ## ⚠️ "로컬"이 "안전"을 뜻하지 않는다
+ * 로컬 런타임은 **프로덕션 Supabase 를 본다** (D-117). 조사만으로는 아무것도
+ * 쓰지 않지만, 이어지는 등록은 **실제 서비스에 도감을 만든다** — 그래서 대상
+ * DB 를 함께 돌려준다. 어디에 쓰는지 보이지 않는 쓰기가 D-116 의 본질이었다.
+ */
+export async function researchCodexCandidates(input: {
+  categoryKey: string;
+  brand: string;
+  hint: string;
+  count: number;
+}): Promise<
+  ActionResult<{ candidates: CodexCandidate[]; dropped: string[]; targetDb: string }>
+> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  if (!botEnabled()) return fail({}, "자료 조사는 로컬 개발 모드에서만 동작합니다");
+  if (!claudeConfigured()) {
+    return fail({}, "로컬 claude CLI 를 찾을 수 없습니다 (CLAUDE_CLI_PATH)");
+  }
+
+  const count = Math.min(Math.max(Math.trunc(input.count) || 1, 1), RESEARCH_MAX);
+
+  const fields = await categoryFields(input.categoryKey);
+  if (fields.length === 0) {
+    return fail({}, "이 카테고리에 속성 조합이 설정되지 않았습니다 (A-02)");
+  }
+  // ⚠️ 매칭 키가 없으면 조사할 값 자체가 없다. 여기서 막지 않으면 모델에게 빈
+  // 목록을 주고 그럴싸한 JSON 을 받는다 — 조용히 잘못된 결과가 나온다
+  if (matchingKeyFields(fields).length === 0) {
     return fail({}, "이 카테고리의 매칭 키가 아직 구성되지 않았습니다 (A-03)");
   }
 
-  // 유저 등록과 **같은 함수**를 쓴다 — 규칙이 갈리면 조용히 안 만나기 시작한다
-  const key = buildMatchingKey(keyOrder, input.keyValues);
-  if (!key) {
-    // 매칭 키 값이 없으면 어떤 아이템에도 연결되지 않는다 (FR-04-A-04)
-    return fail({ [keyOrder[0]]: "매칭 키 값을 입력해주세요" });
-  }
-  const uniqueId = uniqueIdForCodex(keyOrder, key.raw);
-  const normalizedKey = key.normalizedKey;
-  const dup = await prisma.codexItem.findFirst({
-    where: { categoryId: category.id, normalizedKey },
-    select: { id: true, displayName: true },
-  });
-  // 차단하고 **기존 도감을 알려준다** — 그냥 막으면 어드민이 왜 막혔는지 모른다
-  if (dup) {
-    // 필드 오류는 실제 존재하는 입력칸에 붙여야 화면에 뜬다 — 복합 키에는
-    // `uniqueId` 칸이 없다
-    return fail({ [keyOrder[0]]: `이미 있는 도감입니다 — "${dup.displayName}"` });
+  /*
+    ⚠️ **브랜드를 조사 전에 검증한다.** 등록 시점에도 막지만(`insertCodex`),
+    조사는 CLI 호출로 1~4분이 걸린다 — 마스터에 없는 브랜드로 조사를 돌리면
+    그 시간을 다 쓰고 전 행이 실패한다. 정식 명칭으로 바꿔 프롬프트에 넘겨
+    모델이 마스터와 같은 표기를 쓰게 한다.
+  */
+  let brand = input.brand.trim();
+  if (matchingKeyFields(fields).some((f) => f.key === "brand") && brand) {
+    const resolved = await resolveMasterBrand(brand, input.categoryKey);
+    if (!resolved.ok) return fail({}, resolved.error);
+    brand = resolved.name;
   }
 
-  const made = await prisma.codexItem.create({
-    data: {
-      categoryId: category.id,
-      displayName,
-      uniqueId,
-      normalizedKey,
-      // 운영자가 확인해서 넣은 것이다 (FR-04-A-02)
-      verification: "VERIFIED",
-      verifiedBy: ADMIN_ACTOR,
-      verifiedAt: new Date(),
-      descriptions: input.descriptions
-        ? Object.fromEntries(
-            Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
-          )
-        : undefined,
-    },
-    select: { id: true },
-  });
+  try {
+    const r = await researchCodexEntries({
+      fields,
+      categoryKey: input.categoryKey,
+      categoryLabel: await categoryLabelKo(input.categoryKey),
+      brand,
+      hint: input.hint,
+      count,
+    });
+    return { ok: true, ...r, targetDb: botTargetDb() };
+  } catch (e) {
+    // ⚠️ 예외를 흘리지 않는다 — 화면에 크래시가 뜨면 어드민은 CLI 문제인지
+    // 프롬프트 문제인지 구분할 수 없다 (D-150)
+    return fail({}, `자료 조사 실패 — ${(e as Error).message}`);
+  }
+}
+
+/**
+ * 조사 결과를 **미검증 도감으로** 등록한다 (D-185).
+ *
+ * ## ⚠️ 왜 미검증인가 — 여기가 이 기능의 핵심 판단이다
+ * 어드민 직접 등록은 `검증됨`으로 시작한다 (FR-04-A-02) — **사람이 확인한
+ * 값**이기 때문이다. 조사 결과는 그렇지 않다. 어드민이 표를 훑기는 하지만
+ * 10건의 레퍼런스 번호를 눈으로 검증할 수는 없다. 그것을 `검증됨`으로 넣으면
+ * **AI 가 지어낸 값이 신뢰 배지를 달고** 그 물건을 가진 모든 유저에게 노출된다
+ * (D-015, D-033). A-05 검수 큐를 거친다.
+ *
+ * ## ⚠️ 설명을 받지 않는다
+ * 미검증 도감의 설명 자리는 **유저가 쓴 원문**이다 (FR-07-A-05). 다국어 설명은
+ * 검증 후 A-05 에서 사람이 넣는다.
+ *
+ * ## ⚠️ 실패한 행이 성공한 행을 되돌리지 않는다
+ * 트랜잭션으로 묶지 않는다. 10건 중 1건이 중복이면 나머지 9건도 사라지는 쪽이
+ * 훨씬 나쁘다 — 어드민은 무엇이 중복이었는지 모른 채 처음부터 다시 해야 한다.
+ * **행별 결과를 돌려준다.**
+ */
+export async function createCodexItemsFromResearch(input: {
+  categoryKey: string;
+  rows: { displayName: string; keyValues: Record<string, string> }[];
+}): Promise<
+  ActionResult<{ results: { displayName: string; ok: boolean; error?: string }[] }>
+> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  if (input.rows.length === 0) return fail({}, "등록할 후보를 선택해주세요");
+  if (input.rows.length > RESEARCH_MAX) return fail({}, "한 번에 등록할 수 있는 건수를 넘었습니다");
+
+  const results: { displayName: string; ok: boolean; error?: string }[] = [];
+  for (const row of input.rows) {
+    // ⚠️ 화면에서 고친 값이 온다 — 클라이언트를 신뢰하지 않는다. 중복·빈 키
+    // 판정은 `insertCodex` 가 다시 한다
+    const res = await insertCodex({
+      categoryKey: input.categoryKey,
+      displayName: row.displayName,
+      keyValues: row.keyValues,
+      verification: "UNVERIFIED",
+      actorId: ADMIN_ACTOR,
+    });
+    results.push(
+      res.ok
+        ? { displayName: row.displayName, ok: true }
+        : { displayName: row.displayName, ok: false, error: res.error },
+    );
+  }
 
   revalidate("/admin/codex", "/admin/codex/verification");
-  return { ok: true, codexId: made.id };
+  return { ok: true, results };
 }
 
 /* ────────────────────────────────────────────

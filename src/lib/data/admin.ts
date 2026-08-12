@@ -1,3 +1,4 @@
+import { categoryLabelKo } from "@/lib/category-label";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
 
@@ -193,6 +194,14 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
     },
     take: 200,
   });
+  const labels = new Map(
+    await Promise.all(
+      [...new Set(rows.map((r) => r.category.key))].map(
+        async (k) => [k, await categoryLabelKo(k)] as const,
+      ),
+    ),
+  );
+
   return rows.map((c) => {
     const a = (c.aliases ?? {}) as Record<string, unknown>;
     const list = (k: string) =>
@@ -202,6 +211,8 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       displayName: c.displayName,
       uniqueId: c.uniqueId ?? "",
       categoryKey: `category.${c.category.key}`,
+      // 화면이 라벨 맵을 들고 있지 않게 한다 (위 `getCodexKeyForms` 주석 참조)
+      categoryLabel: labels.get(c.category.key) ?? c.category.key,
       verified: c.verification === "VERIFIED",
       ownerCount: c._count.items,
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
@@ -491,12 +502,30 @@ export async function getCodexKeyForms() {
   const categories = await prisma.category.findMany({
     where: { active: true },
     orderBy: { displayOrder: "asc" },
-    select: { key: true, matchingKey: { select: { attributeKeys: true } } },
+    select: {
+      key: true,
+      matchingKey: { select: { attributeKeys: true } },
+      /*
+        ⚠️ **카테고리별 라벨 override 를 같이 읽는다** (D-168). 전역
+        `attributeDefinition.labelKo` 만 보면 운동의 `model` 이 "모델명"으로
+        나오는데, 유저 등록 화면과 조사 프롬프트는 "운동명"이라고 부른다
+        (D-166) — **같은 값을 두 이름으로 부르는 화면**이 된다.
+      */
+      attributes: {
+        where: { active: true },
+        select: { labelKo: true, attributeDefinition: { select: { key: true } } },
+      },
+    },
   });
   const defs = await prisma.attributeDefinition.findMany({
     select: { key: true, labelKo: true },
   });
   const labelByKey = new Map(defs.map((d) => [d.key, d.labelKo]));
+  const labelByCategory = new Map(
+    await Promise.all(
+      categories.map(async (c) => [c.key, await categoryLabelKo(c.key)] as const),
+    ),
+  );
 
   return categories.map((c) => {
     // 매칭 키가 없는 카테고리는 A-03 미구성이다. 단일 `uniqueId` 로 가정하지
@@ -504,7 +533,17 @@ export async function getCodexKeyForms() {
     const keys = c.matchingKey?.attributeKeys ?? [];
     return {
       categoryKey: c.key,
-      parts: keys.map((k) => ({ key: k, label: labelByKey.get(k) ?? k })),
+      // ⚠️ 라벨을 **여기서 준다.** 화면이 `{ watch: "시계", ... }` 맵을 들고
+      // 있으면 카테고리를 추가할 때마다 빠진다 — 운동(D-163)이 실제로 그렇게
+      // `workout` 으로 렌더됐다 (A-11 의 하드코딩과 같은 종류의 버그)
+      label: labelByCategory.get(c.key) ?? c.key,
+      parts: keys.map((k) => {
+        // override → 전역 라벨 → 키. 유저 화면과 같은 순서다 (`categoryFields`)
+        const override = c.attributes.find(
+          (a) => a.attributeDefinition.key === k,
+        )?.labelKo;
+        return { key: k, label: override ?? labelByKey.get(k) ?? k };
+      }),
     };
   });
 }

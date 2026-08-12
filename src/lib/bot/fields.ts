@@ -128,6 +128,107 @@ export function jsonSkeleton(fields: BotField[]): string {
   return `{${entries.join(",")},"nickname":""}`;
 }
 
+/* ────────────────────────────────────────────
+   도감 자료 조사 (A-04, D-185)
+   ──────────────────────────────────────────── */
+
+/**
+ * 매칭 키 구성 속성만 — 도감이 필요한 값은 이것뿐이다.
+ *
+ * ⚠️ **아이템 조사와 필터가 정반대다.** `fieldsTable` 은 `brand` 를 **빼지만**
+ * (마스터 참조라 어드민이 고른다, D-043) 도감은 `brand` 가 매칭 키의 일부다
+ * (자전거 = 브랜드+모델명+제조년도). 빼면 키가 만들어지지 않는다.
+ */
+export function matchingKeyFields(fields: BotField[]): BotField[] {
+  return fields.filter((f) => f.isMatchingKey);
+}
+
+/** 도감 프롬프트에 넣을 식별 값 목록 */
+export function codexKeyList(fields: BotField[]): string {
+  return matchingKeyFields(fields)
+    .map((f) => {
+      const kind = TYPE_LABEL[f.type] ?? f.type;
+      return `- \`${f.key}\` — **${f.label}** (${kind})`;
+    })
+    .join("\n");
+}
+
+/** 도감 후보 1건의 JSON 골격. 설명은 받지 않는다 (FR-07-A-05, 프롬프트 메모 참조) */
+export function codexJsonSkeleton(fields: BotField[]): string {
+  const entries = matchingKeyFields(fields).map((f) => `"${f.key}":""`);
+  return `{"displayName":"",${entries.join(",")}}`;
+}
+
+/** 조사된 도감 후보 — 어드민이 화면에서 고치고 등록한다 */
+export type CodexCandidate = {
+  displayName: string;
+  keyValues: Record<string, string>;
+};
+
+/**
+ * 모델이 낸 배열을 **등록 가능한 후보**로 만든다.
+ *
+ * ⚠️ **식별 값이 하나라도 비면 그 행을 버린다.** 아이템 조사는 비면 도감을 안
+ * 만들고 넘어가면 됐지만(D-032), 도감은 **키가 없으면 존재 의미가 없다** —
+ * 어떤 아이템에도 연결되지 않는 빈 껍데기가 된다 (FR-04-A-04).
+ *
+ * ⚠️ **배치 안의 중복도 여기서 버린다.** 같은 키가 두 번 오면 두 번째는 DB
+ * 유니크에서 막히는데, 그러면 어드민 화면에 "이미 있는 도감입니다"가 떠서
+ * **직전에 자기가 만든 것인지 원래 있던 것인지 구분할 수 없다.**
+ */
+export function sanitizeCodexCandidates(
+  fields: BotField[],
+  rows: unknown[],
+): { candidates: CodexCandidate[]; dropped: string[] } {
+  const parts = matchingKeyFields(fields);
+  const candidates: CodexCandidate[] = [];
+  const dropped: string[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      dropped.push("객체가 아닌 항목");
+      continue;
+    }
+    const r = row as Record<string, unknown>;
+    const name = typeof r.displayName === "string" ? r.displayName.trim() : "";
+    if (!name) {
+      dropped.push("명칭 없음");
+      continue;
+    }
+
+    const keyValues: Record<string, string> = {};
+    let missing = "";
+    for (const p of parts) {
+      const v = r[p.key];
+      const text = typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+      if (!text) missing = p.label;
+      keyValues[p.key] = text;
+    }
+    if (missing) {
+      dropped.push(`${name} — ${missing} 없음`);
+      continue;
+    }
+
+    // 화면에 그대로 붙는 값이다. 상한이 없으면 표가 깨진다
+    if (name.length > 200) {
+      dropped.push(`${name.slice(0, 30)}… — 명칭이 너무 깁니다`);
+      continue;
+    }
+
+    // 순서를 고정해 비교한다 — 정규화는 서버가 `buildMatchingKey` 로 다시 한다
+    const dedupe = parts.map((p) => keyValues[p.key].toLowerCase()).join("\u001f");
+    if (seen.has(dedupe)) {
+      dropped.push(`${name} — 이번 조사 안에서 중복`);
+      continue;
+    }
+    seen.add(dedupe);
+    candidates.push({ displayName: name, keyValues });
+  }
+
+  return { candidates, dropped };
+}
+
 /** 정제 결과 — 무엇이 버려졌는지 어드민에게 보여준다 */
 export type Sanitized = {
   values: Record<string, string>;

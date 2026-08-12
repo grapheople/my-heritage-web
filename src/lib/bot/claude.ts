@@ -1,10 +1,14 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
+  codexJsonSkeleton,
+  codexKeyList,
   fieldsTable,
   jsonSkeleton,
   sanitize,
+  sanitizeCodexCandidates,
   type BotField,
+  type CodexCandidate,
   type Sanitized,
 } from "@/lib/bot/fields";
 import { loadPrompt } from "@/lib/bot/prompts";
@@ -170,6 +174,93 @@ export async function researchItemContent(input: {
 
   const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
   return sanitize(input.fields, parseJson(text), input.today);
+}
+
+/**
+ * 도감 후보를 **여러 건** 조사한다 (A-04, D-185).
+ *
+ * ## ⚠️ 왜 1건씩이 아닌가
+ * 도감을 미리 채우는 것이 목적이다. 1건씩이면 브랜드마다 입력·대기·확인을
+ * 반복해야 하고, CLI 호출이 건당 수십 초라 **수십 건을 넣는 데 쓸 수 없다.**
+ * 한 번 물어서 N 건을 받는다.
+ *
+ * ## ⚠️ 요청 건수가 보장이 아니다 — 그것이 설계다
+ * 확실하지 않은 후보는 프롬프트가 빼도록 지시하고, `sanitizeCodexCandidates` 가
+ * 식별 값이 빈 행을 다시 버린다. **10건을 요청해서 4건이 오는 것이 정상**이다.
+ * 건수를 맞추려고 추측을 통과시키면 실재하지 않는 도감이 생기고(D-015), 그
+ * 도감은 그 물건을 가진 **모든 유저**에게 "같은 물건"으로 노출된다.
+ *
+ * ## ⚠️ 등록하지 않고 돌려준다
+ * `researchItemContent` 와 같은 이유다 — 어드민이 표에서 보고 고친 뒤 등록한다.
+ */
+export async function researchCodexEntries(input: {
+  fields: BotField[];
+  categoryKey: string;
+  categoryLabel: string;
+  brand: string;
+  hint: string;
+  count: number;
+}): Promise<{ candidates: CodexCandidate[]; dropped: string[] }> {
+  const prompt = await loadPrompt("codex-research", {
+    categoryKey: input.categoryKey,
+    // ⚠️ 키가 아니라 이름을 넘긴다 (D-167) — `workout` 만 보고는 무엇을 고를지 모른다
+    categoryLabel: input.categoryLabel,
+    brand: input.brand || "(지정되지 않음 — 힌트에서 판단)",
+    hint: input.hint || "(없음 — 이 카테고리의 대표적인 제품을 고르세요)",
+    count: String(input.count),
+    keyParts: codexKeyList(input.fields),
+    jsonSkeleton: codexJsonSkeleton(input.fields),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  return sanitizeCodexCandidates(input.fields, parseJsonArray(text));
+}
+
+/**
+ * 첫 `[` 의 **짝이 맞는** `]` 까지 잘라낸다.
+ *
+ * ⚠️ **"첫 `[` ~ 마지막 `]`" 로는 안 된다.** 실제로 그렇게 만들었다가 자전거
+ * 조사에서 터졌다 — 모델이 배열 뒤에 한 줄 설명을 붙였고 그 안에 `]` 가 있어서
+ * 잘린 조각이 `[...]  설명 ]` 이 됐다. `parseJson` 이 객체에서 같은 방식으로
+ * 버티는 것은 뒤에 붙는 글에 `}` 가 드물기 때문일 뿐이다.
+ *
+ * 문자열 안의 괄호는 세지 않는다 — 제품 명칭에 `[` 가 들어갈 수 있다.
+ */
+function sliceBalancedArray(text: string): string | null {
+  const start = text.indexOf("[");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "[") depth++;
+    else if (ch === "]" && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
+/** 응답에서 JSON **배열**을 건져낸다 */
+function parseJsonArray(text: string): unknown[] {
+  const body = unwrap(text);
+  const slice = sliceBalancedArray(body);
+  if (!slice) {
+    throw new Error(`JSON 배열을 찾을 수 없습니다 — 응답: ${body.slice(0, 120)}`);
+  }
+  try {
+    const parsed = JSON.parse(slice);
+    if (!Array.isArray(parsed)) throw new Error("배열이 아님");
+    return parsed as unknown[];
+  } catch (e) {
+    throw new Error(`JSON 파싱 실패 — ${(e as Error).message}`);
+  }
 }
 
 /**
