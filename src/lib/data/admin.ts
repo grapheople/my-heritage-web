@@ -255,19 +255,46 @@ export async function getAdminReports() {
   const counts = new Map<string, number>();
   for (const r of rows) counts.set(`${r.targetType}:${r.targetId}`, (counts.get(`${r.targetType}:${r.targetId}`) ?? 0) + 1);
 
-  return rows.map((r) => ({
+  /*
+    ⚠️ **댓글만 본문을 함께 낸다** (D-179, OI-89 해소).
+
+    다른 대상은 id 로 화면을 찾아갈 수 있다(`/items/{id}` 등). 그런데 **댓글은
+    id 로 갈 URL 이 없다** — 착용샷 안에 있기 때문이다. 본문과 착용샷 경로를 주지
+    않으면 어드민이 무엇을 신고당했는지 볼 수 없어 **검수 자체가 불가능**하다.
+
+    나머지 4종의 `targetName` 이 여전히 id 인 것은 **이 변경 전부터** 그랬다 —
+    함께 고치는 것은 이 작업의 범위가 아니다 (OI-91).
+  */
+  const commentIds = rows
+    .filter((r) => r.targetType === "COMMENT")
+    .map((r) => r.targetId);
+  const comments =
+    commentIds.length > 0
+      ? await prisma.comment.findMany({
+          where: { id: { in: commentIds } },
+          select: { id: true, body: true, wearShotId: true },
+        })
+      : [];
+  const byComment = new Map(comments.map((c) => [c.id, c]));
+
+  return rows.map((r) => {
+    const comment = r.targetType === "COMMENT" ? byComment.get(r.targetId) : undefined;
+    return {
     id: r.id,
     // ⚠️ enum 을 그대로 낸다. 소문자로 바꾸면 `EXTERNAL_LINK` → `external_link`
     // 가 되어 화면의 라벨 맵(`link`)과 어긋나 빈칸이 된다
     target: r.targetType,
     targetId: r.targetId,
-    // ⚠️ 대상 이름은 종류가 5가지라 FK 가 없다. 운영 화면에서 id 로 이동한다
-    targetName: r.targetId,
+    // ⚠️ 대상 이름은 종류가 6가지라 FK 가 없다. 댓글만 본문을 낸다 (위 주석)
+    targetName: comment ? comment.body : r.targetId,
+    /** 눌러서 대상을 볼 수 있는 경로 — 지금은 댓글만 (D-179) */
+    targetHref: comment ? `/ko/wear/${comment.wearShotId}` : undefined,
     reason: r.reason,
     count: counts.get(`${r.targetType}:${r.targetId}`) ?? 1,
     status: r.status,
     createdAt: r.createdAt.toISOString().slice(0, 10),
-  }));
+    };
+  });
 }
 
 /** A-10 제재 — **제재 이전 공개 상태를 보존한다** (D-065, FR-07-B-03) */

@@ -74,6 +74,19 @@ export function CommentSection({
                 {/* 줄바꿈을 살린다. 마크다운은 해석하지 않는다 (D-055 와 같은 기준) */}
                 <p className="mt-1 whitespace-pre-wrap text-sm">{c.body}</p>
               </div>
+              {/*
+                신고 (D-179, OI-89 해소). **내 댓글은 신고 대상이 아니다** —
+                지울 수 있으니 신고할 이유가 없다. 비로그인에게도 보여주고
+                신고 화면이 로그인을 요구한다 (D-069 의 태도)
+              */}
+              {!c.mine && (
+                <Link
+                  href={`/report?target=comment&id=${c.id}`}
+                  className="shrink-0 text-xs text-muted-foreground underline"
+                >
+                  {t("comment.report")}
+                </Link>
+              )}
               {c.canDelete && (
                 <button
                   type="button"

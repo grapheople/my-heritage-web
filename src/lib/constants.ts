@@ -23,9 +23,16 @@ export const REPORT_REASONS = [
   "phishing", "inappropriate", "wrongInfo",
 ] as const;
 
-export type ReportTarget = "item" | "diary" | "room" | "codex" | "link";
+export type ReportTarget =
+  | "item"
+  | "diary"
+  | "room"
+  | "codex"
+  | "link"
+  // 착용샷 댓글 (D-179, OI-89 해소)
+  | "comment";
 
 /** 신고 가능 대상 (FR-05-A-01, D-029·D-035·D-040) */
 export const REPORT_TARGETS: ReportTarget[] = [
-  "item", "diary", "room", "codex", "link",
+  "item", "diary", "room", "codex", "link", "comment",
 ];
