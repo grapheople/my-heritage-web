@@ -112,8 +112,8 @@ export function CodexWearShots({
         <ul className="mt-3 grid grid-cols-3 gap-3">
           {state.shots.map((s) => (
             <li key={s.id}>
-              {/* 착용샷 자체 화면은 없다 — 아이템 상세로 보낸다 (D-148) */}
-              <Link href={`/items/${s.itemId}`} className="group block">
+              {/* 착용샷 상세로 (D-178 — D-148 의 "화면 없음"을 뒤집었다) */}
+              <Link href={`/wear/${s.id}`} className="group block">
                 <span className="relative block aspect-square overflow-hidden rounded-md bg-muted">
                   {s.photoUrl && (
                     /* 저장본이 정방형이다 (D-129) — 잘리지 않는다 */

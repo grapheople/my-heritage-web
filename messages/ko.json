@@ -317,8 +317,12 @@
       "BRAND_REQUEST_RESULT": "브랜드",
       "REPORT_RESULT": "신고",
       "SANCTION": "제재",
-      "CODEX_MERGED": "도감"
-    }
+      "CODEX_MERGED": "도감",
+      "NEW_FOLLOWER": "새 팔로워",
+      "WEAR_SHOT_COMMENT": "댓글"
+    },
+    "NEW_FOLLOWER": "‘{room}’ 님이 팔로우했어요",
+    "WEAR_SHOT_COMMENT": "‘{room}’ 님이 착용샷에 댓글을 남겼어요"
   },
   "reg": {
     "newTitle": "아이템 등록",
@@ -380,7 +384,8 @@
     "empty": "아직 착용샷이 없어요",
     "listTitle": "착용샷",
     "count": "착용샷 {count}",
-    "emptyDesc": "아이템 상세에서 오늘의 착용샷을 남길 수 있어요"
+    "emptyDesc": "아이템 상세에서 오늘의 착용샷을 남길 수 있어요",
+    "goToItem": "아이템 상세에서 수정하기"
   },
   "follow": {
     "follow": "팔로우",
@@ -391,5 +396,14 @@
     "followingTitle": "팔로잉",
     "noFollowers": "아직 팔로워가 없어요",
     "noFollowing": "아직 팔로우한 방이 없어요"
+  },
+  "comment": {
+    "title": "댓글",
+    "placeholder": "댓글을 남겨보세요",
+    "submit": "등록",
+    "empty": "아직 댓글이 없어요",
+    "delete": "삭제",
+    "loginRequired": "로그인하면 댓글을 남길 수 있어요",
+    "count": "댓글 {count}개"
   }
 }

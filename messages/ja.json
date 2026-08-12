@@ -317,8 +317,12 @@
       "BRAND_REQUEST_RESULT": "ブランド",
       "REPORT_RESULT": "報告",
       "SANCTION": "制限",
-      "CODEX_MERGED": "図鑑"
-    }
+      "CODEX_MERGED": "図鑑",
+      "NEW_FOLLOWER": "新しいフォロワー",
+      "WEAR_SHOT_COMMENT": "コメント"
+    },
+    "NEW_FOLLOWER": "「{room}」さんがフォローしました",
+    "WEAR_SHOT_COMMENT": "「{room}」さんが着用ショットにコメントしました"
   },
   "reg": {
     "newTitle": "アイテム登録",
@@ -380,7 +384,8 @@
     "empty": "まだ着用ショットがありません",
     "listTitle": "着用ショット",
     "count": "着用ショット {count}",
-    "emptyDesc": "アイテム詳細から今日の着用ショットを残せます"
+    "emptyDesc": "アイテム詳細から今日の着用ショットを残せます",
+    "goToItem": "アイテム詳細で編集する"
   },
   "follow": {
     "follow": "フォロー",
@@ -391,5 +396,14 @@
     "followingTitle": "フォロー中",
     "noFollowers": "まだフォロワーがいません",
     "noFollowing": "まだフォローした部屋がありません"
+  },
+  "comment": {
+    "title": "コメント",
+    "placeholder": "コメントを残してみましょう",
+    "submit": "投稿",
+    "empty": "まだコメントがありません",
+    "delete": "削除",
+    "loginRequired": "ログインするとコメントできます",
+    "count": "コメント{count}件"
   }
 }

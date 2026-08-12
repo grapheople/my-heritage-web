@@ -26,7 +26,8 @@ export function WearShotGrid({
     <ul className="grid grid-cols-3 gap-3">
       {shots.map((s) => (
         <li key={s.id}>
-          <Link href={`/items/${s.itemId}`} className="block">
+          {/* 착용샷 상세로 (D-178). 예전에는 아이템 상세로 보냈다 (D-148) */}
+          <Link href={`/wear/${s.id}`} className="block">
             <span className="relative block aspect-square overflow-hidden rounded-md border bg-muted">
               {s.photoUrl && (
                 <Image

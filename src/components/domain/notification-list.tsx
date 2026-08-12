@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Bell, Layers, Tag } from "lucide-react";
+import { AlertTriangle, Bell, Layers, MessageCircle, Tag, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { markNotificationRead } from "@/lib/actions/settings";
@@ -28,6 +28,9 @@ const ICON: Record<NotificationKind, typeof Bell> = {
   REPORT_RESULT: Bell,
   SANCTION: AlertTriangle,
   CODEX_MERGED: Layers,
+  // 유저 행동으로 오는 알림 2종 (D-178)
+  NEW_FOLLOWER: UserPlus,
+  WEAR_SHOT_COMMENT: MessageCircle,
 };
 
 export function NotificationList({ items }: { items: NotificationItem[] }) {

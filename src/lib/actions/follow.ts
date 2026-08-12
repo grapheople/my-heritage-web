@@ -16,9 +16,13 @@ import { prisma } from "@/lib/prisma";
  * | 비공개 방·탈퇴 유저는 대상이 아니다 | D-019, NFR-User |
  * | 중복은 **DB 제약**이 막는다 | `@@unique` — 미리 세는 방식은 동시 요청에 뚫린다 |
  *
- * ## ⚠️ 알림을 보내지 않는다 (지금은)
- * 알림 종류는 4개로 고정돼 있고(D-087) 팔로우 알림은 **별도 결정**이다 —
- * 새 팔로워 알림은 빈도가 높아 알림함의 성격을 바꾼다. 결정 없이 추가하지 않는다.
+ * ## 새 팔로워 알림을 보낸다 (D-178, OI-87 → B안)
+ * ⚠️ **기존 4종과 성격이 다르다** — 나머지는 드물게 오는 처리 결과인데 이건 다른
+ * 유저의 행동으로 발생한다. 알림함의 빈도·성격이 바뀐다는 것을 알고 넣는다.
+ *
+ * ⚠️ **언팔로우 → 재팔로우로 알림을 반복 발생시킬 수 있다** — 지금은 막지 않는다
+ * (OI-88). 막으려면 "같은 팔로워의 미읽음 알림이 있으면 생성 안 함" 같은 규칙이
+ * 필요하고, 그건 알림 정책 결정이다.
  */
 /**
  * 방 → 팔로우 대상 유저.
@@ -62,7 +66,29 @@ export async function follow(roomId: string): Promise<ActionResult> {
     // 다른 탭에서 이미 눌렀다. 실패로 돌려주면 화면이 어긋난다
   }
 
-  revalidate("/[locale]/rooms/[roomId]", "/[locale]/me");
+  /*
+    새 팔로워 알림 (D-178).
+    ⚠️ **`targetId` 는 수신자의 방 id** 다 — 눌러서 "내 팔로워 목록"으로 가야 한다.
+    ⚠️ 알림 생성을 팔로우보다 뒤에 둔다 — 앞에 두면 알림 장애가 팔로우를 막는다.
+    ⚠️ 수신자에게 방이 없으면(이론상) 갈 곳이 없으므로 알림을 만들지 않는다.
+  */
+  const [me, targetRoom] = await Promise.all([
+    prisma.room.findUnique({ where: { id: viewer.roomId ?? "" }, select: { name: true } }),
+    prisma.room.findFirst({ where: { userId: targetUserId }, select: { id: true } }),
+  ]);
+  if (targetRoom) {
+    await prisma.notification.create({
+      data: {
+        userId: targetUserId,
+        type: "NEW_FOLLOWER",
+        targetId: targetRoom.id,
+        // 완성 문장을 저장하지 않는다 (FR-08-A-09, D-003)
+        params: { room: me?.name ?? "" },
+      },
+    });
+  }
+
+  revalidate("/[locale]/rooms/[roomId]", "/[locale]/me", "/[locale]/notifications");
   return { ok: true };
 }
 
