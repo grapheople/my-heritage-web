@@ -20,14 +20,16 @@ import { createCodexItem } from "@/lib/actions/admin";
  *
  * 설명은 3개 언어다 (D-010) — 검증된 도감이므로 번역 대상이다 (FR-07-A-05).
  */
-const LABEL: Record<string, string> = {
-  watch: "시계", shoes: "신발", bicycle: "자전거",
-  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어",
-};
-
-/** A-03 에서 정한 매칭 키 구성 — 서버가 넘긴다 (`getCodexKeyForms`) */
+/**
+ * A-03 에서 정한 매칭 키 구성 — 서버가 넘긴다 (`getCodexKeyForms`).
+ *
+ * ⚠️ **카테고리 이름도 서버가 준다.** 여기에 `{ watch: "시계", ... }` 맵을 두면
+ * 카테고리를 추가할 때마다 빠진다 — 운동(D-163)이 실제로 `workout` 으로
+ * 렌더됐다. `messages/ko.json` 이 단일 출처다 (`lib/category-label.ts`)
+ */
 export type CodexKeyForm = {
   categoryKey: string;
+  label: string;
   parts: { key: string; label: string }[];
 };
 
@@ -101,7 +103,7 @@ export function CodexCreateForm({ forms }: { forms: CodexKeyForm[] }) {
           >
             {forms.map((f) => (
               <option key={f.categoryKey} value={f.categoryKey}>
-                {LABEL[f.categoryKey] ?? f.categoryKey}
+                {f.label}
               </option>
             ))}
           </select>
