@@ -330,7 +330,8 @@
       "WEAR_SHOT_COMMENT": "コメント"
     },
     "NEW_FOLLOWER": "「{room}」さんがフォローしました",
-    "WEAR_SHOT_COMMENT": "「{room}」さんが着用ショットにコメントしました"
+    "WEAR_SHOT_COMMENT": "「{room}」さんが着用ショットにコメントしました",
+    "markAllRead": "すべて既読にする"
   },
   "reg": {
     "newTitle": "アイテム登録",

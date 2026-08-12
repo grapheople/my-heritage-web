@@ -330,7 +330,8 @@
       "WEAR_SHOT_COMMENT": "댓글"
     },
     "NEW_FOLLOWER": "‘{room}’ 님이 팔로우했어요",
-    "WEAR_SHOT_COMMENT": "‘{room}’ 님이 착용샷에 댓글을 남겼어요"
+    "WEAR_SHOT_COMMENT": "‘{room}’ 님이 착용샷에 댓글을 남겼어요",
+    "markAllRead": "모두 읽음"
   },
   "reg": {
     "newTitle": "아이템 등록",
