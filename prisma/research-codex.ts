@@ -1,0 +1,166 @@
+import "./env";
+import { categoryFields, matchingKeyFields } from "../src/lib/bot/fields";
+import { researchCodexEntries } from "../src/lib/bot/claude";
+import { categoryLabelKo } from "../src/lib/category-label";
+import { insertCodex } from "../src/lib/codex-insert";
+import { describeDatabase, migrationDatabaseUrl } from "../src/lib/db-url";
+import { prisma } from "../src/lib/prisma";
+
+/**
+ * 도감 **브랜드별 대량 시딩** (D-185).
+ *
+ * ## ⚠️ 어드민 화면(A-04)과 같은 경로를 쓴다
+ * `researchCodexEntries` → `insertCodex`. 스크립트 전용 저장 경로를 만들면
+ * 브랜드 마스터 게이트·중복 판정·미검증 규칙이 갈린다 — 규칙이 갈리는 순간
+ * "도감은 있는데 보유자 0명"이 조용히 생긴다.
+ *
+ * 화면은 한 브랜드씩 확인하며 넣는 용도고, 이 스크립트는 **브랜드 수십 개를
+ * 훑는 용도**다. CLI 호출이 건당 수십 초라 80개 브랜드를 화면으로 넣을 수 없다.
+ *
+ * ## ⚠️ 등록되는 도감은 전부 `미검증`이다
+ * 사람이 식별 값을 확인하지 않았다 (D-185). A-05 검수를 거쳐야 검증 배지가
+ * 붙는다 — 여기서 `VERIFIED` 로 넣을 방법을 만들지 않는다.
+ *
+ * ## ⚠️ 프로덕션 DB 에 쓴다 — 대상을 먼저 출력한다
+ * 로컬에서 돌지만 `DATABASE_URL` 이 Supabase 를 가리킨다 (D-117). 어디에 쓰는지
+ * 보이지 않는 쓰기가 D-116 의 본질이었다. 카테고리 인자를 **필수**로 둔 것도
+ * 같은 이유다 — 인자 없이 실행하면 아무것도 쓰지 않는다.
+ *
+ * ```
+ * pnpm db:research-codex watch 5          # 시계 브랜드마다 5건
+ * pnpm db:research-codex shoes 5 Nike     # 특정 브랜드만
+ * ```
+ */
+/** 동시 CLI 호출 수. 올리면 기기가 버겁고, 1이면 80개 브랜드가 2시간을 넘는다 */
+const CONCURRENCY = 3;
+
+type Outcome = { brand: string; found: number; created: number; dup: number; failed: string[] };
+
+async function seedBrand(
+  categoryKey: string,
+  categoryLabel: string,
+  brand: string,
+  perBrand: number,
+): Promise<Outcome> {
+  const out: Outcome = { brand, found: 0, created: 0, dup: 0, failed: [] };
+
+  const fields = await categoryFields(categoryKey);
+  let r;
+  try {
+    r = await researchCodexEntries({
+      fields,
+      categoryKey,
+      categoryLabel,
+      brand,
+      // ⚠️ 힌트를 비우지 않는다. 비우면 모델이 희귀·한정판을 고르는 경향이 있고,
+      // 그런 제품은 확실도가 낮아 제외되거나 도감에 아무도 안 붙는다
+      hint: `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`,
+      count: perBrand,
+    });
+  } catch (e) {
+    // 한 브랜드의 실패가 전체를 멈추지 않는다 — 80개를 도는 작업이다
+    out.failed.push(`조사 실패 — ${(e as Error).message}`);
+    return out;
+  }
+  out.found = r.candidates.length;
+
+  for (const c of r.candidates) {
+    const res = await insertCodex({
+      categoryKey,
+      displayName: c.displayName,
+      keyValues: c.keyValues,
+      // ⚠️ 사람이 확인하지 않았다 (D-185). A-05 검수 대기 상태로 들어간다
+      verification: "UNVERIFIED",
+      actorId: "research-seed",
+    });
+    if (res.ok) out.created++;
+    else if (res.error.startsWith("이미 있는 도감")) out.dup++;
+    else out.failed.push(`${c.displayName} — ${res.error}`);
+  }
+  return out;
+}
+
+async function main() {
+  const [, , categoryKey, perBrandArg, onlyBrand] = process.argv;
+  if (!categoryKey) {
+    console.log("사용법: pnpm db:research-codex <카테고리> [브랜드당 건수] [브랜드명]");
+    console.log("예시:   pnpm db:research-codex watch 5");
+    return;
+  }
+  const perBrand = Math.min(Math.max(Number(perBrandArg) || 5, 1), 10);
+
+  const url = migrationDatabaseUrl();
+  // ⚠️ 비밀번호를 출력하지 않는다 (D-116)
+  console.log(`대상 DB — ${describeDatabase(url)}`);
+
+  const fields = await categoryFields(categoryKey);
+  if (fields.length === 0) {
+    console.log(`⚠️ 카테고리 '${categoryKey}' 에 속성 조합이 없습니다 (A-02)`);
+    return;
+  }
+  const parts = matchingKeyFields(fields);
+  if (parts.length === 0) {
+    console.log(`⚠️ 카테고리 '${categoryKey}' 의 매칭 키가 없습니다 (A-03)`);
+    return;
+  }
+  const categoryLabel = await categoryLabelKo(categoryKey);
+  console.log(
+    `${categoryLabel}(${categoryKey}) · 키=[${parts.map((p) => p.key).join("+")}] · 브랜드당 ${perBrand}건`,
+  );
+
+  /*
+    ⚠️ **브랜드 마스터에서 가져온다.** 목록을 스크립트에 박으면 A-11 에서
+    브랜드를 추가해도 시딩이 따라오지 않고, `insertCodex` 의 마스터 게이트에
+    전부 막힌다 (FR-04-A-09).
+  */
+  const brands = await prisma.brand.findMany({
+    where: {
+      active: true,
+      categories: { some: { key: categoryKey } },
+      ...(onlyBrand ? { name: { equals: onlyBrand, mode: "insensitive" as const } } : {}),
+    },
+    orderBy: { name: "asc" },
+    select: { name: true },
+  });
+  if (brands.length === 0) {
+    console.log("⚠️ 이 카테고리에 연결된 활성 브랜드가 없습니다 (A-11)");
+    return;
+  }
+  console.log(`브랜드 ${brands.length}개 — 최대 ${brands.length * perBrand}건 시도\n`);
+
+  const results: Outcome[] = [];
+  let cursor = 0;
+  async function worker() {
+    while (cursor < brands.length) {
+      const i = cursor++;
+      const name = brands[i].name;
+      const o = await seedBrand(categoryKey, categoryLabel, name, perBrand);
+      results.push(o);
+      const tail = o.failed.length ? ` · 실패 ${o.failed.length}` : "";
+      console.log(
+        `[${results.length}/${brands.length}] ${name} — 후보 ${o.found} · 등록 ${o.created} · 중복 ${o.dup}${tail}`,
+      );
+      for (const f of o.failed) console.log(`      ✗ ${f}`);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  const created = results.reduce((n, r) => n + r.created, 0);
+  const dup = results.reduce((n, r) => n + r.dup, 0);
+  const failed = results.reduce((n, r) => n + r.failed.length, 0);
+  const empty = results.filter((r) => r.found === 0).map((r) => r.brand);
+
+  console.log(`\n=== ${categoryLabel} 완료 ===`);
+  console.log(`등록 ${created}건 (미검증) · 중복 ${dup}건 · 실패 ${failed}건`);
+  if (empty.length) {
+    // ⚠️ 0건은 실패가 아니다 — 확실한 후보가 없었다는 뜻이고 그것이 정상이다 (D-185)
+    console.log(`후보 0건 브랜드 ${empty.length}개: ${empty.join(", ")}`);
+  }
+  const total = await prisma.codexItem.count({
+    where: { category: { key: categoryKey }, mergedIntoId: null },
+  });
+  console.log(`현재 ${categoryLabel} 도감 ${total}건`);
+  console.log(`검수: /admin/codex/verification (A-05)`);
+}
+
+main().then(() => process.exit(0));

@@ -210,6 +210,33 @@ export function sanitizeCodexCandidates(
       continue;
     }
 
+    /*
+      ⚠️ **`고유번호` 는 제조사가 부여한 값이어야 한다 — 명칭에서 만든 값을 막는다.**
+
+      실제로 겪었다(D-185 시딩): 레퍼런스 번호가 없는 시계 브랜드에서 모델이
+      `baltic-aquascaphe-dual-crown` 같은 **슬러그를 지어냈다.** 형식만 그럴싸해서
+      프롬프트의 "확실하지 않으면 내지 않는다"를 통과했다.
+
+      두 가지로 판정한다:
+      1. 정규화한 고유번호가 **명칭과 같다** → 명칭을 식별자로 쓴 것이다
+      2. **숫자가 하나도 없다** → 레퍼런스 번호·스타일 코드에는 항상 숫자가 있다
+
+      ⚠️ **`uniqueId` 항목에만 적용한다.** 운동의 매칭 키는 `model`(운동명)이고
+      그것은 명칭과 같은 것이 정상이다 (D-166) — 모든 키에 걸면 운동이 전멸한다.
+    */
+    const uid = keyValues.uniqueId;
+    if (uid !== undefined) {
+      const flat = (v: string) => v.toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
+      if (flat(uid) === flat(name)) {
+        dropped.push(`${name} — 고유번호가 명칭과 같습니다 (제조사 값이 아닙니다)`);
+        continue;
+      }
+      if (!/\d/.test(uid)) {
+        dropped.push(`${name} — 고유번호에 숫자가 없습니다 ("${uid}")`);
+        continue;
+      }
+    }
+
     // 화면에 그대로 붙는 값이다. 상한이 없으면 표가 깨진다
     if (name.length > 200) {
       dropped.push(`${name.slice(0, 30)}… — 명칭이 너무 깁니다`);
