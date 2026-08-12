@@ -355,7 +355,7 @@
     "expAlready": "今日はすでに登録経験値を獲得しています",
     "codexLinked": "図鑑に紐づきました — 「同じアイテムを持つ人」に表示されます",
     "codexCreated": "新しい図鑑が登録されました — 他の人もこのアイテムを見つけられます",
-    "codexNotLinked": "図鑑に紐づきませんでした。固有番号を入力すると紐づきます",
+    "codexNotLinked": "図鑑に紐づきませんでした。{fields} を入力すると紐づきます",
     "viewItem": "登録したアイテムを見る",
     "photoMax": "写真は最大{max}枚です",
     "photoMoveLeft": "前に移動",
