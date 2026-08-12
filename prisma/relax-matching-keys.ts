@@ -50,6 +50,16 @@ const LABEL_OVERRIDES: [string, string, string, string, string][] = [
     쓰도록** 바꿨다(자전거·옷 등에서 애초에 틀린 문구이기도 했다).
   */
   ["watch", "uniqueId", "레퍼런스", "リファレンス", "Reference"],
+  /*
+    ⚠️ 신발은 **스타일 코드**다 (D-189). 라벨이 단위를 말해준다 — 스타일 코드는
+    **배색까지 특정**하므로(`DD1391-100` = Dunk Low White/Black) 색이 다르면 다른
+    도감이다. "고유번호"로 두면 유저가 모델 번호(`1460`)를 넣게 되고, 그러면
+    박스 코드를 넣은 사람과 **서로 다른 도감에 갈린다**.
+
+    조사 프롬프트도 이 라벨을 그대로 읽는다 (`codexKeyList`) — 라벨을 고치면
+    프롬프트가 따라온다.
+  */
+  ["shoes", "uniqueId", "스타일 코드", "スタイルコード", "Style code"],
 ];
 
 async function main() {

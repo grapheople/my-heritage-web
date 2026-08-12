@@ -31,6 +31,23 @@ import { prisma } from "../src/lib/prisma";
  * pnpm db:research-codex shoes 5 Nike     # 특정 브랜드만
  * ```
  */
+/**
+ * 카테고리별 기본 힌트.
+ *
+ * ⚠️ **"대표 제품"의 의미가 카테고리마다 다르다.** 신발의 스타일 코드는
+ * **배색 단위**라(D-189) "대표 모델 5개"로는 하나의 코드로 특정되지 않는다 —
+ * 실제로 Nike·Adidas 등 23개 브랜드가 빈 배열을 냈다 (D-188).
+ *
+ * ⚠️ 힌트로 **확실하지 않은 코드를 짜내게 만들지 않는다** (D-186). 배색을
+ * 지정하라고만 말하고, 모르면 내지 말라는 규칙은 프롬프트에 그대로 둔다.
+ */
+function defaultHint(categoryKey: string, perBrand: number): string {
+  if (categoryKey === "shoes") {
+    return `이 브랜드에서 가장 유명한 신발 ${perBrand}개. 스타일 코드는 배색 단위이므로 확실히 아는 대표 배색의 스타일 코드를 쓰고, 명칭에 배색 이름을 넣으세요`;
+  }
+  return `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`;
+}
+
 /** 동시 CLI 호출 수. 올리면 기기가 버겁고, 1이면 80개 브랜드가 2시간을 넘는다 */
 const CONCURRENCY = 3;
 
@@ -110,7 +127,7 @@ async function main() {
     ⚠️ 다만 힌트로 **확실하지 않은 코드를 짜내게 만들면 안 된다** (D-186) —
     조사 결과는 사람이 표본 확인한 뒤 받아들인다.
   */
-  const hint = hintArg || `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`;
+  const hint = hintArg || defaultHint(categoryKey, perBrand);
 
   const url = migrationDatabaseUrl();
   // ⚠️ 비밀번호를 출력하지 않는다 (D-116)
