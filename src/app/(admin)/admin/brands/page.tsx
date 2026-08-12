@@ -1,3 +1,5 @@
+import { AdminActionButton } from "@/components/admin/action-button";
+import { setBrandActive } from "@/lib/actions/admin";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
 import { BrandAliasEditor, BrandCreateForm } from "@/components/admin/brand-forms";
 import { getAdminBrands } from "@/lib/data/admin";
@@ -16,6 +18,12 @@ import { getAdminBrands } from "@/lib/data/admin";
  * ⚠️ **시드 290건 + alias 약 900건이 아직 없다.** 지금 5건은 개발용이다 —
  * 시드 없이 출시하면 첫 아이템 등록부터 막힌다 (PM 액션 대기).
  */
+/** 어드민은 ko 단일이다 (D-030) */
+const CATEGORY_LABEL: Record<string, string> = {
+  watch: "시계", shoes: "신발", bicycle: "자전거",
+  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어", workout: "운동",
+};
+
 export default async function AdminBrandsPage() {
   const brands = await getAdminBrands();
   return (
@@ -32,7 +40,7 @@ export default async function AdminBrandsPage() {
         등록부터 막힙니다 (D-044·D-045·D-047).
       </div>
 
-      <Table head={["원문 (고정)", "alias", "연결 카테고리", "조치"]}>
+      <Table head={["원문 (고정)", "alias", "연결 카테고리", "상태", "조치"]}>
         {brands.map((b) => (
           <tr key={b.name}>
             {/* 원문은 번역하지 않는다 — 1개 고정 (D-009) */}
@@ -42,9 +50,35 @@ export default async function AdminBrandsPage() {
                 {b.aliases.map((a) => <Pill key={a}>{a}</Pill>)}
               </span>
             </Td>
-            <Td className="text-muted-foreground">시계</Td>
+            {/*
+              ⚠️ 예전에는 여기에 **"시계" 가 하드코딩**돼 있었다 (D-182). 브랜드
+              마스터는 카테고리별이라(D-044) 전 브랜드가 시계로 보이면 어드민이
+              어디에 붙었는지 알 수 없다
+            */}
+            <Td className="text-muted-foreground">
+              {b.categoryKeys.length === 0
+                ? "연결 없음"
+                : b.categoryKeys.map((k) => CATEGORY_LABEL[k] ?? k).join(" · ")}
+            </Td>
             <Td>
+              {b.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}
+            </Td>
+            <Td className="flex flex-wrap gap-2">
               <BrandAliasEditor brandId={b.id} brandName={b.name} initial={b.aliasesByLang} />
+              {/*
+                ⚠️ **삭제가 아니라 비활성화다** (D-036·D-043). 비활성화하면 신규
+                등록 선택지에서만 빠지고 **이미 이 브랜드로 등록된 아이템은 그대로**
+                남는다 — 지우면 그 아이템들이 브랜드를 잃는다
+              */}
+              <AdminActionButton
+                label={b.active ? "비활성화" : "활성화"}
+                confirm={
+                  b.active
+                    ? "신규 등록·브랜드 선택에서 빠집니다. 이미 이 브랜드로 등록된 아이템은 그대로 남습니다."
+                    : undefined
+                }
+                action={setBrandActive.bind(null, b.id, !b.active)}
+              />
             </Td>
           </tr>
         ))}

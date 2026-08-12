@@ -330,7 +330,8 @@
       "WEAR_SHOT_COMMENT": "Comment"
     },
     "NEW_FOLLOWER": "{room} started following you",
-    "WEAR_SHOT_COMMENT": "{room} commented on your shot"
+    "WEAR_SHOT_COMMENT": "{room} commented on your shot",
+    "markAllRead": "Mark all read"
   },
   "reg": {
     "newTitle": "Add an item",

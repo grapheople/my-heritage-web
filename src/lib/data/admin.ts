@@ -59,7 +59,16 @@ export async function getAdminCategories() {
 export async function getAdminBrands() {
   const rows = await prisma.brand.findMany({
     orderBy: { name: "asc" },
-    select: { id: true, name: true, aliases: true, active: true },
+    select: {
+      id: true,
+      name: true,
+      aliases: true,
+      active: true,
+      // ⚠️ **연결 카테고리를 실제로 낸다** (D-182). 화면이 전 브랜드에 "시계" 를
+      // 하드코딩하고 있었다 — 브랜드 마스터는 카테고리별인데(D-044·D-045)
+      // 어드민이 어느 카테고리에 붙었는지 확인할 수 없었다
+      categories: { select: { key: true } },
+    },
     take: 300,
   });
   return rows.map((b) => {
@@ -70,6 +79,7 @@ export async function getAdminBrands() {
       id: b.id,
       name: b.name,
       active: b.active,
+      categoryKeys: b.categories.map((c) => c.key),
       // ⚠️ alias 가 비면 유저에게 "브랜드가 없다"로 보인다 (D-047)
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },

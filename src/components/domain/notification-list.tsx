@@ -3,7 +3,7 @@
 import { AlertTriangle, Bell, Layers, MessageCircle, Tag, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { markNotificationRead } from "@/lib/actions/settings";
+import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions/settings";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { NotificationItem, NotificationKind } from "@/lib/data/types";
@@ -38,8 +38,35 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
   const [read, setRead] = useState<string[]>([]);
   const [, startTransition] = useTransition();
 
+  const unread = items.filter((n) => !n.read && !read.includes(n.id)).length;
+
   return (
-    <ul className="divide-y">
+    <>
+      {/*
+        ⚠️ **"모두 읽음" 진입점이 없었다** (D-182). `markAllNotificationsRead` 는
+        처음부터 있었는데 부르는 곳이 없어, 알림이 쌓이면 **하나씩 열어야만**
+        미읽음 뱃지가 사라졌다 — 알림 2종이 늘어(D-178) 빈도가 높아진 뒤로는
+        더 그렇다. 미읽음이 없으면 버튼도 내지 않는다
+      */}
+      {unread > 0 && (
+        <div className="flex justify-end border-b px-4 py-2 lg:px-0">
+          <button
+            type="button"
+            onClick={() =>
+              startTransition(async () => {
+                await markAllNotificationsRead();
+                // 서버 갱신을 기다리지 않고 화면을 맞춘다 — 개별 읽음과 같은 방식
+                setRead(items.map((n) => n.id));
+              })
+            }
+            className="text-sm text-muted-foreground underline"
+          >
+            {t("notif.markAllRead")}
+          </button>
+        </div>
+      )}
+
+      <ul className="divide-y">
       {items.map((n) => {
         const isRead = n.read || read.includes(n.id);
         const Icon = ICON[n.type];
@@ -99,6 +126,7 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
           </li>
         );
       })}
-    </ul>
+      </ul>
+    </>
   );
 }
