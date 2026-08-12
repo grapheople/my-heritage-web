@@ -25,6 +25,8 @@ export type CommentItem = {
   roomName: string;
   /** 뷰어가 지울 수 있는가 — 작성자 또는 착용샷 소유자 */
   canDelete: boolean;
+  /** 뷰어가 쓴 댓글인가 — 내 댓글은 신고 대상이 아니다 (D-179) */
+  mine: boolean;
 };
 
 export type WearShotDetail = {
@@ -102,6 +104,7 @@ export async function getWearShotDetail(
         // 작성자 본인 또는 착용샷 소유자가 지운다 — 내 기록에 달린 글을
         // 정리할 수단이 없으면 소유자가 통제권을 잃는다
         canDelete: viewer !== null && (c.userId === viewer.userId || owner),
+        mine: viewer !== null && c.userId === viewer.userId,
       })),
   };
 }

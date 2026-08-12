@@ -216,7 +216,8 @@
       "diary": "기록 신고",
       "room": "방 신고",
       "codex": "도감 신고",
-      "link": "외부 링크 신고"
+      "link": "외부 링크 신고",
+      "comment": "댓글 신고"
     },
     "reason": {
       "fake": "가품·모조품",
@@ -404,6 +405,7 @@
     "empty": "아직 댓글이 없어요",
     "delete": "삭제",
     "loginRequired": "로그인하면 댓글을 남길 수 있어요",
-    "count": "댓글 {count}개"
+    "count": "댓글 {count}개",
+    "report": "신고"
   }
 }

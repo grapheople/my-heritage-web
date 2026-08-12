@@ -101,6 +101,8 @@ enum ReportTargetType {
   ROOM
   CODEX
   EXTERNAL_LINK
+  /// 착용샷 댓글 (D-179, OI-89 해소)
+  COMMENT
 }
 
 enum ReportStatus {

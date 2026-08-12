@@ -12,6 +12,8 @@ const REASON_LABEL: Record<string, string> = {
 const TARGET_LABEL: Record<string, string> = {
   ITEM: "아이템", DIARY: "기록", ROOM: "방",
   CODEX: "도감", EXTERNAL_LINK: "외부 링크",
+  // 착용샷 댓글 (D-179, OI-89 해소)
+  COMMENT: "댓글",
 };
 
 /**
@@ -46,7 +48,20 @@ export default async function AdminReportsPage() {
         {rows.map((r) => (
           <tr key={r.id} className={r.status === "PENDING" ? "" : "text-muted-foreground"}>
             <Td><Pill>{TARGET_LABEL[r.target] ?? r.target}</Pill></Td>
-            <Td className="max-w-[280px] truncate">{r.targetName}</Td>
+            {/*
+              ⚠️ **댓글은 id 로 찾아갈 URL 이 없다** (D-179). 그래서 조회 계층이
+              **본문 미리보기와 착용샷 경로**를 함께 낸다 — 없으면 어드민이
+              무엇을 신고당했는지 볼 수 없어 **검수 자체가 불가능**하다
+            */}
+            <Td className="max-w-[280px] truncate">
+              {r.targetHref ? (
+                <a href={r.targetHref} className="underline" target="_blank" rel="noreferrer">
+                  {r.targetName}
+                </a>
+              ) : (
+                r.targetName
+              )}
+            </Td>
             <Td>{REASON_LABEL[r.reason]}</Td>
             <Td className={r.count >= 3 ? "font-bold text-warn" : ""}>{r.count}</Td>
             <Td>

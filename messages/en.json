@@ -216,7 +216,8 @@
       "diary": "Report entry",
       "room": "Report room",
       "codex": "Report codex entry",
-      "link": "Report external link"
+      "link": "Report external link",
+      "comment": "Report comment"
     },
     "reason": {
       "fake": "Counterfeit",
@@ -404,6 +405,7 @@
     "empty": "No comments yet",
     "delete": "Delete",
     "loginRequired": "Log in to comment",
-    "count": "{count} comments"
+    "count": "{count} comments",
+    "report": "Report"
   }
 }

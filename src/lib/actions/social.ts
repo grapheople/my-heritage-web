@@ -11,12 +11,17 @@ import { prisma } from "@/lib/prisma";
  * 신고 · 차단 · 브랜드 요청 (S-15 · S-17 · S-19).
  */
 
-const TARGET_TYPE: Record<ReportTarget, "ITEM" | "DIARY" | "ROOM" | "CODEX" | "EXTERNAL_LINK"> = {
+const TARGET_TYPE: Record<
+  ReportTarget,
+  "ITEM" | "DIARY" | "ROOM" | "CODEX" | "EXTERNAL_LINK" | "COMMENT"
+> = {
   item: "ITEM",
   diary: "DIARY",
   room: "ROOM",
   codex: "CODEX",
   link: "EXTERNAL_LINK",
+  // 착용샷 댓글 (D-179, OI-89 해소)
+  comment: "COMMENT",
 };
 
 /**
@@ -24,13 +29,18 @@ const TARGET_TYPE: Record<ReportTarget, "ITEM" | "DIARY" | "ROOM" | "CODEX" | "E
  *
  * | 규칙 | 근거 |
  * |---|---|
- * | 대상 5종 · 사유는 **목록에서 선택** | D-029·D-035·D-052, FR-05-A-01·02 |
+ * | 대상 **6종** · 사유는 **목록에서 선택** | D-029·D-035·D-052, FR-05-A-01·02, **D-179** |
  * | 어드민 처리 큐에 적재 | FR-05-A-03 |
  * | **접수해도 콘텐츠를 자동으로 숨기지 않는다** | FR-05-A-04 |
  * | 처리 결과는 **인앱**으로 알린다 (푸시 아님) | D-059, FR-05-A-08 |
  *
  * ⚠️ **자동 판정하지 않는다** (FR-06-A-04). 신고 기반 사후 조치다 — 신고 몇
  * 건으로 자동 비공개하면 경쟁 판매자가 서로를 내리는 수단이 된다.
+ *
+ * ## ⚠️ 사유 9종을 대상별로 좁히지 않았다 (D-179)
+ * 댓글에 "가품"·"도난품" 같은 물건용 사유가 그대로 뜬다. 사유 축은 **제재 사유와
+ * 같아야 하고**(D-035·D-052) 대상별 필터는 그 축을 건드리는 새 정책이다.
+ * UI 에서만 걸러도 서버 검증(전체 목록)과 어긋난다 → OI-90.
  */
 export async function submitReport(input: {
   target: ReportTarget;
