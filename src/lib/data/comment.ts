@@ -1,0 +1,107 @@
+import type { Viewer } from "@/lib/auth/viewer";
+import { blockedUserIds, visibleItemWhere } from "@/lib/data/scope";
+import { realPhotoUrl } from "@/lib/data/photo";
+import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
+import { prisma } from "@/lib/prisma";
+
+/**
+ * 착용샷 상세 + 댓글 (D-178).
+ *
+ * ## ⚠️ 공개 판정을 새로 만들지 않는다
+ * 착용샷은 **아이템의 공개 판정을 물려받고**(D-148), 댓글은 그 착용샷을 물려받는다.
+ * 여기서 하는 일은 그 사슬을 조회 조건으로 옮기는 것뿐이다 (D-083 — 필터가 아니라
+ * 조회 조건).
+ *
+ * ## ⚠️ 색인하지 않는다
+ * 착용샷 상세는 **사진 + 방 이름 + 날짜**다. 방 상세(S-02·S-03)가 `noindex` 인데
+ * 이걸 색인하면 "누가 무엇을 쓰는지"가 검색에 열린다 (D-078·D-031). 이 저장소는
+ * **기본값이 noindex** 이므로 화면에서 켜지 않는 것으로 충분하다.
+ */
+export type CommentItem = {
+  id: string;
+  body: string;
+  createdAt: string;
+  roomId: string;
+  roomName: string;
+  /** 뷰어가 지울 수 있는가 — 작성자 또는 착용샷 소유자 */
+  canDelete: boolean;
+};
+
+export type WearShotDetail = {
+  id: string;
+  photoUrl?: string;
+  note?: string;
+  wornOn: string;
+  itemId: string;
+  itemName: string;
+  roomId: string;
+  roomName: string;
+  /** 뷰어가 이 착용샷의 소유자인가 */
+  owner: boolean;
+  comments: CommentItem[];
+};
+
+export async function getWearShotDetail(
+  wearShotId: string,
+  viewer: Viewer | null,
+): Promise<WearShotDetail | null> {
+  const blockedIds = await blockedUserIds(viewer);
+  const shot = await prisma.wearShot.findFirst({
+    where: {
+      id: wearShotId,
+      // 소유자는 자기 것을 항상 본다. 타인은 공개 아이템만 (D-148 과 같은 기준)
+      item: viewer?.roomId
+        ? { OR: [{ roomId: viewer.roomId }, visibleItemWhere(blockedIds)] }
+        : visibleItemWhere(blockedIds),
+    },
+    select: {
+      id: true,
+      photoUrl: true,
+      note: true,
+      wornOn: true,
+      item: {
+        select: { id: true, roomId: true, room: { select: { name: true } }, ...NAME_SELECT },
+      },
+      comments: {
+        // ⚠️ 차단 관계인 사람의 댓글은 **조회에서** 빠진다 (D-051·D-083)
+        where:
+          blockedIds.length > 0 ? { userId: { notIn: blockedIds } } : undefined,
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          userId: true,
+          user: { select: { room: { select: { id: true, name: true } } } },
+        },
+      },
+    },
+  });
+  if (!shot) return null;
+
+  const owner = viewer?.roomId === shot.item.roomId;
+  return {
+    id: shot.id,
+    photoUrl: realPhotoUrl(shot.photoUrl),
+    note: shot.note ?? undefined,
+    wornOn: shot.wornOn,
+    itemId: shot.item.id,
+    itemName: deriveItemName(shot.item),
+    roomId: shot.item.roomId,
+    roomName: shot.item.room.name,
+    owner,
+    comments: shot.comments
+      // 방이 없는 유저(탈퇴 등)의 댓글은 낼 자리가 없다
+      .filter((c) => c.user.room !== null)
+      .map((c) => ({
+        id: c.id,
+        body: c.body,
+        createdAt: c.createdAt.toISOString().slice(0, 10),
+        roomId: c.user.room!.id,
+        roomName: c.user.room!.name,
+        // 작성자 본인 또는 착용샷 소유자가 지운다 — 내 기록에 달린 글을
+        // 정리할 수단이 없으면 소유자가 통제권을 잃는다
+        canDelete: viewer !== null && (c.userId === viewer.userId || owner),
+      })),
+  };
+}

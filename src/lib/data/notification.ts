@@ -20,6 +20,16 @@ function hrefFor(type: NotificationKind, targetId: string | null): string | unde
   switch (type) {
     case "CODEX_MERGED":
       return `/codex/${targetId}`;
+    case "NEW_FOLLOWER":
+      /*
+        ⚠️ `targetId` 는 **수신자의 방 id** 다 (D-178). 팔로워의 방이 아니다 —
+        PM 이 "알림을 누르면 내 팔로워 리스트로" 를 요구했고, 그 경로를 만들려면
+        내 방 id 가 필요하다. 팔로워 이름은 `params` 에 있다
+      */
+      return `/rooms/${targetId}/followers`;
+    case "WEAR_SHOT_COMMENT":
+      // 댓글이 달린 착용샷으로 (D-178)
+      return `/wear/${targetId}`;
     case "SANCTION":
       // 제재는 전용 안내 화면으로 (S-21)
       return "/suspended";

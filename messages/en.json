@@ -317,8 +317,12 @@
       "BRAND_REQUEST_RESULT": "Brand",
       "REPORT_RESULT": "Report",
       "SANCTION": "Restriction",
-      "CODEX_MERGED": "Codex"
-    }
+      "CODEX_MERGED": "Codex",
+      "NEW_FOLLOWER": "New follower",
+      "WEAR_SHOT_COMMENT": "Comment"
+    },
+    "NEW_FOLLOWER": "{room} started following you",
+    "WEAR_SHOT_COMMENT": "{room} commented on your shot"
   },
   "reg": {
     "newTitle": "Add an item",
@@ -380,7 +384,8 @@
     "empty": "No shots yet",
     "listTitle": "Shots",
     "count": "Shots {count}",
-    "emptyDesc": "Leave today's shot from an item page"
+    "emptyDesc": "Leave today's shot from an item page",
+    "goToItem": "Edit from the item page"
   },
   "follow": {
     "follow": "Follow",
@@ -391,5 +396,14 @@
     "followingTitle": "Following",
     "noFollowers": "No followers yet",
     "noFollowing": "Not following any rooms yet"
+  },
+  "comment": {
+    "title": "Comments",
+    "placeholder": "Leave a comment",
+    "submit": "Post",
+    "empty": "No comments yet",
+    "delete": "Delete",
+    "loginRequired": "Log in to comment",
+    "count": "{count} comments"
   }
 }

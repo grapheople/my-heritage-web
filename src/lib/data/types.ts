@@ -131,12 +131,20 @@ export type DiaryEntry = {
   items: { id: string; name: string; visibility: "PUBLIC" | "PRIVATE" }[];
 };
 
-/** 인앱 알림 종류 (D-087). 경험치·레벨업은 없다 (FR-08-B-05) */
+/**
+ * 인앱 알림 종류 (D-087). 경험치·레벨업은 없다 (FR-08-B-05).
+ *
+ * ⚠️ `NEW_FOLLOWER`·`WEAR_SHOT_COMMENT` 는 **성격이 다르다** (D-178) — 나머지
+ * 4종은 드물게 오는 처리 결과인데 이 둘은 **다른 유저의 행동**으로 발생한다.
+ * 빈도가 훨씬 높아 알림함의 성격을 바꾼다 (OI-87 에서 짚은 것).
+ */
 export type NotificationKind =
   | "BRAND_REQUEST_RESULT"
   | "REPORT_RESULT"
   | "SANCTION"
-  | "CODEX_MERGED";
+  | "CODEX_MERGED"
+  | "NEW_FOLLOWER"
+  | "WEAR_SHOT_COMMENT";
 
 export type NotificationItem = {
   id: string;
