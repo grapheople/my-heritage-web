@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { getViewer } from "@/lib/auth/viewer";
 import { LanguageSwitcher } from "@/components/domain/language-switcher";
 
 /**
@@ -14,7 +15,8 @@ export default async function LanguageSettingsPage({
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">{t("settings.language")}</h1>
       <div className="mt-4">
-        <LanguageSwitcher current={locale} />
+        {/* 로그인 유저는 `User.language` 에도 저장한다 (D-180) */}
+        <LanguageSwitcher current={locale} loggedIn={(await getViewer()) !== null} />
       </div>
     </div>
   );
