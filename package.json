@@ -18,6 +18,7 @@
     "prisma:format": "prisma format",
     "postinstall": "prisma generate",
     "db:import-brands": "tsx prisma/import-brands.ts",
+    "db:export-brands": "tsx prisma/export-brands.ts",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v",
