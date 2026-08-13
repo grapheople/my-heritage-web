@@ -121,6 +121,15 @@ async function main() {
   }
   const perBrand = Math.min(Math.max(Number(perBrandArg) || 5, 1), 10);
   /*
+    ⚠️ **브랜드를 쉼표로 여러 개 받는다.** 실행 환경에 10분 상한이 있어서
+    50개 브랜드를 한 번에 돌리면 중간에 잘린다 — 실제로 데스크테리어가 11개에서
+    끊겼다. 배치로 나눠 돌리고, 중복은 `insertCodex` 가 막으므로 겹쳐도 안전하다.
+  */
+  const picked = (onlyBrand ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  /*
     ⚠️ 힌트를 인자로 받는다. 카테고리마다 "대표 제품"의 의미가 다르다 —
     스니커의 스타일 코드는 **컬러웨이 단위**라(`CW2288-111` = AF1 '07 White)
     "대표 모델"로는 특정되지 않고 모델이 빈 배열을 낸다.
@@ -157,7 +166,7 @@ async function main() {
     where: {
       active: true,
       categories: { some: { key: categoryKey } },
-      ...(onlyBrand ? { name: { equals: onlyBrand, mode: "insensitive" as const } } : {}),
+      ...(picked.length ? { name: { in: picked, mode: "insensitive" as const } } : {}),
     },
     orderBy: { name: "asc" },
     select: { name: true },
@@ -192,13 +201,28 @@ async function main() {
   const created = results.reduce((n, r) => n + r.created, 0);
   const dup = results.reduce((n, r) => n + r.dup, 0);
   const failed = results.reduce((n, r) => n + r.failed.length, 0);
-  const empty = results.filter((r) => r.found === 0).map((r) => r.brand);
+  /*
+    ⚠️ **조사 실패와 "후보 0건"을 섞지 않는다.** 초판은 둘 다 `후보 0건 브랜드`
+    로 보고했다 — CLI 가 죽은 브랜드가 "이 브랜드는 식별자를 공개하지 않는다"로
+    읽혔다. 캠핑에서 The North Face·YETI·Tent-Mark Designs 3개가 그렇게 묻혔다.
+    앞은 **재시도 대상**이고 뒤는 **정상 동작**이다 — 성질이 정반대다.
+  */
+  const errored = results.filter((r) => r.failed.some((f) => f.startsWith("조사 실패")));
+  const empty = results
+    .filter((r) => r.found === 0 && !errored.includes(r))
+    .map((r) => r.brand);
 
   console.log(`\n=== ${categoryLabel} 완료 ===`);
   console.log(`등록 ${created}건 (미검증) · 중복 ${dup}건 · 실패 ${failed}건`);
   if (empty.length) {
     // ⚠️ 0건은 실패가 아니다 — 확실한 후보가 없었다는 뜻이고 그것이 정상이다 (D-185)
-    console.log(`후보 0건 브랜드 ${empty.length}개: ${empty.join(", ")}`);
+    console.log(`후보 0건 브랜드 ${empty.length}개 (정상): ${empty.join(", ")}`);
+  }
+  if (errored.length) {
+    // 재시도하면 결과가 달라진다 — 위 목록과 성질이 다르다
+    console.log(
+      `⚠️ 조사 실패 ${errored.length}개 — **재시도 대상**: ${errored.map((r) => r.brand).join(", ")}`,
+    );
   }
   const total = await prisma.codexItem.count({
     where: { category: { key: categoryKey }, mergedIntoId: null },
