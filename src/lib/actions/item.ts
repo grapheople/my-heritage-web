@@ -8,6 +8,12 @@ import {
   codexDisplayName,
   uniqueIdForCodex,
 } from "@/lib/codex-key";
+import {
+  logCodexMatch,
+  resolveCodexByKey,
+  syncPrimaryMatchKey,
+  type MatchVia,
+} from "@/lib/codex-match-key";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -49,6 +55,13 @@ export type CreateItemResult =
       codexLinked: boolean;
       /** 도감이 새로 만들어졌는가 — 유저에게 알린다 (FR-03-B-03) */
       codexCreated: boolean;
+      /**
+       * FR-03-E-03 — **키 alias 로 연결됐는가.** 유저가 넣은 값과 연결된 도감이
+       * 다르므로 "무엇으로 어디에 연결됐는지"를 보여줘야 한다 (D-193).
+       */
+      codexMatchedByAlias: boolean;
+      /** 키 alias 로 연결됐을 때 유저가 실제로 넣은 정규화 값 */
+      codexAttemptedKey?: string;
     }
   | { ok: false; fieldErrors: Record<string, string>; formError?: string };
 
@@ -168,59 +181,86 @@ export async function createItemAs(
     brandId = brand.id;
   }
 
-  /* ── 도감 조회·연결·자동 생성 (D-013·D-015, FR-03-A-01·FR-03-B-01) ── */
+  /* ── 도감 조회·연결·자동 생성 (D-013·D-015, FR-03-A-01·FR-03-B-01·FR-03-E) ── */
   let codexItemId: string | null = null;
   let codexCreated = false;
+  /** FR-03-E-03·06 — 어떤 경로로 연결됐는가. 도감 미연결이면 null */
+  let matchVia: MatchVia | null = null;
+  let attemptedKey: string | null = null;
   {
     // ⚠️ **복합 키를 전부 쓴다** (D-013). 첫 키만 쓰면 캠핑에서 Snow Peak
     // 제품이 도감 한 칸으로 뭉친다 — `lib/codex-key.ts` 참조
     const key = buildMatchingKey(keyOrder, input.values);
     if (key) {
-      // `CodexItem.normalizedKey` 가 이미 정규화된 값을 담는다 — 전수 조회 대신
-      // 인덱스로 찾는다. 정규화 규칙은 검색·import 와 공유한다 (D-014)
       const normalizedKey = key.normalizedKey;
-      const hit = await prisma.codexItem.findFirst({
-        where: {
-          categoryId: category.id,
-          normalizedKey,
-          // 병합으로 흡수된 도감에는 연결하지 않는다 — survivor 를 써야 한다
-          mergedIntoId: null,
-        },
-        select: { id: true },
-      });
+      attemptedKey = normalizedKey;
+      /*
+        ⚠️ **①② 를 한 쿼리로 본다** (D-197). 정식 값 완전일치가 먼저이고
+        키 alias 가 그 다음이다 — 뒤집으면 정식 값으로 등록한 유저가 동의어 쪽
+        도감으로 끌려간다 (AC-02-B-05-2).
+
+        ⚠️ **키 alias 로 잡혀도 유저가 넣은 값은 고치지 않는다** (FR-03-E-02,
+        D-193). D-190 브랜드 게이트는 정식 명칭으로 교정하지만 그건 `select` 라
+        유저가 목록에서 고른 값이기 때문이다. 스타일 코드는 **박스에서 읽어 넣은
+        값**이라(D-189) 조용히 바꾸면 그 결정의 근거를 스스로 부순다.
+      */
+      const hit = await resolveCodexByKey({ categoryId: category.id, normalizedKey });
 
       if (hit) {
-        codexItemId = hit.id;
+        codexItemId = hit.codexItemId;
+        matchVia = hit.via;
       } else {
         // ⚠️ **매칭 실패 = 도감 자동 생성** (D-015, FR-03-B-01). 연결만 하고
         // 말면 도감이 영원히 비어 있어 "같은 물건 가진 사람"이 성립하지 않는다.
         // 검증 상태는 **미검증**이고 보너스 경험치는 없다 (D-033, FR-03-B-03)
         const displayName = codexDisplayName(brandName, input.values.model, key);
         try {
-          const made = await prisma.codexItem.create({
-            data: {
+          /*
+            ⚠️ **매칭 인덱스 행을 같은 트랜잭션에서 만든다** (D-197). 도감만
+            만들고 PRIMARY 행을 빠뜨리면 그 도감은 `CodexItem` 에는 있는데
+            **매칭으로는 영원히 닿지 않는다** — 보유자만 0명인 도감이 생기는
+            D-185·D-186 과 같은 실패 모양이다.
+          */
+          codexItemId = await prisma.$transaction(async (tx) => {
+            const made = await tx.codexItem.create({
+              data: {
+                categoryId: category.id,
+                displayName,
+                // 복합 키에서는 비운다 — 이어붙인 문자열은 "고유번호"가 아니다
+                uniqueId: uniqueIdForCodex(keyOrder, key.raw),
+                normalizedKey,
+                verification: "UNVERIFIED",
+                // 생성자와 생성 일시를 기록한다 (FR-03-B-02)
+                createdByUserId: viewer.userId,
+              },
+              select: { id: true },
+            });
+            await syncPrimaryMatchKey(tx, {
+              codexItemId: made.id,
               categoryId: category.id,
-              displayName,
-              // 복합 키에서는 비운다 — 이어붙인 문자열은 "고유번호"가 아니다
-              uniqueId: uniqueIdForCodex(keyOrder, key.raw),
               normalizedKey,
-              verification: "UNVERIFIED",
-              // 생성자와 생성 일시를 기록한다 (FR-03-B-02)
-              createdByUserId: viewer.userId,
-            },
-            select: { id: true },
+            });
+            return made.id;
           });
-          codexItemId = made.id;
           codexCreated = true;
+          matchVia = "created";
         } catch {
-          // @@unique([categoryId, normalizedKey]) 위반 = 동시 생성 경합.
-          // **하나만 생성하고 나머지는 기존 것에 연결한다** (FR-03-B-05).
-          // 애플리케이션에서 미리 세는 방식으로는 이 경합을 막을 수 없다
-          const raced = await prisma.codexItem.findFirst({
-            where: { categoryId: category.id, normalizedKey, mergedIntoId: null },
-            select: { id: true },
+          /*
+            유니크 제약 위반 = 동시 생성 경합. **하나만 생성하고 나머지는 기존
+            것에 연결한다** (FR-03-B-05). 애플리케이션에서 미리 세는 방식으로는
+            이 경합을 막을 수 없다.
+
+            ⚠️ 이제 제약이 둘이다 — `CodexItem` 의 `normalizedKey` 와
+            `CodexMatchKey` 의 `[categoryId, value]`. 어느 쪽에 걸렸든 **이미
+            그 값을 가진 도감이 있다**는 뜻이므로 매칭 인덱스로 다시 찾는다
+            (키 alias 로 선점된 경우까지 여기서 흡수된다).
+          */
+          const raced = await resolveCodexByKey({
+            categoryId: category.id,
+            normalizedKey,
           });
-          codexItemId = raced?.id ?? null;
+          codexItemId = raced?.codexItemId ?? null;
+          matchVia = raced?.via ?? null;
         }
       }
     }
@@ -266,12 +306,31 @@ export async function createItemAs(
   /* ── 경험치 (D-026 · D-056) — 1일 1회 판정은 DB 제약이 유일한 보장이다 ── */
   const expGranted = await grantExperience(viewer, "ITEM_CREATE", EXP_ITEM);
 
+  /*
+    ⚠️ **계측은 저장이 끝난 뒤다** (FR-03-E-08, D-198). D-178 이 알림 생성을
+    본 작업 뒤에 둔 것과 같은 판단 — 계측 장애가 등록을 막으면 안 된다.
+    `logCodexMatch` 는 스스로 던지지 않는다.
+  */
+  if (matchVia && attemptedKey) {
+    await logCodexMatch({
+      categoryId: category.id,
+      // `input.category` 가 곧 카테고리 key 다 — 위 조회의 where 조건이다
+      categoryKey: input.category,
+      brandId,
+      attempted: attemptedKey,
+      via: matchVia,
+    });
+  }
+
   return {
     ok: true,
     itemId: item.id,
     expGranted,
     codexLinked: codexItemId !== null,
     codexCreated,
+    /** FR-03-E-03 — 키 alias 로 연결됐으면 호출부가 근거를 표시한다 */
+    codexMatchedByAlias: matchVia === "keyAlias",
+    codexAttemptedKey: matchVia === "keyAlias" ? (attemptedKey ?? undefined) : undefined,
   };
 }
 
@@ -375,15 +434,13 @@ export async function updateItemAs(
     // 도감 연결이 다른 곳으로 옮겨간다
     const key = buildMatchingKey(keyOrder, input.values);
     if (key) {
-      const hit = await prisma.codexItem.findFirst({
-        where: {
-          categoryId,
-          normalizedKey: key.normalizedKey,
-          mergedIntoId: null,
-        },
-        select: { id: true },
+      // ⚠️ **등록과 같은 해석기를 쓴다** (D-197). 여기만 `normalizedKey` 직접
+      // 조회로 두면 **키 alias 로 등록된 아이템이 수정 한 번에 연결을 잃는다**
+      const hit = await resolveCodexByKey({
+        categoryId,
+        normalizedKey: key.normalizedKey,
       });
-      codexItemId = hit?.id ?? null;
+      codexItemId = hit?.codexItemId ?? null;
       // 수정에서는 도감을 **자동 생성하지 않는다.** 오타를 고치는 중일 수
       // 있는데 그때마다 미검증 도감이 하나씩 생기면 병합 큐가 오염된다
     }

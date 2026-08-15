@@ -1,5 +1,6 @@
 import { resolveMasterBrand } from "@/lib/brand-master";
 import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
+import { syncPrimaryMatchKey } from "@/lib/codex-match-key";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -97,26 +98,61 @@ export async function insertCodex(input: {
     };
   }
 
-  const verified = input.verification === "VERIFIED";
-  const made = await prisma.codexItem.create({
-    data: {
-      categoryId: category.id,
-      displayName,
-      uniqueId: uniqueIdForCodex(keyOrder, key.raw),
-      normalizedKey: key.normalizedKey,
-      verification: input.verification,
-      // ⚠️ 미검증본에는 검증자·일시를 남기지 않는다 — 남으면 A-05 에서
-      // "누가 검증했는데 왜 미검증인가"로 읽힌다 (FR-04-B-03·04 의 역방향)
-      verifiedBy: verified ? input.actorId : null,
-      verifiedAt: verified ? new Date() : null,
-      descriptions: input.descriptions
-        ? Object.fromEntries(
-            Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
-          )
-        : undefined,
+  /*
+    ⚠️ **키 alias 가 그 값을 선점했을 수 있다** (FR-02-B-07, D-192). 유일성 범위는
+    `normalizedKey` ∪ 키 alias 이므로 위의 `dup` 검사만으로는 부족하다.
+    고르지 않고 실패시킨다 — 하나를 골라 넣으면 잘못된 도감이 조용히 커진다 (D-190).
+  */
+  const taken = await prisma.codexMatchKey.findUnique({
+    where: {
+      categoryId_value: { categoryId: category.id, value: key.normalizedKey },
     },
-    select: { id: true },
+    select: { kind: true, codexItem: { select: { displayName: true } } },
+  });
+  if (taken) {
+    return {
+      ok: false,
+      error:
+        taken.kind === "ALIAS"
+          ? `다른 도감의 키 alias 로 쓰이는 값입니다 — "${taken.codexItem.displayName}"`
+          : `이미 있는 도감입니다 — "${taken.codexItem.displayName}"`,
+      field: keyOrder[0],
+    };
+  }
+
+  const verified = input.verification === "VERIFIED";
+  /*
+    ⚠️ **도감과 매칭 인덱스를 한 트랜잭션에서 만든다** (D-197). PRIMARY 행을
+    빠뜨리면 `CodexItem` 에는 있는데 **매칭으로는 영원히 닿지 않는 도감**이
+    된다 — 보유자만 0명인 도감이 생기는 D-185·D-186 과 같은 실패 모양이다.
+  */
+  const codexId = await prisma.$transaction(async (tx) => {
+    const made = await tx.codexItem.create({
+      data: {
+        categoryId: category.id,
+        displayName,
+        uniqueId: uniqueIdForCodex(keyOrder, key.raw),
+        normalizedKey: key.normalizedKey,
+        verification: input.verification,
+        // ⚠️ 미검증본에는 검증자·일시를 남기지 않는다 — 남으면 A-05 에서
+        // "누가 검증했는데 왜 미검증인가"로 읽힌다 (FR-04-B-03·04 의 역방향)
+        verifiedBy: verified ? input.actorId : null,
+        verifiedAt: verified ? new Date() : null,
+        descriptions: input.descriptions
+          ? Object.fromEntries(
+              Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
+            )
+          : undefined,
+      },
+      select: { id: true },
+    });
+    await syncPrimaryMatchKey(tx, {
+      codexItemId: made.id,
+      categoryId: category.id,
+      normalizedKey: key.normalizedKey,
+    });
+    return made.id;
   });
 
-  return { ok: true, codexId: made.id };
+  return { ok: true, codexId };
 }

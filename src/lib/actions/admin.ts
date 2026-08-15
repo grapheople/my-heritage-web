@@ -9,6 +9,7 @@ import { insertCodex } from "@/lib/codex-insert";
 import { researchCodexEntries } from "@/lib/bot/claude";
 import { botEnabled, botTargetDb, claudeConfigured } from "@/lib/bot/guard";
 import { categoryFields, matchingKeyFields, type CodexCandidate } from "@/lib/bot/fields";
+import type { MatchKeyKind, MatchKeySource } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -278,6 +279,36 @@ function mergeAliases(a: unknown, b: unknown) {
   );
 }
 
+/** `CodexMerge.absorbed` 한 항목이 기록한 매칭 인덱스 직전 상태 (D-196) */
+type MovedMatchKey = {
+  id: string;
+  kind: MatchKeyKind;
+  source: MatchKeySource;
+  sourceMergeId: string | null;
+};
+
+/**
+ * `CodexMerge.absorbed`(Json) 에서 해당 흡수 도감의 `movedMatchKeys` 를 꺼낸다.
+ *
+ * ⚠️ **Json 은 스키마가 강제되지 않는다.** 병합 행이 이 필드를 갖기 전에 만들어진
+ * 것일 수 있으므로 모양을 확인하고 아니면 빈 배열로 떨어진다 — 되돌리기가
+ * 예외로 죽는 것보다 alias 만 남는 쪽이 낫다.
+ */
+function mergedEntryOf(absorbed: unknown, codexItemId: string): MovedMatchKey[] {
+  if (!Array.isArray(absorbed)) return [];
+  const entry = absorbed.find(
+    (e): e is Record<string, unknown> =>
+      !!e && typeof e === "object" && (e as Record<string, unknown>).codexItemId === codexItemId,
+  );
+  const keys = entry?.movedMatchKeys;
+  if (!Array.isArray(keys)) return [];
+  return keys.filter((k): k is MovedMatchKey => {
+    if (!k || typeof k !== "object") return false;
+    const o = k as Record<string, unknown>;
+    return typeof o.id === "string" && typeof o.kind === "string" && typeof o.source === "string";
+  });
+}
+
 /**
  * 도감 병합 (FR-05-B-01~08).
  *
@@ -316,7 +347,8 @@ export async function mergeCodex(input: {
 
   const absorbed = await prisma.codexItem.findMany({
     where: { id: { in: absorbedIds } },
-    select: { id: true, categoryId: true, aliases: true },
+    // ⚠️ `normalizedKey` 를 함께 읽는다 — survivor 의 키 alias 가 될 값이다 (FR-05-B-09)
+    select: { id: true, categoryId: true, aliases: true, normalizedKey: true },
   });
   // 카테고리가 다르면 매칭 키 체계가 다르다 — 병합하면 안 된다
   if (absorbed.some((a) => a.categoryId !== survivor.categoryId)) {
@@ -349,7 +381,49 @@ export async function mergeCodex(input: {
     movedByAbsorbed.set(a.id, items.map((i) => i.id));
   }
 
+  /*
+    ⚠️ **매칭 인덱스도 이관 전에 직전 상태를 기록한다** (FR-05-B-09·C-05, D-196).
+    옮기고 나면 어느 행이 PRIMARY 였는지 알 수 없어 되돌릴 수 없다 — 아이템에서
+    겪은 것과 같은 실패다(D-181, OI-62).
+  */
+  const matchKeysByAbsorbed = new Map<
+    string,
+    { id: string; kind: MatchKeyKind; source: MatchKeySource; sourceMergeId: string | null }[]
+  >();
+  for (const a of absorbed) {
+    const keys = await prisma.codexMatchKey.findMany({
+      where: { codexItemId: a.id },
+      select: { id: true, kind: true, source: true, sourceMergeId: true },
+    });
+    matchKeysByAbsorbed.set(a.id, keys);
+  }
+
   const result = await prisma.$transaction(async (tx) => {
+    /*
+      ⚠️ **병합 1회 = 1행** (D-196, FR-05-C-01). 이것이 없어서 OI-93 이 막혀
+      있었다 — 병합 상태가 `CodexItem` 행에 흩어져 있어 **"이 alias 는 그
+      병합에서 왔다"고 쓸 id 가 존재하지 않았다.** 실행자·일시도 이 행이 처음이다.
+    */
+    const mergeRow = await tx.codexMerge.create({
+      data: {
+        categoryId: survivor.categoryId,
+        survivorId,
+        absorbed: absorbed.map((a) => ({
+          codexItemId: a.id,
+          movedItemIds: movedByAbsorbed.get(a.id) ?? [],
+          // 아래에서 채운다 — 되돌리기가 **직전 상태 그대로** 복원하려면 필요하다
+          movedMatchKeys: (matchKeysByAbsorbed.get(a.id) ?? []).map((k) => ({
+            id: k.id,
+            kind: k.kind,
+            source: k.source,
+            sourceMergeId: k.sourceMergeId,
+          })),
+        })),
+        mergedBy: ADMIN_ACTOR,
+      },
+      select: { id: true },
+    });
+
     // 아이템 이관 — **속성값은 건드리지 않는다** (FR-05-B-07)
     const moved = await tx.item.updateMany({
       where: { codexItemId: { in: absorbedIds } },
@@ -359,6 +433,40 @@ export async function mergeCodex(input: {
       where: { id: survivorId },
       data: { aliases: merged },
     });
+
+    /*
+      ⚠️ **흡수 도감의 정식 값을 survivor 의 키 alias 로 넘긴다** (FR-05-B-09, D-194).
+      이것이 없으면 **병합은 다음 유저를 막지 못한다** — `1460` 도감을 `11822006`
+      에 병합해도 다음 유저가 또 `1460` 을 넣으면 또 새 도감이 생긴다. 병합은
+      이미 갈라진 것을 합칠 뿐이었다.
+
+      흡수 도감의 `normalizedKey` 는 **어드민이 "이 둘은 같다"고 확인한 동치**이고
+      **실제 유저가 넣었던 값**이라 공급원 중 신뢰도가 가장 높다.
+    */
+    for (const [, keys] of matchKeysByAbsorbed) {
+      for (const k of keys) {
+        /*
+          ⚠️ **지우고 새로 만들지 않고 옮긴다.** `@@unique([categoryId, value])`
+          가 있어 delete → create 는 같은 트랜잭션 안에서도 순서에 의존하게 되고,
+          행 id 가 바뀌어 되돌리기가 대상을 잃는다.
+
+          ⚠️ **흡수 도감의 키 alias 도 함께 옮긴다.** 두고 오면 그 값들이
+          `mergedIntoId: null` 필터에 걸려 **조용히 죽는다** — 예전에 병합으로
+          모아둔 동의어가 한 번 더 병합했다는 이유로 사라지는 셈이다.
+        */
+        await tx.codexMatchKey.update({
+          where: { id: k.id },
+          data: {
+            codexItemId: survivorId,
+            kind: "ALIAS",
+            source: "MERGE",
+            sourceMergeId: mergeRow.id,
+            // MERGE 는 승인 개념이 없다 — 어드민이 실행한 병합이 곧 승인이다
+            approvedBy: null,
+          },
+        });
+      }
+    }
     // 삭제하지 않고 survivor 를 가리키게 둔다 (FR-05-B-04).
     // 상세로 접근하면 survivor 로 보낸다 (FR-05-B-05)
     // ⚠️ 흡수된 도감마다 **자기가 내보낸 아이템 목록**을 함께 남긴다 (D-181)
@@ -403,9 +511,24 @@ export async function undoMergeCodex(
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   const codex = await prisma.codexItem.findUnique({
     where: { id: absorbedId },
-    select: { mergedIntoId: true, mergedItemIds: true },
+    select: { mergedIntoId: true, mergedItemIds: true, normalizedKey: true, categoryId: true },
   });
   if (!codex?.mergedIntoId) return fail({}, "병합된 도감이 아닙니다");
+
+  /*
+    ⚠️ **어느 병합이었는지 찾는다** (D-196). 이 행이 있기 전에는 "이 alias 는 그
+    병합에서 왔다"고 쓸 대상이 없어 되돌릴 때 alias 를 손댈 수 없었다 (OI-93).
+    되돌리지 않은 것 중 **가장 최근** 것이 이 도감을 흡수한 병합이다.
+  */
+  const mergeRow = await prisma.codexMerge.findFirst({
+    where: {
+      survivorId: codex.mergedIntoId,
+      revertedAt: null,
+      absorbed: { array_contains: [{ codexItemId: absorbedId }] },
+    },
+    orderBy: { mergedAt: "desc" },
+    select: { id: true, absorbed: true },
+  });
 
   /*
     ⚠️ **아이템을 되돌린다** (D-181, OI-62). 초판은 `mergedIntoId` 만 끊어서
@@ -421,6 +544,20 @@ export async function undoMergeCodex(
       )
     : [];
 
+  /*
+    ⚠️ **매칭 인덱스를 직전 상태로 되돌린다** (FR-05-C-05, D-194·D-196).
+    이것이 없으면 병합을 되돌려도 **유저 입력이 계속 survivor 로 빨려가** 병합
+    취소가 반쪽이 된다.
+
+    ⚠️ **지우지 않고 옮긴다.** 지우면 흡수 도감이 자기 정식 값을 잃어 되살아난
+    뒤에도 매칭으로 닿지 않는다 — PRD 초안의 `deleteMany` 는 이 점을 놓쳤다.
+
+    ⚠️ **다른 출처의 키 alias 는 건드리지 않는다** (FR-05-C-06). 아래 목록은 이
+    병합이 옮긴 행만 담고 있고, 어드민이 손댄 행은 `source` 가 `ADMIN` 으로
+    바뀌어도 **id 로 찾으므로** 직전 상태(그때 기록한 kind/source)로 돌아간다.
+  */
+  const movedKeys = mergedEntryOf(mergeRow?.absorbed, absorbedId);
+
   const restored = await prisma.$transaction(async (tx) => {
     const r =
       ids.length > 0
@@ -429,11 +566,35 @@ export async function undoMergeCodex(
             data: { codexItemId: absorbedId },
           })
         : { count: 0 };
+
+    for (const k of movedKeys) {
+      // 그 뒤 다른 병합으로 또 옮겨갔을 수 있다 — **survivor 를 가리키는 것만**
+      // 되돌린다 (아이템에 적용한 것과 같은 판단: 남의 병합 결과를 훔치지 않는다)
+      await tx.codexMatchKey.updateMany({
+        where: { id: k.id, codexItemId: codex.mergedIntoId! },
+        data: {
+          codexItemId: absorbedId,
+          kind: k.kind,
+          source: k.source,
+          sourceMergeId: k.sourceMergeId,
+        },
+      });
+    }
+
     await tx.codexItem.update({
       where: { id: absorbedId },
-      // 기록도 지운다 — 되돌린 뒤에 남아 있으면 두 번 되돌릴 수 있다
-      data: { mergedIntoId: null, mergedItemIds: [] },
+      // ⚠️ **기록을 지우지 않는다** (FR-05-C-07, D-196). 두 번 되돌리기 방지는
+      // `CodexMerge.revertedAt` 이 한다. 비우면 되돌린 병합이 있었다는 사실
+      // 자체가 사라져 D-016 "이력 보존"의 취지와 어긋난다
+      data: { mergedIntoId: null },
     });
+
+    if (mergeRow) {
+      await tx.codexMerge.update({
+        where: { id: mergeRow.id },
+        data: { revertedBy: ADMIN_ACTOR, revertedAt: new Date() },
+      });
+    }
     return r.count;
   });
 

@@ -163,7 +163,7 @@ model AdminUser {
   /// D-104 — **누가 권한을 줬는가.** `AdminUser.id`.
   /// 권한 상승 경로에는 경로 자체의 이력이 필요하다.
   /// 최초 어드민은 시드로 들어오므로 `null` 이다 (화면으로 만들 수 없다)
-  invitedBy String?
+  invitedBy     String?
   /// 회수도 조치다 (D-104)
   deactivatedBy String?
   deactivatedAt DateTime?
@@ -183,7 +183,7 @@ model User {
   email    String?
 
   /// 유저 설정 언어. NEW 피드 언어권 필터의 기준값이다 (D-027, FR-03-B-02)
-  language Locale @default(en)
+  language Locale  @default(en)
   /// 경험치 1일 1회 판정 기준 (M-10, D-056). IANA tz name
   /// ⚠️ **null = 아직 수집 안 됨** (D-122). `@default("UTC")` 였을 때는
   /// "수집 안 됨"과 "진짜 UTC 유저"를 구분할 수 없어, 이미 기록됐는지
@@ -195,21 +195,21 @@ model User {
   /// 탈퇴 시각. 방·아이템·일기는 삭제하고 도감은 유지한다 (NFR-User)
   deletedAt DateTime?
 
-  room           Room?
-  sanctions      Sanction[]
-  experienceLogs ExperienceLog[]
-  blocksMade     Block[]         @relation("blocker")
-  blocksReceived Block[]         @relation("blocked")
-  comments       Comment[]
-  following      Follow[]        @relation("follower")
-  followers      Follow[]        @relation("following")
-  reportsMade    Report[]        @relation("reporter")
-  brandRequests  BrandRequest[]
-  createdCodex   CodexItem[]     @relation("codexCreator")
-  notifications  Notification[]
+  room                Room?
+  sanctions           Sanction[]
+  experienceLogs      ExperienceLog[]
+  blocksMade          Block[]         @relation("blocker")
+  blocksReceived      Block[]         @relation("blocked")
+  comments            Comment[]
+  following           Follow[]        @relation("follower")
+  followers           Follow[]        @relation("following")
+  reportsMade         Report[]        @relation("reporter")
+  brandRequests       BrandRequest[]
+  createdCodex        CodexItem[]     @relation("codexCreator")
+  notifications       Notification[]
   /// 선호 카테고리 (D-124). **NEW 피드 첫 진입 기본 필터로만 쓴다** —
   /// 추천 알고리즘에 쓰지 말 것. D-006(전체 노출)을 뒤집는 결정이 된다
-  preferredCategories Category[] @relation("userPreferredCategories")
+  preferredCategories Category[]      @relation("userPreferredCategories")
 
   /// ⚠️ **봇 계정인가** (D-146). 콘텐츠를 사람이 올린 것으로 오인하지 않기
   /// 위한 표식이다. 원칙 1("소유하는 동안 데이터가 쌓인다")과 마켓 신뢰
@@ -224,13 +224,11 @@ model User {
 
 /**
  * 봇 계정 자격증명 (D-146).
- *
  * ## ⚠️ 유저 로그인 경로가 아니다
  * `FR-05-A-02` 는 **이메일/비밀번호 가입을 제공하지 않는다** (D-021). 그래서
  * 비밀번호를 `User` 에 두지 않고 **별도 테이블로 분리**한다 — 유저 인증 코드가
  * 이 컬럼을 볼 일이 없어야 하고, 나중에 누가 "로그인에 쓰자"고 하기 어려워야
  * 한다.
- *
  * 검증은 **로컬 어드민 화면에서만** 일어난다 (D-146).
  */
 model BotAccount {
@@ -239,7 +237,7 @@ model BotAccount {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 어드민이 입력하는 로그인 아이디. 이메일이 아니다
-  loginId String @unique
+  loginId      String @unique
   /// `scrypt` 해시 — `salt:hash` 형식. 평문을 저장하지 않는다
   passwordHash String
 
@@ -380,7 +378,7 @@ model Category {
   codexItems  CodexItem[]
   items       Item[]
   brands      Brand[]
-  preferredBy  User[] @relation("userPreferredCategories")
+  preferredBy User[]                 @relation("userPreferredCategories")
   matchingKey MatchingKeyDefinition?
   /// 이 카테고리 아이템을 **마켓에 올릴 수 있는가** (D-173, OI-85 해소).
   ///
@@ -389,8 +387,7 @@ model Category {
   ///
   /// 카테고리를 코드에 열거해 예외를 두지 않는다 — 어드민이 카테고리를 늘리면
   /// (A-01) 그때마다 예외 목록을 고쳐야 하고, 빠뜨리면 팔 수 없는 것이 팔린다.
-  sellable Boolean @default(true)
-
+  sellable    Boolean                @default(true)
 }
 
 /// D-010 — 공통 속성 라이브러리. 여러 카테고리가 참조한다 (A-01 규칙)
@@ -576,19 +573,156 @@ model CodexItem {
   ///
   /// 되돌린 뒤에는 비운다 — 남겨두면 두 번 되돌릴 수 있다.
   mergedItemIds Json?
-  mergedIntoId String?
-  mergedInto   CodexItem?  @relation("codexMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
-  mergedFrom   CodexItem[] @relation("codexMerge")
+  mergedIntoId  String?
+  mergedInto    CodexItem?  @relation("codexMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom    CodexItem[] @relation("codexMerge")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   items Item[]
 
+  /// D-197 — 정식 값(PRIMARY) + 키 alias(ALIAS)
+  matchKeys        CodexMatchKey[]
+  /// D-196 — 이 도감이 survivor 였던 병합들
+  mergesAsSurvivor CodexMerge[]    @relation("mergeSurvivor")
+
   /// D-014 — normalizedKey는 Category 단위 유일
   @@unique([categoryId, normalizedKey])
   @@index([verification])
   @@index([uniqueId])
+}
+
+/// D-192 — 정식 값이냐 동의어냐
+enum MatchKeyKind {
+  PRIMARY
+  ALIAS
+}
+
+/// D-194 — 어디서 들어왔는가. FR-05-C-05·C-06 이 이 값으로 갈린다
+enum MatchKeySource {
+  /// CodexItem.normalizedKey 의 미러 (백필·삽입 규칙이 만든다)
+  SYSTEM
+  /// FR-05-B-09 — 병합이 흡수 도감의 정식 값을 넘겨준 것
+  MERGE
+  /// 어드민 수동 (A-07)
+  ADMIN
+  /// AI 조사 제안 중 어드민이 승인한 것 (FR-06-C-05)
+  AI_APPROVED
+}
+
+/// D-197 — 매칭 인덱스. **정식 값과 키 alias 를 한 테이블에 둔다.**
+///
+/// ⚠️ **나누면 유일성을 걸 수 없다.** FR-02-B-06 의 유일성 범위는
+/// `normalizedKey` ∪ 키 alias 인데 DB 제약은 한 테이블 안에서만 걸린다.
+/// 애플리케이션에서 미리 세는 방식은 경합에 뚫린다 — FR-03-B-05 가 이미
+/// 같은 이유로 유니크 제약에 의존한다.
+///
+/// ⚠️ **`CodexItem.normalizedKey` 를 대체하지 않는다.** 무엇이 정식 값인지가
+/// D-186 가드(슬러그 차단)와 D-195(정식 값 정의)의 판정 기준이다. PRIMARY 행은
+/// 그 미러이고 삽입 규칙 한 곳(`lib/codex-insert.ts`)에서만 함께 쓴다.
+model CodexMatchKey {
+  id String @id @default(cuid())
+
+  /// CodexItem.categoryId 의 사본 — 유일 제약이 이 컬럼을 쓴다
+  categoryId  String
+  codexItemId String
+  codexItem   CodexItem @relation(fields: [codexItemId], references: [id], onDelete: Cascade)
+
+  /// D-014 정규화를 거친 값. 복합 키는 `|` 로 결합된 전체다 (E-02-09)
+  value String
+  kind  MatchKeyKind
+
+  source MatchKeySource
+
+  /// D-196 — FR-05-C-05 가 이 FK 하나로 걷어낸다.
+  /// 어드민이 손대면 source 가 ADMIN 으로 바뀌어 삭제 대상에서 빠진다 (E-05-10)
+  sourceMergeId String?
+  sourceMerge   CodexMerge? @relation(fields: [sourceMergeId], references: [id], onDelete: SetNull)
+
+  /// FR-06-C-05 — AI 제안은 이 값이 있어야 매칭에 쓰인다.
+  /// PRIMARY 와 MERGE 는 승인 개념이 없으므로 null 이어도 매칭된다
+  approvedBy String?
+
+  createdAt DateTime @default(now())
+
+  /// ⚠️ FR-02-B-06 — 정식 값과 키 alias 를 합친 전체 집합의 유일성
+  @@unique([categoryId, value])
+  @@index([codexItemId])
+  @@index([sourceMergeId])
+}
+
+/// D-196 — **병합 1회 = 1행.**
+///
+/// ⚠️ 이것이 없어서 OI-93 이 막혀 있었다. 병합 상태가 `CodexItem` 행에 흩어져
+/// 있어(`mergedIntoId`·`mergedItemIds`) 한 번의 병합이 N 개 행에 나뉘고,
+/// **"이 alias 는 그 병합에서 왔다"고 쓸 id 가 존재하지 않았다.**
+///
+/// ⚠️ FR-05-C-01 의 **실행자·일시가 지금까지 어디에도 없었다.**
+/// `MatchingKeyChangeLog` 는 changedBy/changedAt 를 갖는데 병합만 없었다.
+model CodexMerge {
+  id         String @id @default(cuid())
+  categoryId String
+
+  survivorId String
+  survivor   CodexItem @relation("mergeSurvivor", fields: [survivorId], references: [id], onDelete: Cascade)
+
+  /// `[{ codexItemId, movedItemIds: string[] }]` — 흡수 도감과 각각이 내보낸 아이템
+  absorbed Json
+
+  /// FR-05-C-01
+  mergedBy String
+  mergedAt DateTime @default(now())
+
+  /// FR-05-C-07 — ⚠️ 되돌려도 행을 지우지 않는다.
+  /// 두 번 되돌리기 방지는 이 값이 한다 (CodexItem.mergedItemIds 를 비울 필요가 없어졌다)
+  revertedBy String?
+  revertedAt DateTime?
+
+  keyAliases CodexMatchKey[]
+
+  @@index([survivorId])
+  @@index([categoryId, mergedAt])
+}
+
+/// D-198 — 매칭 결과
+enum MatchOutcome {
+  /// 정식 값 일치
+  EXACT
+  /// 키 alias 일치 (FR-03-E-01)
+  KEY_ALIAS
+  /// 미스 → 미검증 도감 자동 생성 (FR-03-B-01)
+  CREATED
+}
+
+/// D-198 — 매칭 계측. **H11 판별자이자 키 alias 후보 큐(FR-06-C-09)다.**
+///
+/// ⚠️ `outcome` 만 세면 미스 원인이 **단위 차이**인지 **도감 부재**인지 모른다.
+/// 검색은 부분일치이므로(FR-06-B-01) **같은 값으로 검색하면 나오는데 등록은
+/// 미스** = 단위 차이(OI-97 유형)다. CREATED 일 때만 검색을 한 번 돌아 남긴다.
+///
+/// ⚠️ **userId·itemId 를 넣지 않는다** (FR-03-E-09). 집계가 목적이고 후보 큐에는
+/// topHitCodexId 면 충분하다 — 용도가 없는 수집은 하지 않는다.
+model CodexMatchLog {
+  id String @id @default(cuid())
+
+  categoryId String
+  /// 복합 키 카테고리의 미스 분포를 브랜드별로 본다. FK 를 걸지 않는다(로그)
+  brandId    String?
+
+  /// 정규화된 시도값
+  attempted String
+  outcome   MatchOutcome
+
+  /// ⚠️ CREATED 일 때만 채운다 — H11 판별자
+  searchHits    Int?
+  /// 1순위 후보 = 키 alias 후보. 삭제된 도감을 가리킬 수 있어 FK 를 걸지 않는다
+  topHitCodexId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([categoryId, outcome, createdAt])
+  @@index([categoryId, attempted])
 }
 
 // ---------------------------------------------------------------------------
@@ -646,14 +780,14 @@ model Item {
   photos          ItemPhoto[]
   attributeValues ItemAttributeValue[]
   diaries         DiaryItem[]
+  /// 착용샷 (D-148) — 아이템 종속 1:N. 일기(N:M, D-054)와 다른 층이다
+  wearShots       WearShot[]
 
   @@index([visibility, saleStatus, createdAt])
   /// 마켓 기본 정렬 (D-048) — 판매중만 훑는다
   @@index([saleStatus, onSaleAt])
   @@index([roomId, categoryId])
   @@index([codexItemId])
-  /// 착용샷 (D-148) — 아이템 종속 1:N. 일기(N:M, D-054)와 다른 층이다
-  wearShots WearShot[]
 }
 
 /// D-037 — 최대 10장, 1장 이상 필수 (M-07). 첫 장이 대표 이미지
@@ -825,7 +959,6 @@ model Notification {
 
 /**
  * 착용샷 — "오늘 이거 썼다" (D-148).
- *
  * ## ⚠️ 일기와 다른 층이다
  * | | 일기 (D-054) | 착용샷 |
  * |---|---|---|
@@ -833,14 +966,11 @@ model Notification {
  * | 본문 | 1000자 | **짧은 노트 1개** |
  * | 사진 | 최대 10장, **선택** | **1장 필수** |
  * | 성격 | **사건** 기록 ("이번 캠핑에…") | **하루** 기록 ("오늘 이거 찼다") |
- *
  * D-054 가 1:N 을 탈락시킨 이유는 "일기가 아이템 설명과 구분되지 않는다" 였다.
  * 착용샷은 **애초에 아이템에 붙는 기록**이므로 그 문제가 없다.
- *
  * ## ⚠️ 아이템당 하루 1장 (D-148)
  * `@@unique([itemId, wornOn])` 이 **유일한 보장**이다. 애플리케이션에서
  * "오늘 있나"를 세는 방식은 동시 요청에 뚫린다 — `ExperienceLog` 와 같은 구조다.
- *
  * `wornOn` 은 **유저 타임존 기준 날짜 문자열**(`YYYY-MM-DD`)이다 (D-056).
  * `DateTime` 으로 두면 자정 근처에서 UTC 로 하루가 갈린다.
  */
@@ -857,13 +987,12 @@ model WearShot {
   /// ⚠️ 유저 타임존 기준 `YYYY-MM-DD` (D-056). `DateTime` 금지
   wornOn String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  comments  Comment[]
 
   /// 아이템당 하루 1장 — 위 주석 참조
   @@unique([itemId, wornOn])
   /// 목록은 최신순 (S-25)
   @@index([itemId, wornOn])
-  comments Comment[]
-
 }
