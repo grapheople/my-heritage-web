@@ -35,7 +35,8 @@
     "db:backfill-match-keys": "tsx prisma/backfill-match-keys.ts",
     "mcp": "tsx mcp/server.ts",
     "attrs:camping": "tsx prisma/setup-camping-subtypes.ts",
-    "attrs:scope-options": "tsx prisma/scope-accessory-options.ts"
+    "attrs:scope-options": "tsx prisma/scope-accessory-options.ts",
+    "attrs:bicycle-parts": "tsx prisma/setup-bicycle-parts.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
