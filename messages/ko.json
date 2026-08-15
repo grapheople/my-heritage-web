@@ -362,7 +362,7 @@
     "photoMoveLeft": "앞으로 이동",
     "nickname": "내 별칭",
     "nicknameHint": "같은 물건을 2개 이상 가졌을 때 구분용이에요. 예: 출근용",
-    "matchingKeyHint": "모르면 비워두세요. 도감에 연결되지 않은 채로 등록됩니다"
+    "matchingKeyHint": "정확하게 입력하면 도감과 연결됩니다. 등록되지 않은 {field} 값은 검증 후 도감에 등록됩니다"
   },
   "opt": {
     "auto": "오토",

@@ -76,7 +76,17 @@ export function AttrField({
       */}
       {def.matchingKey && !def.required && (
         <p className="mt-1 text-xs text-muted-foreground">
-          {t("reg.matchingKeyHint")}
+          {/*
+            ⚠️ **필드 이름을 문구에 하드코딩하지 않는다** (D-187). 이 안내는
+            **매칭 키 항목마다** 붙는데 항목은 카테고리마다 다르다 — 시계는
+            `레퍼런스`, 신발은 `스타일 코드`, 자전거는 브랜드·모델명·**제조년도**
+            3개, 운동은 `운동명`이다. 한 이름을 박으면 나머지에서 전부 거짓말이
+            된다. D-187 이 `codexNotLinked` 에서 같은 실수를 고쳤다.
+
+            ⚠️ 한국어는 보간값 뒤에 **고정 명사(`값`)** 를 붙인다 — 받침에 따라
+            `은/는` 이 갈리고 ICU 가 맞춰주지 못한다 (D-172·D-187 과 같은 제약).
+          */}
+          {t("reg.matchingKeyHint", { field: def.label })}
         </p>
       )}
 
