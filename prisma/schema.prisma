@@ -374,14 +374,16 @@ model Category {
   displayOrder Int     @default(0)
   active       Boolean @default(true)
 
-  attributes  CategoryAttribute[]
-  codexItems  CodexItem[]
-  items       Item[]
-  brands      Brand[]
-  preferredBy User[]                 @relation("userPreferredCategories")
-  matchingKey MatchingKeyDefinition?
+  attributes    CategoryAttribute[]
+  codexItems    CodexItem[]
+  items         Item[]
+  brands        Brand[]
+  preferredBy   User[]                 @relation("userPreferredCategories")
+  matchingKey   MatchingKeyDefinition?
   /// D-207 — 하위 제품군 (캠핑의 텐트·침낭·랜턴). 대부분의 카테고리는 비어 있다
-  subtypes    CategorySubtype[]
+  subtypes      CategorySubtype[]
+  /// D-209 — 이 카테고리에서만 보이는 선택지 (시계의 `여분 링크`)
+  scopedOptions AttributeOption[]
   /// 이 카테고리 아이템을 **마켓에 올릴 수 있는가** (D-173, OI-85 해소).
   ///
   /// ⚠️ 운동처럼 **소유물이 아닌 카테고리**가 생기면서 필요해졌다 (D-166).
@@ -389,7 +391,7 @@ model Category {
   ///
   /// 카테고리를 코드에 열거해 예외를 두지 않는다 — 어드민이 카테고리를 늘리면
   /// (A-01) 그때마다 예외 목록을 고쳐야 하고, 빠뜨리면 팔 수 없는 것이 팔린다.
-  sellable    Boolean                @default(true)
+  sellable      Boolean                @default(true)
 }
 
 /// D-207 — **카테고리 하위 제품군.** 캠핑의 텐트·침낭·랜턴처럼
@@ -516,10 +518,25 @@ model CategoryAttribute {
 }
 
 /// select / multiselect 선택지. key는 불변이고 라벨만 변경된다 (A-05 규칙)
+///
+/// ## ⚠️ 선택지는 카테고리마다 다를 수 있다 (D-209)
+/// 공통 속성 라이브러리(D-010)의 목적은 **번역 재사용**이다. `포함 부속품`
+/// 이라는 **개념은 공통**이 맞다 — 어느 카테고리든 "무엇이 함께 왔는가"가 있다.
+/// 그런데 **선택지는 다르다**: 시계의 `여분 링크`(브레이슬릿 링크)가 캠핑 텐트
+/// 등록 폼에 떴다.
+///
+/// **D-168 과 같은 층의 문제다** — 라벨이 `AttributeDefinition` 에 있어 키 단위
+/// 전역이라 운동의 `model` 이 "모델명"으로 떴고 `CategoryAttribute` 에 override
+/// 를 뒀다. 선택지도 같은 이유로 전역이었다.
 model AttributeOption {
   id                    String              @id @default(cuid())
   attributeDefinitionId String
   attributeDefinition   AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Cascade)
+
+  /// D-209 — `null` 이면 **전 카테고리 공통**, 값이 있으면 **그 카테고리에서만**
+  /// 노출된다. 커스텀 속성은 애초에 한 카테고리에만 붙으므로 대개 `null` 이다
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   key     String
   /// enum 값도 3개 언어 관리 대상 (policies/i18n §3 — 가장 흔한 누락 지점)

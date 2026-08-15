@@ -48,7 +48,8 @@ export async function categoryFields(categoryKey: string): Promise<BotField[]> {
               options: {
                 where: { active: true },
                 orderBy: { displayOrder: "asc" },
-                select: { key: true, labelKo: true },
+                // D-209 — `null` 이면 공통, 값이면 그 카테고리 전용
+                select: { key: true, labelKo: true, categoryId: true },
               },
             },
           },
@@ -68,7 +69,13 @@ export async function categoryFields(categoryKey: string): Promise<BotField[]> {
       type: d.type,
       required: a.required,
       label: a.labelKo ?? d.labelKo,
-      options: d.options.map((o) => ({ key: o.key, label: o.labelKo })),
+      /*
+        D-209 — **이 카테고리에서 안 쓰는 선택지를 뺀다.** 봇도 입력 경로다 —
+        프롬프트에 `여분 링크` 가 있으면 모델이 캠핑 아이템에 그것을 넣는다
+      */
+      options: d.options
+        .filter((o) => o.categoryId === null || o.categoryId === category.id)
+        .map((o) => ({ key: o.key, label: o.labelKo })),
       isMatchingKey: keys.has(d.key),
     };
   });
