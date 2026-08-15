@@ -2,7 +2,9 @@ import { AdminActionButton } from "@/components/admin/action-button";
 import { setBrandActive } from "@/lib/actions/admin";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
 import { BrandAliasEditor, BrandCreateForm } from "@/components/admin/brand-forms";
-import { getAdminBrands } from "@/lib/data/admin";
+import { AdminListControls, parseListParams } from "@/components/admin/list-controls";
+import { adminCategoryOptions } from "@/lib/admin-categories";
+import { getAdminBrandsPage } from "@/lib/data/admin";
 
 /**
  * A-11 브랜드 마스터 (item-catalog F-08, D-043 · D-047).
@@ -18,16 +20,24 @@ import { getAdminBrands } from "@/lib/data/admin";
  * ⚠️ **시드 290건 + alias 약 900건이 아직 없다.** 지금 5건은 개발용이다 —
  * 시드 없이 출시하면 첫 아이템 등록부터 막힌다 (PM 액션 대기).
  */
-/** 어드민은 ko 단일이다 (D-030) */
-const CATEGORY_LABEL: Record<string, string> = {
-  watch: "시계", shoes: "신발", bicycle: "자전거",
-  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어", workout: "운동",
-};
-
-export default async function AdminBrandsPage() {
-  const brands = await getAdminBrands();
-  // 3개 언어 중 하나라도 alias 가 있으면 "있는" 것으로 본다 (D-047 은 언어별 문제다)
-  const missingAlias = brands.filter((b) => b.aliases.length === 0).length;
+export default async function AdminBrandsPage({
+  searchParams,
+}: PageProps<"/admin/brands">) {
+  const params = parseListParams(await searchParams);
+  const [list, categories] = await Promise.all([
+    getAdminBrandsPage(params),
+    adminCategoryOptions(),
+  ]);
+  const brands = list.rows;
+  /*
+    ⚠️ **라벨 맵을 여기 두지 않는다** (D-182·D-185). `{ watch: "시계", … }` 를
+    화면마다 만들다가 **카테고리를 추가할 때마다 한 곳씩 빠졌다** — A-11 은
+    한동안 모든 브랜드를 "시계"로 표시했다. `adminCategoryOptions()` 하나만 쓴다
+  */
+  const label = new Map(categories.map((c) => [c.key, c.label]));
+  // 3개 언어 중 하나라도 alias 가 있으면 "있는" 것으로 본다 (D-047 은 언어별 문제다).
+  // ⚠️ **전체 기준**이다 — 페이지 기준으로 세면 2페이지에서 건수가 줄어든다
+  const missingAlias = list.missingAliasTotal;
   return (
     <AdminPage
       id="A-11" title="브랜드 마스터"
@@ -45,9 +55,10 @@ export default async function AdminBrandsPage() {
         판정은 **alias 없는 브랜드 수**로 한다 — 마스터에 이름만 있고 alias 가
         비면 유저에게는 브랜드가 **없는 것으로 보인다** (D-047).
       */}
-      {(brands.length === 0 || missingAlias > 0) && (
+      {/* ⚠️ 판정도 **전체 기준**이다 — 필터로 0건이 되면 '시드가 없습니다'가 뜬다 */}
+      {(list.total === 0 || missingAlias > 0) && (
         <div className="mb-4 rounded-lg border border-warn bg-warn-bg p-3 text-sm text-warn">
-          {brands.length === 0 ? (
+          {list.total === 0 ? (
             <>
               <b>시드가 없습니다.</b> 마스터가 비면 <b>첫 아이템 등록부터 막힙니다</b>{" "}
               (D-044·D-045). 복원: <code>pnpm db:import-brands prisma/brands.csv</code>
@@ -61,6 +72,13 @@ export default async function AdminBrandsPage() {
           )}
         </div>
       )}
+
+      <AdminListControls
+        categories={categories}
+        total={list.total}
+        filtered={list.filtered}
+        loadLimit={list.loadLimit}
+      />
 
       <Table head={["원문 (고정)", "alias", "연결 카테고리", "상태", "조치"]}>
         {brands.map((b) => (
@@ -80,7 +98,7 @@ export default async function AdminBrandsPage() {
             <Td className="text-muted-foreground">
               {b.categoryKeys.length === 0
                 ? "연결 없음"
-                : b.categoryKeys.map((k) => CATEGORY_LABEL[k] ?? k).join(" · ")}
+                : b.categoryKeys.map((k) => label.get(k) ?? k).join(" · ")}
             </Td>
             <Td>
               {b.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}

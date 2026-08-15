@@ -70,7 +70,7 @@ export async function getAdminBrands() {
       // 어드민이 어느 카테고리에 붙었는지 확인할 수 없었다
       categories: { select: { key: true } },
     },
-    take: 300,
+    take: ADMIN_LIST_LIMIT,
   });
   return rows.map((b) => {
     const a = (b.aliases ?? {}) as Record<string, unknown>;
@@ -86,6 +86,35 @@ export async function getAdminBrands() {
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
     };
   });
+}
+
+/**
+ * A-11 브랜드 마스터 — **검색 · 카테고리 필터 · 페이징**.
+ *
+ * ⚠️ 검색은 **이름 + 3개 언어 alias** 를 같은 정규화로 훑는다 (D-190 과 같은
+ * 규칙). `스노우피크` 로 찾으면 `Snow Peak` 가 나와야 한다 — 안 나오면
+ * 어드민이 중복 브랜드를 만들고, 그러면 D-043 의 목적이 무너진다.
+ *
+ * ⚠️ 카테고리 필터는 **연결 카테고리**를 본다 (N:M). 연결되지 않은 브랜드는
+ * 유저 선택 목록에 없으므로(D-044) 이 필터가 곧 "유저가 볼 수 있는 목록"이다.
+ */
+export async function getAdminBrandsPage(q: AdminListQuery = {}) {
+  const all = await getAdminBrands();
+  const filtered = all.filter((b) => {
+    if (q.category && !b.categoryKeys.includes(q.category)) return false;
+    if (!q.q) return true;
+    return matchesQuery([b.name, ...b.aliases], q.q);
+  });
+  return {
+    ...paginate(all, filtered, q),
+    /*
+      ⚠️ **경고는 전체 기준으로 센다.** 페이지·필터 기준으로 세면 검색 결과가
+      0건일 때 "시드가 없습니다"가 뜨고(실제로는 290건 있는데), 2페이지에서는
+      alias 누락 건수가 페이지 안 개수로 줄어든다. D-183 이 고친 것이 정확히
+      **늘 켜져 있거나 자기모순인 경고**였다 — 페이징으로 되살리지 않는다
+    */
+    missingAliasTotal: all.filter((b) => b.aliases.length === 0).length,
+  };
 }
 
 /**
@@ -175,6 +204,48 @@ export async function getAdminCategoryAttributes() {
   });
 }
 
+/**
+ * 어드민 목록 조회 상한 (D-160 — 절단을 숨기지 않는다).
+ *
+ * ## ⚠️ 왜 DB 가 아니라 애플리케이션에서 거르는가
+ * 검색이 **매칭·유저 검색과 같은 정규화**(D-014)를 써야 한다. `126610-LN` 로
+ * 찾았는데 `126610ln` 도감이 안 나오면 어드민이 "없다"고 판단해 중복을 만든다.
+ * 그 규칙을 SQL 로 옮기면 **정규화가 두 벌**이 되고, D-190 이 브랜드 게이트에서
+ * 겪은 실패(자체 규칙을 들고 있어 `SnowPeak`·`스노우피크` 가 전부 거부됨)를
+ * 반복한다. alias(Json)까지 같은 규칙으로 훑으려면 더욱 그렇다.
+ *
+ * `searchCodex` 도 같은 이유로 300건을 받아 앱에서 랭킹한다. 현재 규모(도감
+ * 273 · 브랜드 290)에서 충분하고, **상한에 걸리면 화면이 알린다.**
+ */
+const ADMIN_LIST_LIMIT = 1000;
+
+export type AdminListQuery = {
+  q?: string;
+  category?: string;
+  page?: number;
+  size?: number;
+};
+
+/** 정규화 부분일치 — 매칭·검색과 **같은 규칙**을 쓴다 (D-014) */
+function matchesQuery(haystacks: (string | null | undefined)[], q: string): boolean {
+  const nq = normalizeBrandToken(q);
+  if (!nq) return true;
+  return haystacks.some((h) => h && normalizeBrandToken(h).includes(nq));
+}
+
+/** 필터 뒤 페이지를 자른다. `total` 은 필터 **전**, `filtered` 는 필터 **후** */
+function paginate<T>(all: T[], filteredRows: T[], opts: AdminListQuery) {
+  const size = opts.size ?? 50;
+  const lastPage = Math.max(1, Math.ceil(filteredRows.length / size));
+  const page = Math.min(Math.max(1, opts.page ?? 1), lastPage);
+  return {
+    rows: filteredRows.slice((page - 1) * size, page * size),
+    total: all.length,
+    filtered: filteredRows.length,
+    loadLimit: ADMIN_LIST_LIMIT,
+  };
+}
+
 /** A-04·A-05·A-07 도감 목록. 보유자 수는 **전체 기준**이다 (운영은 차단을 안 본다) */
 export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
   const rows = await prisma.codexItem.findMany({
@@ -204,7 +275,7 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
         orderBy: { createdAt: "asc" as const },
       },
     },
-    take: 200,
+    take: ADMIN_LIST_LIMIT,
   });
   const labels = new Map(
     await Promise.all(
@@ -245,6 +316,29 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       })),
     };
   });
+}
+
+/**
+ * A-04·A-07 도감 목록 — **검색 · 카테고리 필터 · 페이징**.
+ *
+ * ⚠️ 검색 대상은 **명칭 · 고유값 · 정식 값 · 명칭 alias · 키 alias** 전부다.
+ * 어드민이 `1460` 으로 찾았는데 그것이 키 alias 인 도감이 안 나오면, 이미
+ * 처리한 값을 또 처리하게 된다.
+ */
+export async function getAdminCodexPage(
+  q: AdminListQuery & { unverifiedOnly?: boolean } = {},
+) {
+  const all = await getAdminCodex({ unverifiedOnly: q.unverifiedOnly });
+  const filtered = all.filter((c) => {
+    // ⚠️ `categoryKey` 는 `category.watch` 형태다 — 접두를 떼고 비교한다
+    if (q.category && c.categoryKey !== `category.${q.category}`) return false;
+    if (!q.q) return true;
+    return matchesQuery(
+      [c.displayName, c.uniqueId, c.normalizedKey, ...c.aliases, ...c.keyAliases.map((k) => k.value)],
+      q.q,
+    );
+  });
+  return paginate(all, filtered, q);
 }
 
 /**

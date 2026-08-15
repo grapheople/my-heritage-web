@@ -6,7 +6,9 @@ import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { CodexResearchPanel } from "@/components/admin/codex-research-panel";
 import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
 import { setCodexVerification } from "@/lib/actions/admin";
-import { getAdminCodex, getCodexKeyForms } from "@/lib/data/admin";
+import { AdminListControls, parseListParams } from "@/components/admin/list-controls";
+import { adminCategoryOptions } from "@/lib/admin-categories";
+import { getAdminCodexPage, getCodexKeyForms } from "@/lib/data/admin";
 
 /**
  * A-04 도감 목록 · 직접 등록 · 편집 (codex F-04).
@@ -18,11 +20,16 @@ import { getAdminCodex, getCodexKeyForms } from "@/lib/data/admin";
  * 도감 명칭은 **원문 1개 고정**이고 번역하지 않는다 (D-009).
  * 설명은 검증본만 3개 언어다 (FR-07-A-05) — A-05 검증 큐에서 입력한다.
  */
-export default async function AdminCodexPage() {
-  const [codex, keyForms] = await Promise.all([
-    getAdminCodex(),
+export default async function AdminCodexPage({
+  searchParams,
+}: PageProps<"/admin/codex">) {
+  const params = parseListParams(await searchParams);
+  const [list, keyForms, categories] = await Promise.all([
+    getAdminCodexPage(params),
     getCodexKeyForms(),
+    adminCategoryOptions(),
   ]);
+  const codex = list.rows;
   /*
     자료 조사는 **로컬 전용**이다 (D-146·D-185) — 프로덕션 런타임에는 `claude`
     바이너리가 없다. 버튼을 숨기지 않고 이유를 붙여 비활성으로 둔다: 숨기면
@@ -50,6 +57,13 @@ export default async function AdminCodexPage() {
           disabledReason={researchReason}
         />
       </div>
+
+      <AdminListControls
+        categories={categories}
+        total={list.total}
+        filtered={list.filtered}
+        loadLimit={list.loadLimit}
+      />
 
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
         {codex.map((c) => (
