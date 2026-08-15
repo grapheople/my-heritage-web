@@ -117,6 +117,60 @@ export async function getAdminSubtypeAttributes(subtypeId: string) {
   }));
 }
 
+/**
+ * A-02 선택지 목록 (D-209, OI-100).
+ *
+ * ⚠️ **비활성·타 카테고리 스코프도 전부 낸다.** 어드민은 전체를 봐야 조치할
+ * 수 있다 — 화면에서 안 보이면 왜 유저 폼에 안 나오는지 알 수 없다.
+ */
+export async function getAdminAttributeOptions() {
+  const defs = await prisma.attributeDefinition.findMany({
+    where: { type: { in: ["select", "multiselect"] } },
+    orderBy: { key: "asc" },
+    select: {
+      key: true,
+      labelKo: true,
+      type: true,
+      isCommon: true,
+      options: {
+        orderBy: { displayOrder: "asc" },
+        select: {
+          id: true,
+          key: true,
+          labelKo: true,
+          labelJa: true,
+          labelEn: true,
+          active: true,
+          category: { select: { key: true } },
+        },
+      },
+      /** 어느 카테고리·제품군에 붙어 있는 속성인가 — 어디에 영향이 가는지 */
+      categoryAttributes: {
+        select: { category: { select: { key: true } }, subtype: { select: { key: true } } },
+      },
+    },
+  });
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.labelKo,
+    type: d.type,
+    isCommon: d.isCommon,
+    usedBy: [
+      ...new Set(
+        d.categoryAttributes.map((c) => c.category?.key ?? `[${c.subtype?.key}]`),
+      ),
+    ],
+    options: d.options.map((o) => ({
+      id: o.id,
+      key: o.key,
+      labels: { ko: o.labelKo, ja: o.labelJa, en: o.labelEn },
+      active: o.active,
+      /** D-209 — `null` 이면 전 카테고리 공통 */
+      scopedTo: o.category?.key ?? null,
+    })),
+  }));
+}
+
 /** A-11 브랜드 마스터 (D-043 · D-047) */
 export async function getAdminBrands() {
   const rows = await prisma.brand.findMany({

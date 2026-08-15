@@ -161,6 +161,135 @@ export async function setCategoryAttribute(input: {
 const MATCHING_KEY_TYPES = new Set(["text", "number", "select", "date"]);
 
 /* ────────────────────────────────────────────
+   A-02 선택지 관리 (D-209, OI-100)
+   ──────────────────────────────────────────── */
+
+/**
+ * 선택지 추가 (`select` / `multiselect`).
+ *
+ * ## ⚠️ `key` 는 만든 뒤 바꿀 수 없다
+ * 아이템 값이 **key 로 저장된다.** 바꾸면 이미 입력된 값이 어느 선택지인지
+ * 알 수 없게 된다 — 라벨만 바꾸는 것이 A-05 규칙이다.
+ *
+ * ## ⚠️ 3개 언어 필수 (D-010)
+ * `policies/i18n` §3 이 **선택지 번역 누락을 가장 흔한 지점**으로 지목한다.
+ * 속성명만 번역하고 선택지를 빼면 **일본어 화면에 한국어 옵션이 섞인다.**
+ */
+export async function createAttributeOption(input: {
+  attributeKey: string;
+  key: string;
+  labelKo: string;
+  labelJa: string;
+  labelEn: string;
+  /** D-209 — 비우면 전 카테고리 공통 */
+  categoryKey?: string;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const key = input.key.trim();
+  // 값으로 저장되므로 공백·특수문자를 막는다
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(key)) {
+    return fail({ key: "영문·숫자·하이픈·언더스코어 1~32자로 입력해주세요" });
+  }
+  const labels = {
+    labelKo: input.labelKo.trim(),
+    labelJa: input.labelJa.trim(),
+    labelEn: input.labelEn.trim(),
+  };
+  if (Object.values(labels).some((v) => !v)) {
+    return fail({ labelKo: "3개 언어를 모두 입력해주세요 (D-010)" });
+  }
+
+  const def = await prisma.attributeDefinition.findUnique({
+    where: { key: input.attributeKey },
+    select: { id: true, type: true, _count: { select: { options: true } } },
+  });
+  if (!def) return fail({}, "속성을 찾을 수 없습니다");
+  // 선택지를 갖지 않는 타입에 만들면 폼 어디에도 안 나온다 — 조용한 실패다
+  if (def.type !== "select" && def.type !== "multiselect") {
+    return fail({}, `${def.type} 타입에는 선택지가 없습니다`);
+  }
+
+  let categoryId: string | null = null;
+  if (input.categoryKey) {
+    const c = await prisma.category.findUnique({
+      where: { key: input.categoryKey },
+      select: { id: true },
+    });
+    if (!c) return fail({}, "카테고리를 찾을 수 없습니다");
+    categoryId = c.id;
+  }
+
+  try {
+    await prisma.attributeOption.create({
+      data: {
+        attributeDefinitionId: def.id,
+        key,
+        ...labels,
+        categoryId,
+        displayOrder: def._count.options,
+      },
+    });
+  } catch {
+    return fail({ key: "이미 있는 선택지입니다" });
+  }
+  revalidate("/admin/attributes");
+  return { ok: true };
+}
+
+/**
+ * 선택지 수정 — **라벨 · 노출 범위 · 활성 여부만** (A-05 규칙).
+ *
+ * ⚠️ **`key` 는 받지 않는다.** 받아놓고 무시하면 언젠가 누가 반영해버린다
+ * (`updateItemAs` 가 카테고리를 안 받는 것과 같은 태도 — FR-05-B-02).
+ *
+ * ⚠️ **삭제가 없다** (D-036). 이미 그 값을 고른 아이템이 있으면 라벨이
+ * 사라진다. 비활성화하면 **신규 입력만** 막히고 값은 보존된다.
+ */
+export async function updateAttributeOption(input: {
+  optionId: string;
+  labelKo?: string;
+  labelJa?: string;
+  labelEn?: string;
+  /** D-209 — `null` 이면 전 카테고리 공통으로 되돌린다. `undefined` 면 안 바꾼다 */
+  categoryKey?: string | null;
+  active?: boolean;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const labels = {
+    ...(input.labelKo === undefined ? {} : { labelKo: input.labelKo.trim() }),
+    ...(input.labelJa === undefined ? {} : { labelJa: input.labelJa.trim() }),
+    ...(input.labelEn === undefined ? {} : { labelEn: input.labelEn.trim() }),
+  };
+  if (Object.values(labels).some((v) => !v)) {
+    return fail({ labelKo: "라벨은 비울 수 없습니다 (D-010)" });
+  }
+
+  let scope: { categoryId: string | null } | Record<string, never> = {};
+  if (input.categoryKey !== undefined) {
+    if (input.categoryKey === null) scope = { categoryId: null };
+    else {
+      const c = await prisma.category.findUnique({
+        where: { key: input.categoryKey },
+        select: { id: true },
+      });
+      if (!c) return fail({}, "카테고리를 찾을 수 없습니다");
+      scope = { categoryId: c.id };
+    }
+  }
+
+  await prisma.attributeOption.update({
+    where: { id: input.optionId },
+    data: { ...labels, ...scope, ...(input.active === undefined ? {} : { active: input.active }) },
+  });
+  revalidate("/admin/attributes");
+  return { ok: true };
+}
+
+/* ────────────────────────────────────────────
    A-01 하위 제품군 (D-207)
    ──────────────────────────────────────────── */
 

@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
+import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
 import { AttributeCreateForm } from "@/components/admin/attribute-create-form";
 import { setCategoryAttribute } from "@/lib/actions/admin";
 import { adminCategoryOptions } from "@/lib/admin-categories";
 import {
+  getAdminAttributeOptions,
   getAdminCategoryAttributes,
   getAdminSubtypeAttributes,
   getAdminSubtypes,
 } from "@/lib/data/admin";
 import { SubtypeAttributes } from "@/components/admin/subtype-attributes";
+import { AttributeOptions } from "@/components/admin/attribute-options";
 
 const TYPE_LABEL: Record<string, string> = {
   text: "한 줄", textarea: "여러 줄", number: "숫자", select: "단일 선택",
@@ -38,6 +40,7 @@ export default async function AdminAttributesPage({
     adminCategoryOptions(),
     getAdminSubtypes(),
   ]);
+  const optionGroups = await getAdminAttributeOptions();
   /*
     ⚠️ **라벨 맵을 화면마다 만들지 않는다.** 같은 함정을 네 번 만났다 —
     D-173(A-01 이 운동을 빈칸으로) · D-182(A-11 이 전 브랜드를 "시계"로) ·
@@ -146,21 +149,24 @@ export default async function AdminAttributesPage({
         </section>
       )}
 
-      {/* ⚠️ 유저 노출 필드는 3개 언어 (D-010·D-030) */}
-      <section className="mt-8 rounded-lg border p-4">
-        <h2 className="text-sm font-bold">속성 추가 · 편집</h2>
-        <div className="mt-4 flex flex-col gap-4">
-          <TriLingualField label="속성명" name="label" required
-            values={{ ko: "무브먼트", ja: "ムーブメント", en: "Movement" }} />
-          <TriLingualField label="단위 (number 타입)" name="unit"
-            values={{ ko: "mm", ja: "mm", en: "mm" }} />
-          <TriLingualField label="선택지 1 (select·multiselect)" name="opt1"
-            values={{ ko: "오토", ja: "オート", en: "Automatic" }} />
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          ⚠️ 선택지 번역 누락이 가장 흔합니다. 속성명만 번역하고 선택지를 빼면
-          일본어 화면에 한국어 옵션이 섞입니다.
+      {/*
+        선택지 관리 (D-209, OI-100 해소). **여기 있던 것은 목업이었다** —
+        입력칸만 그려져 있고 서버 액션이 없어서 선택지 추가·스코프 변경이
+        **시드 스크립트로만** 가능했다.
+
+        ⚠️ 노출 범위가 이 화면의 핵심이다 — 시계의 `여분 링크`가 캠핑 텐트
+        폼에 뜨던 것(D-209)이 여기가 필요해진 이유다.
+      */}
+      <section className="mt-8">
+        <h2 className="text-sm font-bold">선택지 관리 (select · multiselect)</h2>
+        <p className="mt-1 mb-3 text-xs text-muted-foreground">
+          ⚠️ <b>선택지 번역 누락이 가장 흔합니다</b> (`policies/i18n` §3). 속성명만
+          번역하고 선택지를 빼면 <b>일본어 화면에 한국어 옵션이 섞입니다.</b>
+          <br />
+          공통 속성이라도 <b>선택지는 카테고리마다 다를 수 있습니다</b> — 노출 범위로
+          가립니다 (D-209).
         </p>
+        <AttributeOptions groups={optionGroups} categories={categories} />
       </section>
 
       <p className="mt-4 text-xs text-muted-foreground">
