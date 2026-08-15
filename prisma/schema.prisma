@@ -380,6 +380,8 @@ model Category {
   brands      Brand[]
   preferredBy User[]                 @relation("userPreferredCategories")
   matchingKey MatchingKeyDefinition?
+  /// D-207 — 하위 제품군 (캠핑의 텐트·침낭·랜턴). 대부분의 카테고리는 비어 있다
+  subtypes    CategorySubtype[]
   /// 이 카테고리 아이템을 **마켓에 올릴 수 있는가** (D-173, OI-85 해소).
   ///
   /// ⚠️ 운동처럼 **소유물이 아닌 카테고리**가 생기면서 필요해졌다 (D-166).
@@ -388,6 +390,51 @@ model Category {
   /// 카테고리를 코드에 열거해 예외를 두지 않는다 — 어드민이 카테고리를 늘리면
   /// (A-01) 그때마다 예외 목록을 고쳐야 하고, 빠뜨리면 팔 수 없는 것이 팔린다.
   sellable    Boolean                @default(true)
+}
+
+/// D-207 — **카테고리 하위 제품군.** 캠핑의 텐트·침낭·랜턴처럼
+/// **속성 집합이 서로 다른** 제품군을 가른다.
+///
+/// ## ⚠️ 카테고리를 계층화하지 않고 별도 축으로 둔 이유
+/// 카테고리 축은 **IA 의 뼈대**다 — 6개 오픈(D-007) · 필터 축(D-137) · 진열
+/// 섹션 · NEW 피드 필터 · sitemap · 브랜드 마스터 연결(D-044). 아이템이 자식
+/// 카테고리를 가리키면 **그 전부가 "부모냐 자식이냐"를 다시 판정**해야 한다.
+/// subtype 은 **등록 폼과 매칭에만** 영향하는 좁은 축이다.
+///
+/// 유저는 여전히 "캠핑" 탭에서 텐트·랜턴을 함께 본다 — 방 진열은 카테고리
+/// 단위이고 그것이 맞다.
+///
+/// ## ⚠️ 도감은 subtype 을 갖지 않는다 (D-207 결정 5)
+/// 도감 유일성을 subtype 으로 쪼개면 **같은 제품이 subtype 지정에 따라 두
+/// 도감으로 갈린다** — 한 유저는 "텐트"로 고르고 다른 유저는 안 고르면
+/// `Snow Peak TP-670` 이 둘이 된다. 원칙 4(도감은 연결점)가 무너진다.
+///
+/// **subtype 은 "무엇을 입력받는가"를 정하지, "무엇이 같은 물건인가"를
+/// 정하지 않는다.**
+model CategorySubtype {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// 카테고리 안에서 유일. i18n 키가 아니라 여기 라벨을 쓴다 —
+  /// 어드민이 런타임에 늘리므로 `messages/*.json` 에 둘 수 없다
+  key String
+
+  /// 유저 노출 필드라 3개 언어 필수 (D-010·D-030)
+  labelKo String
+  labelJa String
+  labelEn String
+
+  displayOrder Int     @default(0)
+  /// D-036 과 같은 태도 — 삭제가 아니라 비활성화. 값은 보존된다
+  active       Boolean @default(true)
+
+  attributes  CategoryAttribute[]
+  items       Item[]
+  matchingKey MatchingKeyDefinition? @relation("subtypeMatchingKeys")
+
+  @@unique([categoryId, key])
+  @@index([categoryId, active, displayOrder])
 }
 
 /// D-010 — 공통 속성 라이브러리. 여러 카테고리가 참조한다 (A-01 규칙)
@@ -418,12 +465,27 @@ model AttributeDefinition {
 }
 
 /// A-02 규칙 — `required`·`active`·`displayOrder`는 카테고리별로 관리한다
+/// A-02 규칙 — `required`·`active`·`displayOrder`는 카테고리별로 관리한다.
+///
+/// ## ⚠️ 카테고리 **또는** 제품군 중 하나에 붙는다 (D-207)
+/// `MatchingKeyDefinition` 과 **같은 형태**다. 한 행이 둘 다 가지면
+/// `@@unique([categoryId, attributeDefinitionId])` 가 공통 행과 제품군 행을
+/// 같은 것으로 보고 막는다 — 캠핑 공통 `brand` 와 텐트 전용 `brand` 를 동시에
+/// 둘 수 없게 된다.
+///
+/// 등록 폼은 **공통(`categoryId`) + 선택된 제품군(`subtypeId`)** 을 합쳐 그린다.
 model CategoryAttribute {
   id                    String              @id @default(cuid())
-  categoryId            String
+  /// 카테고리 공통. 제품군 전용 행에서는 `null`
+  categoryId            String?
   attributeDefinitionId String
-  category              Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category              Category?           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   attributeDefinition   AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Restrict)
+
+  /// 제품군 전용(텐트의 수용 인원, 침낭의 내한 온도). 공통 행에서는 `null`.
+  /// 고르지 않으면 공통만 나오므로 **기존 6개 카테고리는 지금과 완전히 같다**
+  subtypeId String?
+  subtype   CategorySubtype? @relation(fields: [subtypeId], references: [id], onDelete: Cascade)
 
   required     Boolean @default(false)
   /// D-036 — 비활성화만. 값은 보존되고 표시에서 제외된다 (M-09)
@@ -445,8 +507,12 @@ model CategoryAttribute {
 
   values ItemAttributeValue[]
 
+  /// 공통 행끼리 유일. 제품군 행은 `categoryId` 가 `null` 이라 걸리지 않는다
   @@unique([categoryId, attributeDefinitionId])
+  /// 제품군 행끼리 유일
+  @@unique([subtypeId, attributeDefinitionId])
   @@index([categoryId, active, displayOrder])
+  @@index([subtypeId, active, displayOrder])
 }
 
 /// select / multiselect 선택지. key는 불변이고 라벨만 변경된다 (A-05 규칙)
@@ -511,10 +577,28 @@ model BrandRequest {
 // ---------------------------------------------------------------------------
 
 /// D-013 — 카테고리마다 매칭 키가 다르다 (단일 / 복합). A-03
+/// A-03 매칭 키 정의 (D-013).
+///
+/// ## ⚠️ 카테고리 **또는** 제품군 중 하나에 붙는다 (D-207)
+/// 두 소유자를 각각 `@unique` nullable 로 둔다 — Postgres 는 `null` 을 서로 다른
+/// 값으로 보므로 "카테고리당 1개 · 제품군당 1개"가 DB 제약으로 걸린다.
+///
+/// **1-1 관계를 유지한 것이 의도다.** 카테고리를 1-N 으로 바꾸면
+/// `category.matchingKey?.attributeKeys` 를 읽는 **10곳이 전부** 바뀐다.
+/// 텐트는 제조사 품번, 소품은 `brand+model` 처럼 제품군마다 다를 수 있고
+/// 그것이 D-195 가 캠핑에서 `[검증 필요]` 로 남긴 문제의 해소 경로다.
+///
+/// ⚠️ **도감 유일성은 여전히 카테고리 단위다** (D-207 결정 5). 매칭 키가
+/// 갈려도 같은 제품이 두 도감이 되면 안 된다.
 model MatchingKeyDefinition {
-  id         String   @id @default(cuid())
-  categoryId String   @unique
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  /// 카테고리 기본값. 제품군 전용 행에서는 `null`
+  categoryId String?   @unique
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// 제품군 전용. 카테고리 기본 행에서는 `null`
+  subtypeId String?          @unique
+  subtype   CategorySubtype? @relation("subtypeMatchingKeys", fields: [subtypeId], references: [id], onDelete: Cascade)
 
   /// AttributeDefinition.key 배열. 순서가 정규화 키 생성 순서다 (FR-01-A-05)
   /// 최소 1개 (FR-01-A-03). text/number/select/date 타입만 (FR-01-A-06)
@@ -738,6 +822,12 @@ model Item {
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  /// D-207 — 하위 제품군(캠핑의 텐트·랜턴). **선택이다.**
+  /// `null` 이면 카테고리 공통 속성만 쓰며 기존 6개 카테고리는 전부 그렇다 —
+  /// 그래서 이 필드가 생겨도 **기존 데이터 마이그레이션이 없다**
+  subtypeId String?
+  subtype   CategorySubtype? @relation(fields: [subtypeId], references: [id], onDelete: SetNull)
 
   /// M-08 — 자유 텍스트가 아니다 (D-043). 브랜드 요청 대기 중이면 null (D-046)
   brandId String?

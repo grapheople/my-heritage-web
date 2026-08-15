@@ -142,20 +142,26 @@ async function main() {
       attributeDefinition: { select: { key: true } },
     },
   });
-  const bad = still.filter(
+  // ⚠️ `category` 가 nullable 이 됐다 (D-207) — 제품군 전용 행은 카테고리가
+  // 없다. 이 스크립트는 **카테고리 공통 행만** 다루므로 그것만 남긴다
+  const common = still.filter(
+    (a): a is typeof a & { category: NonNullable<(typeof a)["category"]> } =>
+      a.category !== null,
+  );
+  const name = (a: (typeof common)[number]) =>
+    `${a.category.key}.${a.attributeDefinition.key}`;
+  const bad = common.filter(
     (a) =>
       a.attributeDefinition.key !== "model" &&
       (a.category.matchingKey?.attributeKeys ?? ["uniqueId"]).includes(
         a.attributeDefinition.key,
       ),
   );
-  console.log(
-    `\n남은 필수 ${still.length}개 — ${still.map((a) => `${a.category.key}.${a.attributeDefinition.key}`).join(" ")}`,
-  );
+  console.log(`\n남은 필수 ${common.length}개 — ${common.map(name).join(" ")}`);
   console.log(
     bad.length === 0
       ? "✅ 필수인 매칭 키는 `model` 뿐"
-      : `❌ 아직 필수인 매칭 키: ${bad.map((a) => `${a.category.key}.${a.attributeDefinition.key}`).join(" ")}`,
+      : `❌ 아직 필수인 매칭 키: ${bad.map(name).join(" ")}`,
   );
 }
 
