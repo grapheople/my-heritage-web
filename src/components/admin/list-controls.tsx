@@ -3,6 +3,8 @@
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+// ⚠️ 서버 컴포넌트도 쓰는 규칙이라 클라이언트 모듈 밖에 둔다 (D-203)
+import { PAGE_SIZES, parseListParams } from "@/lib/admin-list-params";
 
 /**
  * 어드민 목록 공용 컨트롤 — 검색 · 카테고리 필터 · 페이지 크기 · 페이징.
@@ -17,24 +19,6 @@ import { useState, useTransition } from "react";
  * 3페이지에서 검색어를 넣으면 결과가 1페이지뿐이라 **빈 화면**이 된다.
  * 어드민은 그것을 "검색 결과 없음"으로 읽는다.
  */
-
-/** 페이지 크기 선택지 — PM 지정 */
-export const PAGE_SIZES = [10, 50, 100] as const;
-/** 기본값. 어드민 목록은 훑는 용도라 10 은 너무 잦게 넘긴다 */
-export const DEFAULT_PAGE_SIZE = 50;
-
-export function parseListParams(sp: Record<string, string | string[] | undefined>) {
-  const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
-  const size = Number(one("size"));
-  const page = Number(one("page"));
-  return {
-    q: one("q").trim(),
-    category: one("category"),
-    // 임의의 size 를 허용하면 목록 전체를 한 번에 뽑는 주소가 만들어진다
-    size: (PAGE_SIZES as readonly number[]).includes(size) ? size : DEFAULT_PAGE_SIZE,
-    page: Number.isFinite(page) && page > 1 ? Math.floor(page) : 1,
-  };
-}
 
 export function AdminListControls({
   categories,
