@@ -40,10 +40,31 @@ import { prisma } from "../src/lib/prisma";
  *
  * ⚠️ 힌트로 **확실하지 않은 코드를 짜내게 만들지 않는다** (D-186). 배색을
  * 지정하라고만 말하고, 모르면 내지 말라는 규칙은 프롬프트에 그대로 둔다.
+ *
+ * ## ⚠️ **"대표 제품"은 카테고리를 지키지 않는다** (D-216)
+ * 캠핑 223건 중 **19건이 의류·신발**이었다 — `Arc'teryx Alpha SV Jacket`,
+ * `Patagonia Down Sweater Jacket`, `Merrell Trail Glove 7`. 옷·캠핑 **겸업
+ * 브랜드가 10개**(Arc'teryx·Patagonia·Columbia·The North Face…)인데,
+ * 그 브랜드에서 **가장 유명한 것은 옷이기 때문**이다.
+ *
+ * 즉 기본 힌트는 브랜드만 말하고 **무엇을 만드는 브랜드인지는 말하지 않는다.**
+ * 겸업 브랜드에서 그 공백을 유명세가 메운다. **카테고리를 힌트에 박는다.**
  */
 function defaultHint(categoryKey: string, perBrand: number): string {
   if (categoryKey === "shoes") {
     return `이 브랜드에서 가장 유명한 신발 ${perBrand}개. 스타일 코드는 배색 단위이므로 확실히 아는 대표 배색의 스타일 코드를 쓰고, 명칭에 배색 이름을 넣으세요`;
+  }
+  if (categoryKey === "camping") {
+    // ⚠️ 제외를 명시한다 — 이 브랜드들의 대표 제품이 옷이라 안 막으면 옷이 온다
+    return `이 브랜드의 대표 **캠핑·아웃도어 장비** ${perBrand}개 (텐트·타프·침낭·매트·버너·랜턴·의자/테이블·쿨러·배낭). **의류(재킷·플리스·팬츠)와 신발은 제외합니다** — 그것은 다른 카테고리입니다`;
+  }
+  if (categoryKey === "apparel") {
+    /*
+      ⚠️ D-195 의 입도를 그대로 옮긴다 — `model` 정식 값은 **제품 라인 + 모델명**
+      이고 색상·사이즈는 뺀다. 안 적으면 `Nano Puff Jacket Black M` 같은 값이
+      섞여 같은 옷의 도감이 갈린다 (D-188 이 신발에서 겪은 자리)
+    */
+    return `이 브랜드에서 가장 널리 알려진 **의류** ${perBrand}개. 모델명은 **제품 라인 + 모델명**까지만 쓰고 **색상·사이즈는 넣지 마세요** (예: \`Nano Puff Jacket\`, \`Tech Fleece Hoodie\`). 가방·신발·모자 같은 액세서리는 제외합니다`;
   }
   return `이 브랜드에서 가장 널리 알려진 대표 제품 ${perBrand}개`;
 }

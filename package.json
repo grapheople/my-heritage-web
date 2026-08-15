@@ -38,7 +38,8 @@
     "attrs:scope-options": "tsx prisma/scope-accessory-options.ts",
     "attrs:bicycle-parts": "tsx prisma/setup-bicycle-parts.ts",
     "db:export-codex": "tsx prisma/export-codex.ts",
-    "db:import-codex": "tsx prisma/import-codex.ts"
+    "db:import-codex": "tsx prisma/import-codex.ts",
+    "db:fix-camping-mix": "tsx prisma/fix-camping-apparel.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
