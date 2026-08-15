@@ -160,6 +160,167 @@ export async function setCategoryAttribute(input: {
  */
 const MATCHING_KEY_TYPES = new Set(["text", "number", "select", "date"]);
 
+/* ────────────────────────────────────────────
+   A-01 하위 제품군 (D-207)
+   ──────────────────────────────────────────── */
+
+/**
+ * 제품군 생성. **캠핑의 텐트·랜턴처럼 속성 집합이 다른 제품군**을 만든다.
+ *
+ * ⚠️ **삭제가 없다** — D-036 과 같은 태도다. 이미 그 제품군으로 등록된 아이템이
+ * 있으면 속성값이 갈 곳을 잃는다. 비활성화하면 신규 선택만 막힌다.
+ *
+ * ⚠️ **3개 언어 필수** (D-010·D-030). 어드민 UI 는 ko 단일이지만 이 라벨은
+ * **유저 등록 폼에 보인다.** 하나만 채우면 그 언어 유저만 다른 이름을 본다.
+ */
+export async function createCategorySubtype(input: {
+  categoryKey: string;
+  key: string;
+  labelKo: string;
+  labelJa: string;
+  labelEn: string;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const key = input.key.trim();
+  // 등록 폼이 URL 쿼리로 실어 나른다 — 공백·특수문자를 막는다
+  if (!/^[a-z0-9-]{2,32}$/.test(key)) {
+    return fail({ key: "영소문자·숫자·하이픈 2~32자로 입력해주세요" });
+  }
+  const labels = {
+    labelKo: input.labelKo.trim(),
+    labelJa: input.labelJa.trim(),
+    labelEn: input.labelEn.trim(),
+  };
+  const missing = Object.entries(labels).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length > 0) {
+    return fail({ [missing[0]]: "3개 언어를 모두 입력해주세요 (D-010)" });
+  }
+
+  const category = await prisma.category.findUnique({
+    where: { key: input.categoryKey },
+    select: { id: true, _count: { select: { subtypes: true } } },
+  });
+  if (!category) return fail({}, "카테고리를 찾을 수 없습니다");
+
+  try {
+    await prisma.categorySubtype.create({
+      data: { categoryId: category.id, key, ...labels, displayOrder: category._count.subtypes },
+    });
+  } catch {
+    return fail({ key: "이미 있는 종류입니다" });
+  }
+  revalidate("/admin/categories", "/admin/matching-keys", "/admin/attributes");
+  return { ok: true };
+}
+
+/** 제품군 비활성화 — **삭제가 아니다** (D-036). 기존 아이템은 그대로 남는다 */
+export async function setCategorySubtypeActive(
+  id: string,
+  active: boolean,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  await prisma.categorySubtype.update({ where: { id }, data: { active } });
+  revalidate("/admin/categories", "/admin/matching-keys", "/admin/attributes");
+  return { ok: true };
+}
+
+/**
+ * 속성을 **카테고리 공통 ↔ 제품군 전용** 어디에 둘지 정한다 (D-207).
+ *
+ * ⚠️ **`categoryId` 와 `subtypeId` 는 배타다.** 한 행이 둘 다 가지면
+ * `@@unique([categoryId, attributeDefinitionId])` 가 공통 행과 제품군 행을
+ * 같은 것으로 보고 막는다 — 캠핑 공통 `brand` 와 텐트 전용 `brand` 를 동시에
+ * 둘 수 없게 된다.
+ */
+export async function setSubtypeAttribute(input: {
+  subtypeId: string;
+  attributeKey: string;
+  active?: boolean;
+  required?: boolean;
+  displayOrder?: number;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  const def = await prisma.attributeDefinition.findUnique({
+    where: { key: input.attributeKey },
+    select: { id: true },
+  });
+  if (!def) return fail({}, "속성을 찾을 수 없습니다");
+
+  await prisma.categoryAttribute.upsert({
+    where: {
+      subtypeId_attributeDefinitionId: { subtypeId: input.subtypeId, attributeDefinitionId: def.id },
+    },
+    // ⚠️ `categoryId` 를 넣지 않는다 — 제품군 전용 행이다
+    create: {
+      subtypeId: input.subtypeId,
+      attributeDefinitionId: def.id,
+      active: input.active ?? true,
+      required: input.required ?? false,
+      displayOrder: input.displayOrder ?? 0,
+    },
+    update: {
+      ...(input.active === undefined ? {} : { active: input.active }),
+      ...(input.required === undefined ? {} : { required: input.required }),
+      ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
+    },
+  });
+  revalidate("/admin/attributes");
+  return { ok: true };
+}
+
+/**
+ * 제품군 전용 매칭 키 (D-207 결정 4).
+ *
+ * ⚠️ **없으면 카테고리 것으로 떨어진다** — 그래서 빈 배열은 "제품군 전용을
+ * 없앤다"는 뜻이고, 카테고리 매칭 키와 달리 **허용된다**(FR-01-A-03 은 카테고리
+ * 기본에만 적용된다). 텐트만 품번을 쓰고 나머지는 카테고리 규칙을 따르는
+ * 상태가 정상이다.
+ */
+export async function setSubtypeMatchingKey(input: {
+  subtypeId: string;
+  attributeKeys: string[];
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  if (input.attributeKeys.length === 0) {
+    // 제품군 전용을 없앤다 → 카테고리 기본이 적용된다
+    await prisma.matchingKeyDefinition.deleteMany({ where: { subtypeId: input.subtypeId } });
+    revalidate("/admin/matching-keys");
+    return { ok: true };
+  }
+
+  const defs = await prisma.attributeDefinition.findMany({
+    where: { key: { in: input.attributeKeys } },
+    select: { key: true, type: true },
+  });
+  const invalid = defs.filter((d) => !MATCHING_KEY_TYPES.has(d.type));
+  if (invalid.length > 0) {
+    return fail({
+      attributeKeys: `매칭 키로 쓸 수 없는 타입입니다: ${invalid.map((d) => `${d.key}(${d.type})`).join(", ")}`,
+    });
+  }
+  if (defs.length !== input.attributeKeys.length) {
+    return fail({ attributeKeys: "존재하지 않는 속성이 있습니다" });
+  }
+
+  await prisma.matchingKeyDefinition.upsert({
+    where: { subtypeId: input.subtypeId },
+    create: { subtypeId: input.subtypeId, attributeKeys: input.attributeKeys },
+    update: { attributeKeys: input.attributeKeys },
+  });
+  revalidate("/admin/matching-keys");
+  return { ok: true };
+}
+
+/* ────────────────────────────────────────────
+   A-03 매칭 키 (D-013)
+   ──────────────────────────────────────────── */
+
 export async function setMatchingKey(input: {
   categoryKey: string;
   attributeKeys: string[];

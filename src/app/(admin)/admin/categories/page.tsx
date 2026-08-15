@@ -1,18 +1,9 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
+import { SubtypeManager } from "@/components/admin/subtype-manager";
 import { setCategoryActive, setCategorySellable } from "@/lib/actions/admin";
-import { getAdminCategories } from "@/lib/data/admin";
-
-/**
- * ⚠️ 어드민은 ko 단일이라(D-030) 라벨을 여기 둔다. **카테고리를 추가하면 여기도
- * 추가해야 한다** — `운동` 을 넣을 때 실제로 빠뜨려 빈칸으로 표시됐다 (D-173).
- * key 가 없으면 slug 로 대체해 최소한 무엇인지 보이게 한다.
- */
-const LABEL: Record<string, string> = {
-  "category.watch": "시계", "category.shoes": "신발", "category.bicycle": "자전거",
-  "category.apparel": "옷", "category.camping": "캠핑", "category.deskterior": "데스크테리어",
-  "category.workout": "운동",
-};
+import { adminCategoryOptions } from "@/lib/admin-categories";
+import { getAdminCategories, getAdminSubtypes } from "@/lib/data/admin";
 
 /**
  * A-01 카테고리 관리 (item-catalog F-01).
@@ -33,20 +24,43 @@ const LABEL: Record<string, string> = {
  * 표시 순서만 어드민이 정한다 (FR-01-A-04).
  */
 export default async function AdminCategoriesPage() {
-  const categories = await getAdminCategories();
+  const [rows, categories, subtypes] = await Promise.all([
+    getAdminCategories(),
+    adminCategoryOptions(),
+    getAdminSubtypes(),
+  ]);
+  /*
+    ⚠️ **라벨 맵을 화면마다 만들지 않는다.** 같은 함정을 네 번 만났다 —
+    D-173(A-01 이 운동을 빈칸으로) · D-182(A-11 이 전 브랜드를 "시계"로) ·
+    D-185(도감 화면 두 곳이 `workout` 을 그대로 렌더) · 그리고 이 화면의
+    A-03 은 **운동이 아예 목록에 없었다**. `adminCategoryOptions()` 하나만 쓴다
+  */
+  const label = new Map(categories.map((c) => [c.key, c.label]));
+
   return (
     <AdminPage
       id="A-01" title="카테고리 관리"
-      desc="6개 고정입니다. 추가·삭제할 수 없고 비활성화만 됩니다 (D-007·D-036)."
+      desc="카테고리는 추가·삭제할 수 없고 비활성화만 됩니다 (D-007·D-036). 하위 종류는 어드민이 늘릴 수 있습니다 (D-207)."
     >
-      <Table head={["순서", "카테고리", "slug", "등록 아이템", "상태", "마켓", "조치"]}>
-        {categories.map((c) => (
+      <Table head={["순서", "카테고리", "slug", "등록 아이템", "하위 종류", "상태", "마켓", "조치"]}>
+        {rows.map((c) => (
           <tr key={c.slug} className={c.active ? "" : "text-muted-foreground"}>
             <Td>{c.order}</Td>
             {/* 라벨이 없으면 slug 로 — 빈칸으로 두면 무엇인지 알 수 없다 (D-173) */}
-            <Td className="font-semibold">{LABEL[c.labelKey] ?? c.slug}</Td>
+            <Td className="font-semibold">{label.get(c.slug) ?? c.slug}</Td>
             <Td className="font-mono text-xs">{c.slug}</Td>
             <Td>{c.itemCount.toLocaleString("en-US")}</Td>
+            {/*
+              D-207 — 하위 제품군. **없는 것이 기본**이고 그때 등록 폼은 지금과
+              같다. 캠핑처럼 속성 집합이 갈리는 카테고리에서만 만든다
+            */}
+            <Td>
+              <SubtypeManager
+                categoryKey={c.slug}
+                categoryLabel={label.get(c.slug) ?? c.slug}
+                subtypes={subtypes.filter((s) => s.categoryKey === c.slug)}
+              />
+            </Td>
             <Td>{c.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}</Td>
             <Td>
               {c.sellable ? <Pill tone="sale">판매 가능</Pill> : <Pill>판매 불가</Pill>}
