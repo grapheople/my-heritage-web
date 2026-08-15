@@ -97,6 +97,8 @@ export async function ownItem(
 ): Promise<{
   id: string;
   categoryId: string;
+  /** D-207 — 하위 제품군. 수정에서는 **바꾸지 않고 그대로 쓴다** (FR-05-B-02 와 같은 이유) */
+  subtypeId: string | null;
   saleStatus: string;
   visibility: string;
   /** 이 카테고리를 마켓에 올릴 수 있는가 (D-173) */
@@ -108,6 +110,7 @@ export async function ownItem(
     select: {
       id: true,
       categoryId: true,
+      subtypeId: true,
       saleStatus: true,
       visibility: true,
       category: { select: { sellable: true } },
