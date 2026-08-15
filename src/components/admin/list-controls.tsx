@@ -25,15 +25,23 @@ export function AdminListControls({
   total,
   filtered,
   loadLimit,
+  placeholder = "이름 · 고유값 · alias 검색",
 }: {
-  /** `{ key, label }` — 라벨은 서버에서 온다 (어드민은 ko 단일, D-030) */
-  categories: { key: string; label: string }[];
+  /**
+   * `{ key, label }` — 라벨은 서버에서 온다 (어드민은 ko 단일, D-030).
+   *
+   * ⚠️ **비우면 카테고리 선택을 그리지 않는다.** 유저 목록처럼 카테고리 축이
+   * 없는 화면이 있다 — 빈 선택을 두면 어드민이 "왜 안 걸리지"를 묻게 된다
+   */
+  categories?: { key: string; label: string }[];
   /** 필터 적용 **전** 전체 건수 */
   total: number;
   /** 필터 적용 **후** 건수 */
   filtered: number;
   /** 조회 상한. 넘으면 알린다 — 절단을 숨기지 않는다 (D-160) */
   loadLimit: number;
+  /** 무엇으로 찾을 수 있는지 알린다. 화면마다 검색 축이 다르다 */
+  placeholder?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -80,7 +88,7 @@ export function AdminListControls({
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="이름 · 고유값 · alias 검색"
+            placeholder={placeholder}
             className="w-64 rounded-md border px-2 py-1.5 text-sm"
           />
           <button type="submit" className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
@@ -100,18 +108,20 @@ export function AdminListControls({
           )}
         </form>
 
-        <select
-          value={current.category}
-          onChange={(e) => apply({ category: e.target.value })}
-          className="rounded-md border px-2 py-1.5 text-sm"
-        >
-          <option value="">전체 카테고리</option>
-          {categories.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+        {categories && categories.length > 0 && (
+          <select
+            value={current.category}
+            onChange={(e) => apply({ category: e.target.value })}
+            className="rounded-md border px-2 py-1.5 text-sm"
+          >
+            <option value="">전체 카테고리</option>
+            {categories.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
 
         <select
           value={String(current.size)}
