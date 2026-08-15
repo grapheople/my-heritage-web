@@ -31,8 +31,8 @@
 | 순서 | 문서 | 무엇이 있는가 |
 |---|---|---|
 | 1 | `projects/portfolio.md` | 전체 현황 · 확정된 서비스 전제 · 진행 블로커 |
-| 2 | `projects/myroom-service/drafts/02-planning-spec.md` | **서비스 골격** — IA, 화면 목록(S-01~S-23), 상태 정의, 데이터 모델(§5), 어드민 화면(§6) |
-| 2-a | **`projects/myroom-service/drafts/10-frontend-spec.md`** | **이 레포 전용.** 라우팅·렌더·색인 매트릭스 · Server/Client 경계 · **남은 작업 8건** |
+| 2 | `projects/myroom-service/02-planning-spec.md` | **서비스 골격** — IA, 화면 목록(S-01~S-23), 상태 정의, 데이터 모델(§5), 어드민 화면(§6) |
+| 2-a | **`projects/myroom-service/10-frontend-spec.md`** | **이 레포 전용.** 라우팅·렌더·색인 매트릭스 · Server/Client 경계 · **남은 작업 8건** |
 | 2-b | **`knowledge/design-system.md`** | **시각 SoT.** 토큰(shadcn oklch) · 컴포넌트 인벤토리 · 브레이크포인트 |
 | 3 | `policies/i18n/policy-handoff.md` | 다국어 정책 **SoT**. 번역 대상 경계, fallback, 포맷 |
 | 4 | 해당 기능의 하위 프로젝트 문서 | 아래 표 |
@@ -42,12 +42,12 @@
 
 | 담당 프로젝트 | 범위 | 문서 |
 |---|---|---|
-| `myroom-service` | IA · 마이룸 진열 · 공개 범위 · NEW 피드 · 검색 · 인증 · 언어 · 제재 | `drafts/02-planning-spec.md` |
-| `item-catalog` | 아이템 · 카테고리 동적 속성 · 브랜드 마스터 · 브랜드 요청 큐 | `drafts/03-prd.md` (PRD 급) |
-| `codex` | 도감 — 매칭 키 · 정규화 · 병합 · 검증 배지 · alias | `drafts/03-prd.md` (PRD 급) |
-| `market` | 판매 전환 · 마켓 · 외부 링크 · 신고 · 차단 · 금지품목 | `drafts/02-planning-spec.md` |
-| `diary` | 일기 — 공개/비공개, 사진 10장, 1000자, 아이템 N:M | `drafts/02-planning-spec.md` |
-| `leveling` | 경험치 · 레벨 테이블 | `drafts/02-planning-spec.md` |
+| `myroom-service` | IA · 마이룸 진열 · 공개 범위 · NEW 피드 · 검색 · 인증 · 언어 · 제재 | `02-planning-spec.md` |
+| `item-catalog` | 아이템 · 카테고리 동적 속성 · 브랜드 마스터 · 브랜드 요청 큐 | `03-prd.md` (PRD 급) |
+| `codex` | 도감 — 매칭 키 · 정규화 · 병합 · 검증 배지 · alias | `03-prd.md` (PRD 급) |
+| `market` | 판매 전환 · 마켓 · 외부 링크 · 신고 · 차단 · 금지품목 | `02-planning-spec.md` |
+| `diary` | 일기 — 공개/비공개, 사진 10장, 1000자, 아이템 N:M | `02-planning-spec.md` |
+| `leveling` | 경험치 · 레벨 테이블 | `02-planning-spec.md` |
 
 각 프로젝트의 `06-decisions.md`(의사결정 누적)와 `07-status.md`(현재 상태)는 **항상 최신**이다. 작업 전에 `07-status.md`를 먼저 읽는다.
 
@@ -59,8 +59,8 @@
 | `FR-xx-A-nn` | 기능 요구사항 (EARS 형식) | FR-02-A-04 |
 | `AC-...` | 인수 조건 | |
 | `M-nn` | 데이터 모델 관계 규칙 | M-06 공개 판정 |
-| `S-nn` | 유저 화면 (**23개**) | S-01 NEW 피드 · **S-22 알림함** · **S-23 카테고리 전체** |
-| `A-nn` | 어드민 화면 (13개) | A-13 운영 대시보드 |
+| `S-nn` | 유저 화면 (**34개** — 스텁 0) | S-01 NEW 피드 · **S-22 알림함** · **S-23 카테고리 전체** |
+| `A-nn` | 어드민 화면 (**15개**) | A-13 운영 대시보드 |
 | `OI-nn` | 오픈 이슈 (미확정) | OI-18 |
 
 **코드 주석과 커밋 메시지에서 이 ID로 근거를 밝힌다.** 왜 이렇게 짰는지 추적할 수 있어야 한다.
@@ -401,7 +401,7 @@ SoT: `../my-heritage-planning/policies/i18n/policy-handoff.md`
 | 문의 이메일 운영 주체·SLA | OI-32 | S-20 문구 |
 | 약관·개인정보처리방침 3개 언어 | OI-16 법무 검수 | 출시 |
 
-기타 미해결 오픈 이슈(**OI-16·19·21·31~37·39·43·44·46·47·49·50**)는 `myroom-service/drafts/02-planning-spec.md` "오픈 이슈" 표에 있다.
+기타 미해결 오픈 이슈(**OI-16·19·21·31~37·39·43·44·46·47·49·50**)는 `myroom-service/02-planning-spec.md` "오픈 이슈" 표에 있다.
 **해소됨**: OI-17(D-081) · OI-18(D-083) · OI-20(D-082) · OI-26(D-084) · OI-34(D-087) · OI-38(D-085) · OI-40(D-092) · OI-41(D-091) · OI-42·OI-45·OI-48(D-094)
 
 ---
