@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { describeDatabase, migrationDatabaseUrl } from "@/lib/db-url";
+import { describeDatabase, runtimeDatabaseUrl } from "@/lib/db-url";
 
 /**
  * 봇 기능 가드 (D-146).
@@ -20,9 +20,21 @@ export function botEnabled(): boolean {
   return process.env.NODE_ENV === "development";
 }
 
-/** 화면에 띄울 대상 DB — 비밀번호는 들어가지 않는다 (`describeDatabase`) */
+/**
+ * 화면에 띄울 대상 DB — 비밀번호는 들어가지 않는다 (`describeDatabase`).
+ *
+ * ## ⚠️ **런타임 URL 을 본다 — 마이그레이션 URL 이 아니다**
+ * 초판은 `migrationDatabaseUrl()`(= `DIRECT_URL` 우선)을 썼다. 그런데 봇·조사가
+ * 실제로 쓰는 것은 `prisma` 이고 그것은 **`runtimeDatabaseUrl()`(= `DATABASE_URL`)**
+ * 이다. 둘이 다른 환경에서는 **표시와 실제가 어긋난다** — 실측하니 화면은
+ * `…supabase.com`(운영)인데 쓰기는 `localhost` 로 가고 있었다.
+ *
+ * 반대 방향이면 그대로 사고다: **화면은 `localhost` 인데 운영 DB 에 쓰는** 상태.
+ * D-116 이 막으려던 "어디에 쓰는지 보이지 않는 쓰기"를 표시가 **거꾸로 안내**하고
+ * 있었다. 안전 표시는 **쓰기가 실제로 지나가는 경로**를 가리켜야 한다.
+ */
 export function botTargetDb(): string {
-  return describeDatabase(migrationDatabaseUrl());
+  return describeDatabase(runtimeDatabaseUrl());
 }
 
 /**

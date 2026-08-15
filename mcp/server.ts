@@ -4,7 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { normalizeBrandToken } from "../src/lib/brand-search";
 import { CATEGORY_KEYS } from "../src/lib/categories";
-import { describeDatabase, migrationDatabaseUrl } from "../src/lib/db-url";
+import { describeDatabase, runtimeDatabaseUrl } from "../src/lib/db-url";
 import {
   getAdminBrandsPage,
   getAdminCodexPage,
@@ -53,8 +53,12 @@ import { prisma } from "../src/lib/prisma";
   ⚠️ **대상 DB 를 서버 설명에 박는다** (D-116·D-146). 로컬에서 띄워도
   런타임이 Supabase(운영 DB)를 볼 수 있다 (D-117) — "어디에 쓰는지 보이지 않는
   쓰기"가 사고의 본질이었다. 도구 목록을 읽는 순간 어드민이 알아야 한다.
+
+  ⚠️ **`runtimeDatabaseUrl()` 이다 — 마이그레이션 URL 이 아니다.** 쓰기는 `prisma`
+  를 지나고 그것은 `DATABASE_URL` 을 쓴다. `DIRECT_URL` 을 표시하면 둘이 다른
+  환경에서 **표시와 실제가 어긋난다** (D-202).
 */
-const TARGET_DB = describeDatabase(migrationDatabaseUrl());
+const TARGET_DB = describeDatabase(runtimeDatabaseUrl());
 
 const server = new McpServer({
   name: "zroom-admin",
