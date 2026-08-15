@@ -100,10 +100,45 @@ export async function getViewer(): Promise<Viewer | null> {
     return devViewer();
   }
   if (session?.user?.id) {
+    /*
+      ⚠️ **JWT 값을 그대로 믿지 않고 DB 로 확인한다** (D-204).
+
+      ## 왜 — 세션은 살아 있는데 DB 에 유저가 없을 수 있다
+      JWT 는 발급 시점 스냅샷이라 **DB 를 바꾸거나(로컬↔운영) 유저 행이
+      사라지면** 세션만 남는다. 그 상태에서 각 화면의 가드는 서로에게 떠넘긴다:
+
+          /me      viewer 는 있는데 방을 못 찾음  → /me/settings
+          /settings 프로필도 못 찾음              → /login
+          /login   "이미 로그인했으니 되돌린다"   → /        ← 홈으로 튕김
+
+      세 판정이 각자는 맞는데 이어지면 **마이룸에 영영 못 들어간다.** 실제로
+      그 고리가 관측됐다.
+
+      ## roomId·needsRoomName 도 DB 값을 쓴다
+      **D-132 가 이미 같은 판단을 했다** — `createItemAs` 는 "세션의 `roomId` 는
+      로그인 시점에 박혀 있어 낡을 수 있고, 낡으면 외래키 위반으로 터진다"며
+      직접 조회한다. 그 규칙을 **여기 한 곳으로 올린다** — 호출부마다 다시
+      확인하게 두면 빠뜨리는 곳이 생긴다.
+
+      부수 효과로 `needsOnboarding` 의 구멍도 닫힌다: 낡은 토큰이
+      `needsRoomName: false` 라고 말하면 온보딩이 건너뛰어졌었다.
+
+      ## 비용
+      세션이 있는 요청마다 조회 1회. `(user)/layout.tsx` 가 이미 뷰어를 얻고
+      `needsOnboarding` 이 조건부로 DB 를 보고 있어 새로 생기는 왕복은 사실상
+      그것을 대체한다.
+    */
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, deletedAt: true, room: { select: { id: true, name: true } } },
+    });
+    // ⚠️ **없거나 탈퇴한 유저는 비로그인으로 떨어뜨린다.** `/login` 으로 보내지
+    // 않는다 — 세션 쿠키가 남아 있으면 `/login` 이 다시 홈으로 튕긴다
+    if (!user || user.deletedAt) return null;
     return {
-      userId: session.user.id,
-      roomId: session.user.roomId,
-      needsRoomName: session.user.needsRoomName,
+      userId: user.id,
+      roomId: user.room?.id,
+      needsRoomName: !user.room?.name,
     };
   }
   return await devViewer();

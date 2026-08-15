@@ -27,8 +27,16 @@ export default async function ProfileSettingsPage({
   }
   const p = await getProfileSettings(viewer);
   if (!p) {
-    // 방이 없는 신규 가입 — 전용 온보딩 화면이 없다 (OI-52)
-    redirect({ href: "/login", locale });
+    /*
+      ⚠️ **로그인한 사람을 `/login` 으로 보내지 않는다** (D-204). `/login` 은
+      뷰어가 있으면 홈으로 되돌리므로, 여기서 보내면 **마이룸 → 설정 → 로그인
+      → 홈** 고리가 된다. 실제로 그 증상이 관측됐다.
+
+      `getViewer()` 가 DB 로 유저 실재를 확인하게 되면서 이 분기는 사실상
+      도달 불가가 됐지만(유저가 없으면 위 `!viewer` 에서 걸린다), **방향이
+      틀린 리다이렉트를 남겨두지 않는다.** 온보딩(S-24)이 이 상태의 목적지다.
+    */
+    redirect({ href: "/onboarding", locale });
     return null;
   }
 
