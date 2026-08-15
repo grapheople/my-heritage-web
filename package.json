@@ -31,7 +31,8 @@
     "attrs:drop-price": "tsx prisma/deactivate-purchase-price.ts",
     "attrs:workout": "tsx prisma/setup-workout-category.ts",
     "attrs:relax-keys": "tsx prisma/relax-matching-keys.ts",
-    "db:research-codex": "tsx prisma/research-codex.ts"
+    "db:research-codex": "tsx prisma/research-codex.ts",
+    "db:backfill-match-keys": "tsx prisma/backfill-match-keys.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
