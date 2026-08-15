@@ -68,6 +68,8 @@ export async function getFeed(
 
   const items = await prisma.item.findMany({
     where: {
+      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
+      parentId: null,
       visibility: "PUBLIC",
       room: roomWhere,
       // 떠난 아이템은 피드에 올리지 않는다 (D-023).

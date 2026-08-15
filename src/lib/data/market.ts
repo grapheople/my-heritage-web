@@ -38,6 +38,8 @@ export async function getMarketListings(
 
   const rows = await prisma.item.findMany({
     where: {
+      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
+      parentId: null,
       saleStatus: "ON_SALE",
       visibility: "PUBLIC",
       room: publicRoomWhere(blockedIds),

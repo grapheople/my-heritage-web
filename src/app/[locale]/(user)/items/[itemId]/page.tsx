@@ -194,6 +194,47 @@ export default async function ItemDetailPage({
         </section>
       )}
 
+      {/*
+        D-211 — **구성 부품.** 자전거의 프레임·구동계·휠셋.
+
+        ⚠️ **방 진열에는 부모만 나온다** — 부품이 5칸을 차지하면 "내 자전거
+        1대"가 흩어져 원칙 2(방은 공간)가 깨진다. 부품은 여기서 펼친다.
+
+        부품도 각자 도감에 연결되므로 `Ultegra R8100` 소유자 목록에 들어간다
+        (원칙 4 — 부품 도감이 완성차보다 연결점으로 강하다).
+      */}
+      {(item.parts.length > 0 || item.parent) && (
+        <section className="border-t px-4 py-4 lg:px-0">
+          {item.parent && (
+            <p className="text-sm text-muted-foreground">
+              {t("item.partOf")}{" "}
+              <Link href={`/items/${item.parent.id}`} className="font-semibold underline">
+                {item.parent.name}
+              </Link>
+            </p>
+          )}
+          {item.parts.length > 0 && (
+            <>
+              <h2 className="text-sm font-semibold">{t("item.composition")}</h2>
+              <ul className="mt-2 flex flex-col gap-1">
+                {item.parts.map((p) => (
+                  <li key={p.id} className="flex items-baseline gap-2 text-sm">
+                    {p.subtypeLabel && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {p.subtypeLabel}
+                      </span>
+                    )}
+                    <Link href={`/items/${p.id}`} className="min-w-0 truncate underline">
+                      {p.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+
       {/* 소유자 액션 — 수정·판매 전환·취소·완료 (market F-01) */}
       {isOwner && (
         <section className="flex flex-col gap-2 border-t px-4 py-4 lg:px-0">

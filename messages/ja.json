@@ -44,6 +44,8 @@
     "label": "カテゴリー"
   },
   "item": {
+    "composition": "構成",
+    "partOf": "このアイテムは次の部品です —",
     "status": {
       "displayed": "展示中",
       "onSale": "販売中",

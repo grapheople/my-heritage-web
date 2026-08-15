@@ -131,6 +131,21 @@ export async function getItemDetail(
           },
         },
       },
+      /*
+        D-211 — 구성 부품. **부품도 아이템**이라 명칭 파생(D-073)이 같다.
+        제품군 라벨을 함께 낸다 — "프레임 / 구동계" 를 보여줘야 목록이 읽힌다
+      */
+      parts: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          codexItemId: true,
+          subtype: { select: { labelKo: true, labelJa: true, labelEn: true } },
+          ...NAME_SELECT,
+        },
+      },
+      /** 이 아이템 자체가 부품일 때 부모로 돌아가는 길 */
+      parent: { select: { id: true, ...NAME_SELECT } },
       ...NAME_SELECT,
     },
   });
@@ -214,6 +229,16 @@ export async function getItemDetail(
     id: item.id,
     name: deriveItemName(item),
     nickname: item.nickname ?? undefined,
+    // D-211 — 부품도 아이템이라 명칭 파생이 같다 (D-073)
+    parts: item.parts.map((p) => ({
+      id: p.id,
+      name: deriveItemName(p),
+      subtypeLabel: p.subtype
+        ? pickLabel(locale, { ko: p.subtype.labelKo, ja: p.subtype.labelJa, en: p.subtype.labelEn })
+        : undefined,
+      codexId: p.codexItemId ?? undefined,
+    })),
+    parent: item.parent ? { id: item.parent.id, name: deriveItemName(item.parent) } : undefined,
     categoryKey: `category.${item.category.key}`,
     roomId: item.room.id,
     roomName: item.room.name,
@@ -356,6 +381,8 @@ export function isItemIndexable(item: {
 export async function indexableItemIds(): Promise<string[]> {
   const rows = await prisma.item.findMany({
     where: {
+      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
+      parentId: null,
       saleStatus: "ON_SALE",
       visibility: "PUBLIC",
       room: { visibility: "PUBLIC", user: { deletedAt: null } },

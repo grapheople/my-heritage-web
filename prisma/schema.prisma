@@ -840,6 +840,25 @@ model Item {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
+  /**
+   * D-211 — **구성 관계.** 자전거의 프레임·구동계·휠셋처럼 **한 물건이 부품으로
+   * 조립되는** 카테고리를 위한 것이다.
+   * ## ⚠️ 부품도 아이템이다 — 하위 카테고리가 아니다
+   * 부품은 각자 **제품 원형(도감)이 있고 교체된다.** 하위 카테고리로 만들면
+   * "내 자전거 1대"가 방에서 5칸으로 흩어져 원칙 2 가 깨진다 (D-206).
+   * *부품 도감이 완성차 도감보다 연결점으로 강하다** — `Madone SLR 9 / 2023`
+   * 소유자는 소수지만 `Ultegra R8100` 은 매우 많다 (원칙 4).
+   * ## ⚠️ 자식은 진열·피드·마켓·사이트맵에서 빠진다
+   * 전시 단위는 **부모**다. 조회 경로마다 `parentId: null` 을 걸어야 하고,
+   * 한 곳이라도 빠지면 그 화면에만 샌다 (D-096·D-099 와 같은 유형).
+   * ## ⚠️ 부모를 지우면 자식은 독립 승격된다 (`SetNull`)
+   * 같이 지우면 데이터가 유실된다 — 자전거를 팔아도 떼어낸 부품은 남길 수
+   * 있어야 한다 (D-023·D-036 과 같은 태도).
+   */
+  parentId String?
+  parent   Item?   @relation("itemParts", fields: [parentId], references: [id], onDelete: SetNull)
+  parts    Item[]  @relation("itemParts")
+
   /// D-207 — 하위 제품군(캠핑의 텐트·랜턴). **선택이다.**
   /// `null` 이면 카테고리 공통 속성만 쓰며 기존 6개 카테고리는 전부 그렇다 —
   /// 그래서 이 필드가 생겨도 **기존 데이터 마이그레이션이 없다**

@@ -44,6 +44,8 @@
     "label": "카테고리"
   },
   "item": {
+    "composition": "구성",
+    "partOf": "이 아이템은 다음의 부품입니다 —",
     "status": {
       "displayed": "전시중",
       "onSale": "판매중",

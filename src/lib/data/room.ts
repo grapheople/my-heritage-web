@@ -73,6 +73,8 @@ export async function getRoom(
 
   const items = await prisma.item.findMany({
     where: {
+      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
+      parentId: null,
       roomId,
       // ⚠️ 타인에게는 비공개 아이템을 **응답에서 뺀다.** 화면에서 숨기는 것이
       // 아니다 — 흐리게 두면 "비공개가 몇 개 있다"가 새어나간다 (D-083)
