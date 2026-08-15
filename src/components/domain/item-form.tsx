@@ -66,6 +66,8 @@ export function ItemForm({
   const [values, setValues] = useState<Record<string, string>>(initialValues ?? {});
   const [autoKeys, setAutoKeys] = useState<string[]>([]);
   const [codexName, setCodexName] = useState<string | null>(null);
+  /** FR-03-E-03 — 키 alias 로 찾았으면 저장 **전에** 알린다 (D-193) */
+  const [codexAliasHit, setCodexAliasHit] = useState<string | null>(null);
   const [codexVerified, setCodexVerified] = useState(false);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
@@ -79,6 +81,9 @@ export function ItemForm({
       expGranted: boolean;
       codexLinked: boolean;
       codexCreated: boolean;
+      /** FR-03-E-03 — 키 alias 로 연결됐는가 (D-193) */
+      codexMatchedByAlias: boolean;
+      codexAttemptedKey?: string;
     } | null
   >(null);
   const [pending, startTransition] = useTransition();
@@ -126,10 +131,11 @@ export function ItemForm({
     // 저장하니 안 된다"가 생긴다 (D-014)
     fetch(`/api/codex/lookup?category=${category}&key=${encodeURIComponent(v)}`)
       .then((r) => r.json())
-      .then((d: { codex: { displayName: string; verified: boolean } | null; values?: Record<string, string> }) => {
+      .then((d: { codex: { displayName: string; verified: boolean; matchedByAlias?: boolean } | null; values?: Record<string, string> }) => {
         if (!d.codex) {
           setAutoKeys([]);
           setCodexName(null);
+          setCodexAliasHit(null);
           return;
         }
         const filled = d.values ?? {};
@@ -138,10 +144,13 @@ export function ItemForm({
         setAutoKeys(Object.keys(filled).filter((k) => k !== key));
         setCodexName(d.codex.displayName);
         setCodexVerified(d.codex.verified);
+        // ⚠️ **유저가 넣은 값을 고치지 않는다** (FR-03-E-02) — 무엇으로 찾았는지만 보여준다
+        setCodexAliasHit(d.codex.matchedByAlias ? v : null);
       })
       .catch(() => {
         setAutoKeys([]);
         setCodexName(null);
+        setCodexAliasHit(null);
       });
   }
 
@@ -178,7 +187,13 @@ export function ItemForm({
           nickname,
         });
         if (res.ok) {
-          setSaved({ itemId, expGranted: false, codexLinked: false, codexCreated: false });
+          setSaved({
+            itemId,
+            expGranted: false,
+            codexLinked: false,
+            codexCreated: false,
+            codexMatchedByAlias: false,
+          });
         } else {
           setErrors(res.fieldErrors);
           setFormError(res.formError ?? "");
@@ -197,6 +212,8 @@ export function ItemForm({
           expGranted: res.expGranted,
           codexLinked: res.codexLinked,
           codexCreated: res.codexCreated,
+          codexMatchedByAlias: res.codexMatchedByAlias,
+          codexAttemptedKey: res.codexAttemptedKey,
         });
       } else {
         setErrors(res.fieldErrors);
@@ -254,6 +271,19 @@ export function ItemForm({
                    */
                   t("reg.codexNotLinked", { fields: matchingKeyLabels })}
           </li>
+          {/*
+            FR-03-E-03 — **키 alias 로 연결됐으면 그 사실을 보여준다** (D-193).
+            유저가 넣은 값과 연결된 도감의 정식 값이 다르므로, 말하지 않으면
+            "내가 넣은 번호가 아닌 도감에 붙었다"로 읽힌다.
+
+            ⚠️ **유저가 넣은 값은 고치지 않았다** (FR-03-E-02) — 아이템에는
+            원문 그대로 남아 있다. 아니면 도감 연결만 해제하면 된다 (FR-03-A-06).
+          */}
+          {saved.codexMatchedByAlias && saved.codexAttemptedKey && (
+            <li className="text-muted-foreground">
+              {t("reg.codexMatchedByAlias", { value: saved.codexAttemptedKey })}
+            </li>
+          )}
         </ul>
         {/* ⚠️ 예전에는 `/ko/` 가 하드코딩돼 있었다 — 일본어·영어 유저가
             등록하면 한국어 화면으로 튕겼다. 로케일을 붙이는 Link 를 쓴다 */}
@@ -291,6 +321,15 @@ export function ItemForm({
               {!codexVerified && <StatusBadge variant="unverified" />}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">{t("reg.autoFillNotice")}</p>
+            {/*
+              FR-03-E-03 — 키 alias 로 찾았으면 근거를 보여준다 (D-193).
+              말하지 않으면 "내가 넣은 번호가 아닌 도감"으로 읽힌다
+            */}
+            {codexAliasHit && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("reg.codexMatchedByAlias", { value: codexAliasHit })}
+              </p>
+            )}
           </div>
         </div>
       )}

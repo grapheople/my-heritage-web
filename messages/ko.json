@@ -356,6 +356,7 @@
     "codexLinked": "도감에 연결됐어요 — ‘같은 물건 가진 사람’에 나타납니다",
     "codexCreated": "새 도감이 등록됐어요 — 다른 사람도 이 물건을 찾을 수 있게 됩니다",
     "codexNotLinked": "도감에 연결되지 않았어요. {fields} 항목을 채우면 연결됩니다",
+    "codexMatchedByAlias": "입력하신 {value} 값으로 이 도감을 찾았어요. 입력값은 그대로 저장됩니다",
     "viewItem": "등록한 아이템 보기",
     "photoMax": "사진은 최대 {max}장이에요",
     "photoMoveLeft": "앞으로 이동",

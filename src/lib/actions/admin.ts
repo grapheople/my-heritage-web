@@ -261,6 +261,166 @@ export async function setCodexAliases(
   return { ok: true };
 }
 
+/**
+ * A-07 **키 alias** 편집 (FR-06-C-06·07, D-192·D-194).
+ *
+ * ## ⚠️ 명칭 alias 와 규칙이 정반대다
+ * `setCodexAliases`(명칭)는 **도감 간 중복을 허용**한다 (FR-06-A-04 — `サブマリーナ`
+ * 는 여러 세대 도감에 붙는 것이 정상). 키 alias 는 **카테고리 안에서 유일**해야
+ * 한다 (FR-02-B-06) — 안 그러면 같은 입력이 두 도감을 가리킨다.
+ *
+ * ## ⚠️ 목록 통째로 덮어쓰지 않고 **차분만** 반영한다
+ * 통째로 지우고 다시 만들면 **병합에서 온 alias 의 `sourceMergeId` 가 사라져**
+ * 되돌리기가 대상을 잃는다 (FR-05-C-05). 그대로 남은 값은 손대지 않는다.
+ * 값을 바꾸는 것은 "지우고 새로 넣는 것"이고 새 행은 `ADMIN` 이 된다 (E-05-10).
+ */
+export async function setCodexKeyAliases(
+  codexId: string,
+  values: string[],
+): Promise<ActionResult<{ added: number; removed: number; rejected: string[] }>> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: codexId },
+    select: { categoryId: true, normalizedKey: true },
+  });
+  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+
+  // 매칭과 **같은 정규화**를 쓴다 (FR-02-A-07). 여기만 원문을 넣으면 유저가
+  // 넣은 값과 영영 만나지 않는다 — D-190 이 브랜드 게이트에서 겪은 실패다
+  const wanted = [...new Set(values.map((v) => normalizeBrandToken(v)).filter(Boolean))];
+
+  const current = await prisma.codexMatchKey.findMany({
+    where: { codexItemId: codexId, kind: "ALIAS" },
+    select: { id: true, value: true },
+  });
+  const currentValues = new Set(current.map((c) => c.value));
+
+  const toRemove = current.filter((c) => !wanted.includes(c.value));
+  const toAdd = wanted.filter((v) => !currentValues.has(v));
+
+  const rejected: string[] = [];
+  let added = 0;
+
+  for (const value of toAdd) {
+    /*
+      ⚠️ **자기 도감의 정식 값을 alias 로 넣지 않는다.** 넣어도 해는 없지만
+      의미가 없고(이미 PRIMARY 로 매칭된다) 유일 제약에 걸려 실패한다
+    */
+    if (value === codex.normalizedKey) {
+      rejected.push(`${value} — 이 도감의 정식 값입니다`);
+      continue;
+    }
+    try {
+      await prisma.codexMatchKey.create({
+        data: {
+          categoryId: codex.categoryId,
+          codexItemId: codexId,
+          value,
+          kind: "ALIAS",
+          source: "ADMIN",
+          // 어드민이 직접 넣은 값이므로 승인 개념이 없다 (FR-06-C-05 는 AI 만)
+          approvedBy: ADMIN_ACTOR,
+        },
+      });
+      added++;
+    } catch {
+      /*
+        ⚠️ **유일 제약 위반 — 고르지 않고 알린다** (FR-02-B-07, D-190).
+        하나를 골라 넣으면 잘못된 도감이 조용히 커지고 나중에 어느 쪽이
+        맞았는지 알 수 없다. **건별로 처리한다** — 한 건 때문에 나머지가
+        사라지는 쪽이 나쁘다 (D-185 와 같은 판단)
+      */
+      const owner = await prisma.codexMatchKey.findUnique({
+        where: { categoryId_value: { categoryId: codex.categoryId, value } },
+        select: { kind: true, codexItem: { select: { displayName: true } } },
+      });
+      rejected.push(
+        owner
+          ? `${value} — 이미 "${owner.codexItem.displayName}" 의 ${owner.kind === "PRIMARY" ? "정식 값" : "키 alias"} 입니다`
+          : `${value} — 저장하지 못했습니다`,
+      );
+    }
+  }
+
+  if (toRemove.length > 0) {
+    await prisma.codexMatchKey.deleteMany({ where: { id: { in: toRemove.map((r) => r.id) } } });
+  }
+
+  revalidate("/admin/codex/aliases");
+  return { ok: true, added, removed: toRemove.length, rejected };
+}
+
+/**
+ * A-07 키 alias **후보 승인** (FR-06-C-09, D-198).
+ *
+ * 후보의 재료는 **유저가 실제로 넣었는데 미스로 끝난 값**이다. 승인하면
+ * 다음 유저부터 그 값이 대상 도감으로 연결된다.
+ *
+ * ⚠️ **승인 주체가 어드민이므로 `source` 는 `ADMIN`** 이다. `AI_APPROVED` 는
+ * AI 조사가 제안한 것에만 쓴다 — 출처가 섞이면 나중에 "이 alias 를 누가
+ * 넣었나"를 추적할 수 없다.
+ */
+export async function approveKeyAliasCandidate(input: {
+  codexId: string;
+  value: string;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: input.codexId },
+    select: { categoryId: true, mergedIntoId: true },
+  });
+  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+  // 그 사이 병합됐다면 어디에 붙일지는 어드민 판단이다 — 추측으로 옮기지 않는다
+  if (codex.mergedIntoId) return fail({}, "이 도감은 병합되었습니다. 병합 결과 도감에서 다시 시도하세요");
+
+  const value = normalizeBrandToken(input.value);
+  if (!value) return fail({}, "값이 비어 있습니다");
+
+  try {
+    await prisma.codexMatchKey.create({
+      data: {
+        categoryId: codex.categoryId,
+        codexItemId: input.codexId,
+        value,
+        kind: "ALIAS",
+        source: "ADMIN",
+        approvedBy: ADMIN_ACTOR,
+      },
+    });
+  } catch {
+    return fail({}, "이미 이 카테고리에서 쓰이는 값입니다");
+  }
+
+  revalidate("/admin/codex/aliases");
+  return { ok: true };
+}
+
+/**
+ * A-07 키 alias 후보 **기각** (FR-06-C-09).
+ *
+ * ⚠️ **로그를 지우지 않는다.** 로그는 H11 판별(미스 원인이 단위 차이냐 도감
+ * 부재냐)의 재료이기도 하다 — 후보에서 뺀다고 지우면 지표가 왜곡된다.
+ * 대신 `topHitCodexId` 를 비워 **후보 조건에서만** 빠지게 한다.
+ */
+export async function rejectKeyAliasCandidate(input: {
+  categoryId: string;
+  attempted: string;
+}): Promise<ActionResult<{ dismissed: number }>> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const r = await prisma.codexMatchLog.updateMany({
+    where: { categoryId: input.categoryId, attempted: input.attempted, outcome: "CREATED" },
+    data: { topHitCodexId: null },
+  });
+  revalidate("/admin/codex/aliases");
+  return { ok: true, dismissed: r.count };
+}
+
 /* ────────────────────────────────────────────
    A-06 도감 병합 (D-016, FR-05-B)
    ──────────────────────────────────────────── */

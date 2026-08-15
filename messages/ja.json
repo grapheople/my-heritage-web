@@ -356,6 +356,7 @@
     "codexLinked": "図鑑に紐づきました — 「同じアイテムを持つ人」に表示されます",
     "codexCreated": "新しい図鑑が登録されました — 他の人もこのアイテムを見つけられます",
     "codexNotLinked": "図鑑に紐づきませんでした。{fields} を入力すると紐づきます",
+    "codexMatchedByAlias": "入力された {value} からこの図鑑を見つけました。入力値はそのまま保存されます",
     "viewItem": "登録したアイテムを見る",
     "photoMax": "写真は最大{max}枚です",
     "photoMoveLeft": "前に移動",
