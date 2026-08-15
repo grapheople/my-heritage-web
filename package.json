@@ -34,7 +34,8 @@
     "db:research-codex": "tsx prisma/research-codex.ts",
     "db:backfill-match-keys": "tsx prisma/backfill-match-keys.ts",
     "mcp": "tsx mcp/server.ts",
-    "attrs:camping": "tsx prisma/setup-camping-subtypes.ts"
+    "attrs:camping": "tsx prisma/setup-camping-subtypes.ts",
+    "attrs:scope-options": "tsx prisma/scope-accessory-options.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

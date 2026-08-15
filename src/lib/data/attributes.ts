@@ -66,6 +66,8 @@ const ATTR_SELECT = {
         orderBy: { displayOrder: "asc" as const },
         select: {
           key: true,
+          // D-209 — `null` 이면 전 카테고리 공통, 값이면 그 카테고리 전용
+          categoryId: true,
           labelKo: true, labelJa: true, labelEn: true,
         },
       },
@@ -123,8 +125,21 @@ export async function getCategoryAttributes(
     subtype?.matchingKey?.attributeKeys ?? category.matchingKey?.attributeKeys ?? [],
   );
 
+  /*
+    D-209 — **이 카테고리에서 안 쓰는 선택지를 뺀다.** 공통 속성 라이브러리는
+    번역 재사용이 목적이라(D-010) `포함 부속품` 이라는 개념은 공통이 맞지만
+    **선택지는 카테고리마다 다르다** — 시계의 `여분 링크`(브레이슬릿 링크)가
+    캠핑 텐트 등록 폼에 떴다.
+
+    ⚠️ **입력 경로에서만 거른다.** 아이템 상세(표시)에서 거르면 이미 저장된
+    값의 라벨이 사라진다 — D-036 의 "값은 보존된다"와 같은 비대칭이다
+  */
+  const inScope = (o: { categoryId: string | null }) =>
+    o.categoryId === null || o.categoryId === category.id;
+
   return [...category.attributes, ...subtypeAttrs].map((ca) => {
     const d = ca.attributeDefinition;
+    const options = d.options.filter(inScope);
     const unit = pick(locale, { ko: d.unitKo, ja: d.unitJa, en: d.unitEn });
     return {
       key: d.key,
@@ -133,8 +148,8 @@ export async function getCategoryAttributes(
       required: ca.required,
       unit: unit || undefined,
       options:
-        d.options.length > 0
-          ? d.options.map((o) => ({
+        options.length > 0
+          ? options.map((o) => ({
               key: o.key,
               label: pick(locale, { ko: o.labelKo, ja: o.labelJa, en: o.labelEn }),
             }))
