@@ -6,7 +6,8 @@ import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { CodexResearchPanel } from "@/components/admin/codex-research-panel";
 import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
 import { setCodexVerification } from "@/lib/actions/admin";
-import { AdminListControls, parseListParams } from "@/components/admin/list-controls";
+import { AdminListControls } from "@/components/admin/list-controls";
+import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
 import { getAdminCodexPage, getCodexKeyForms } from "@/lib/data/admin";
 

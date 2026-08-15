@@ -2,7 +2,8 @@ import { AdminActionButton } from "@/components/admin/action-button";
 import { setBrandActive } from "@/lib/actions/admin";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
 import { BrandAliasEditor, BrandCreateForm } from "@/components/admin/brand-forms";
-import { AdminListControls, parseListParams } from "@/components/admin/list-controls";
+import { AdminListControls } from "@/components/admin/list-controls";
+import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
 import { getAdminBrandsPage } from "@/lib/data/admin";
 
