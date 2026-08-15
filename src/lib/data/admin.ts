@@ -958,3 +958,77 @@ export async function getCodexMergeCandidates(): Promise<
   const rank = { sameUniqueId: 0, sameName: 1, prefix: 2 };
   return out.sort((p, q) => rank[p.reason] - rank[q.reason]).slice(0, 50);
 }
+
+/**
+ * A-16 유저 조회 (D-220).
+ *
+ * ## ⚠️ 이 서비스에는 **닉네임이 없다** — 방 이름이 그 자리다
+ * `User` 에 표시 이름 필드가 없다. 유저가 화면에 드러나는 이름은
+ * `Room.name` 하나뿐이고 **유일값도 아니다** (FR-05-A-06). 그래서 "이름으로
+ * 찾기"는 곧 **방 이름으로 찾기**이고, 동명이 나올 수 있으므로 **유저 ID 를
+ * 함께 보여준다** — 어드민이 둘을 구분할 유일한 값이다.
+ *
+ * ## 검색 축 3개
+ * | 축 | 왜 |
+ * |---|---|
+ * | 방 이름 | 사람이 아는 유일한 이름 |
+ * | 유저 ID | 동명 방을 가르는 값. 로그·문의에 그대로 실려 온다 |
+ * | 이메일 | A-10 이 이미 쓰는 축이다 (⚠️ Apple 릴레이일 수 있다 — FR-05-A-04) |
+ *
+ * ## ⚠️ 방이 없는 유저도 낸다
+ * 가입 직후 방 이름을 정하기 전 상태가 있다. `Room` 을 기준으로 조회하면
+ * 그 유저가 **어드민에게 아예 안 보인다** — 문의가 들어와도 찾을 수 없다.
+ * 그래서 `User` 를 기준으로 조회하고 방은 옵셔널로 붙인다.
+ *
+ * ## ⚠️ 탈퇴·비공개·봇을 숨기지 않는다
+ * 이 모듈의 전제 그대로다 — 운영은 전체를 봐야 조치할 수 있다. 다만 **상태를
+ * 행에 드러낸다**: 숨은 계정을 못 찾는 것과, 탈퇴 계정을 정상으로 오인하는
+ * 것은 둘 다 사고다.
+ *
+ * 검색은 애플리케이션에서 거른다 — 이유는 `ADMIN_LIST_LIMIT` 주석과 같다(D-014).
+ */
+export async function getAdminUsersPage(q: AdminListQuery = {}) {
+  const rows = await prisma.user.findMany({
+    orderBy: { createdAt: "desc" },
+    take: ADMIN_LIST_LIMIT,
+    select: {
+      id: true,
+      email: true,
+      language: true,
+      isBot: true,
+      createdAt: true,
+      deletedAt: true,
+      room: {
+        select: {
+          id: true,
+          name: true,
+          visibility: true,
+          _count: { select: { items: true, diaries: true } },
+        },
+      },
+      // 해제되지 않은 제재만 — 지난 제재까지 세면 상시 경고가 된다 (D-183 의 교훈)
+      _count: { select: { sanctions: { where: { liftedAt: null } }, followers: true } },
+    },
+  });
+
+  const all = rows.map((u) => ({
+    id: u.id,
+    email: u.email,
+    language: u.language,
+    isBot: u.isBot,
+    joinedAt: u.createdAt.toISOString().slice(0, 10),
+    deletedAt: u.deletedAt?.toISOString().slice(0, 10) ?? null,
+    roomId: u.room?.id ?? null,
+    roomName: u.room?.name ?? null,
+    visibility: u.room?.visibility ?? null,
+    itemCount: u.room?._count.items ?? 0,
+    diaryCount: u.room?._count.diaries ?? 0,
+    followerCount: u._count.followers,
+    activeSanctions: u._count.sanctions,
+  }));
+
+  const filtered = all.filter((u) => matchesQuery([u.roomName, u.id, u.email], q.q ?? ""));
+  return paginate(all, filtered, q);
+}
+
+export type AdminUserRow = Awaited<ReturnType<typeof getAdminUsersPage>>["rows"][number];

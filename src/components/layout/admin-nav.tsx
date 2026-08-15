@@ -7,14 +7,19 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * 어드민 화면 14개 (myroom-service §6). ko 단일 — i18n 대상 아님 (D-030).
- * 하드코딩 문자열은 의도된 것이다. 어드민 UI 문구를 messages/*.json에 넣지 않는다.
+ * 어드민 화면 15개 + 로컬 전용 1개 (myroom-service §6). ko 단일 — i18n 대상
+ * 아님 (D-030). 하드코딩 문자열은 의도된 것이다. 어드민 UI 문구를
+ * `messages/*.json` 에 넣지 않는다.
+ *
+ * ⚠️ **A-15 는 로컬 전용 봇 시딩이 이미 쓰고 있다.** 새 화면은 A-16 부터다 —
+ * 번호를 재사용하면 문서·화면·로그가 서로 다른 것을 가리킨다 (D-220).
  */
 const SECTIONS = [
   {
     title: "운영",
     items: [
       { href: "/admin", label: "운영 대시보드", id: "A-13" },
+      { href: "/admin/users", label: "유저 조회", id: "A-16" },
       { href: "/admin/reports", label: "신고 처리", id: "A-08" },
       { href: "/admin/sanctions", label: "유저·방 제재", id: "A-10" },
     ],
