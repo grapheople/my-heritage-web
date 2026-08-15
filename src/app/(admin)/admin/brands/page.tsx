@@ -47,6 +47,18 @@ export default async function AdminBrandsPage({
       }
     >
       {/*
+        ⚠️ **검색·필터를 경고보다 위에 둔다.** 브랜드는 290건이라 이 화면에
+        오는 주 목적이 **찾기**다. 경고(alias 누락 N건)는 상시 켜져 있을 수
+        있는데(D-047) 그것이 검색창을 아래로 밀면, 매번 스크롤해서 찾아야 한다.
+      */}
+      <AdminListControls
+        categories={categories}
+        total={list.total}
+        filtered={list.filtered}
+        loadLimit={list.loadLimit}
+      />
+
+      {/*
         ⚠️ **경고를 조건부로 바꿨다** (D-183). 이 문구는 무조건 렌더되고 있어서
         브랜드가 290건 들어간 뒤에도 **"시드가 없습니다 … 현재 290건입니다"** 라는
         자기모순을 띄웠다. 늘 켜져 있는 경고는 읽히지 않고, 진짜로 비었을 때
@@ -72,13 +84,6 @@ export default async function AdminBrandsPage({
           )}
         </div>
       )}
-
-      <AdminListControls
-        categories={categories}
-        total={list.total}
-        filtered={list.filtered}
-        loadLimit={list.loadLimit}
-      />
 
       <Table head={["원문 (고정)", "alias", "연결 카테고리", "상태", "조치"]}>
         {brands.map((b) => (
