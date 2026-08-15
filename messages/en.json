@@ -362,7 +362,7 @@
     "photoMoveLeft": "Move earlier",
     "nickname": "Your nickname",
     "nicknameHint": "To tell apart two of the same item. e.g. “daily”",
-    "matchingKeyHint": "Leave blank if you don't know it — the item is saved without a codex link"
+    "matchingKeyHint": "Enter it accurately to link with the codex. An unregistered {field} is added to the codex after verification"
   },
   "opt": {
     "auto": "Automatic",
