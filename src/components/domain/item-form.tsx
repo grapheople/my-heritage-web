@@ -4,6 +4,8 @@ import { Check, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { CATEGORY_KEYS } from "@/lib/categories";
+import type { SubtypeOption } from "@/lib/subtype";
+import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/navigation";
 import { createItem, updateItem } from "@/lib/actions/item";
 import { AttrField } from "./attr-field";
@@ -95,26 +97,50 @@ export function ItemForm({
    * 카테고리를 빠르게 바꿀 때 이전 카테고리의 응답이 나중에 도착해 엉뚱한
    * 폼이 그려진다.
    */
-  const [loaded, setLoaded] = useState<{ category: string; defs: AttrDef[] } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    category: string;
+    subtype: string;
+    defs: AttrDef[];
+    subtypes: SubtypeOption[];
+  } | null>(null);
+  /**
+   * D-207 — 하위 제품군(캠핑의 텐트·랜턴). **카테고리를 바꾸면 비운다** —
+   * 캠핑의 `tent` 를 들고 자전거로 넘어가면 서버가 거부한다
+   */
+  const [subtype, setSubtype] = useState("");
   useEffect(() => {
     if (!category) return;
     let alive = true;
-    fetch(`/api/categories/${category}/attributes?locale=${locale}`)
+    const qs = new URLSearchParams({ locale });
+    if (subtype) qs.set("subtype", subtype);
+    fetch(`/api/categories/${category}/attributes?${qs}`)
       .then((r) => r.json())
-      .then((d: { attributes: AttrDef[] }) => {
-        if (alive) setLoaded({ category, defs: d.attributes ?? [] });
+      .then((d: { attributes: AttrDef[]; subtypes?: SubtypeOption[] }) => {
+        if (alive)
+          setLoaded({
+            category,
+            subtype,
+            defs: d.attributes ?? [],
+            subtypes: d.subtypes ?? [],
+          });
       })
       .catch(() => {
-        if (alive) setLoaded({ category, defs: [] });
+        if (alive) setLoaded({ category, subtype, defs: [], subtypes: [] });
       });
     return () => {
       alive = false;
     };
-  }, [category, locale]);
+  }, [category, subtype, locale]);
 
-  const attrs = loaded?.category === category ? loaded.defs : [];
+  /*
+    ⚠️ **카테고리와 제품군이 둘 다 일치할 때만 쓴다.** 하나만 보면 카테고리를
+    빠르게 바꿀 때 이전 응답이 나중에 도착해 엉뚱한 폼이 그려진다 (기존 주석의
+    경합 문제 — 축이 하나 늘었으므로 판정도 함께 늘린다)
+  */
+  const fresh = loaded?.category === category && loaded.subtype === subtype;
+  const attrs = fresh ? loaded.defs : [];
+  // 선택지는 제품군을 고른 뒤에도 유지돼야 바꿀 수 있다
+  const subtypeOptions = loaded?.category === category ? (loaded.subtypes ?? []) : [];
   /** 도감 연결에 필요한 항목 이름 — 이미 로케일에 맞게 온다 (`?locale=`) */
   const matchingKeyLabels = attrs
     .filter((a) => a.matchingKey)
@@ -205,6 +231,8 @@ export function ItemForm({
         values,
         photoUrls: photos,
         nickname,
+        // D-207 — 빈 문자열이면 보내지 않는다. 서버가 카테고리 소속을 재검증한다
+        subtype: subtype || undefined,
       });
       if (res.ok) {
         setSaved({
@@ -230,7 +258,7 @@ export function ItemForm({
         <ul className="mt-3 grid grid-cols-2 gap-2">
           {CATEGORIES.map((c) => (
             <li key={c}>
-              <button type="button" onClick={() => setCategory(c)}
+              <button type="button" onClick={() => { setCategory(c); setSubtype(""); }}
                 className="w-full rounded-lg border py-4 text-sm font-semibold hover:bg-accent">
                 {t(`category.${c}`)}
               </button>
@@ -304,12 +332,53 @@ export function ItemForm({
         <p className="text-sm font-semibold">{t(`category.${category}`)}</p>
         {/* 수정 시 카테고리를 바꿀 수 없다 — 속성 집합이 달라진다 (FR-05-B-02) */}
         {!fixedCategory && (
-          <button type="button" onClick={() => { setCategory(null); setValues({}); }}
+          <button type="button" onClick={() => { setCategory(null); setValues({}); setSubtype(""); }}
             className="text-sm text-muted-foreground underline">
             {t("common.edit")}
           </button>
         )}
       </div>
+
+      {/*
+        D-207 — 하위 제품군 선택. **선택지가 있을 때만 그린다** — 캠핑 외
+        6개 카테고리는 비어 있어 이 블록이 통째로 사라지고 기존과 같다.
+
+        ⚠️ **수정에서는 바꿀 수 없다** (`fixedCategory`). 제품군이 바뀌면 속성
+        집합이 통째로 갈려 이미 입력된 값이 갈 곳을 잃는다 — 카테고리를 못
+        바꾸는 것과 같은 이유다 (FR-05-B-02)
+      */}
+      {subtypeOptions.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold">{t("reg.subtype")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("reg.subtypeHint")}</p>
+          {fixedCategory ? (
+            <p className="mt-2 text-sm">
+              {subtypeOptions.find((o) => o.key === subtype)?.label ?? t("reg.subtypeNone")}
+            </p>
+          ) : (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {subtypeOptions.map((o) => (
+                <li key={o.key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // 제품군이 바뀌면 속성 집합이 달라진다 — 값은 유지하되
+                      // 폼이 새 정의를 받아 그리게 둔다 (없는 칸은 안 그려진다)
+                      setSubtype(o.key === subtype ? "" : o.key);
+                    }}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-sm",
+                      o.key === subtype ? "border-primary font-semibold" : "hover:bg-accent",
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* 도감 매칭 결과 — 같은 화면의 상태 변화다 (FR-05-A-09) */}
       {codexName && (

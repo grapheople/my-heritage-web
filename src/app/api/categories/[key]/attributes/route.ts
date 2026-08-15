@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCategoryAttributes, type Locale } from "@/lib/data/attributes";
+import { getSubtypeOptions } from "@/lib/subtype";
 
 /**
  * 카테고리별 속성 정의 (S-04 등록 폼).
@@ -15,13 +16,24 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params;
-  const raw = new URL(req.url).searchParams.get("locale");
+  const sp = new URL(req.url).searchParams;
+  const raw = sp.get("locale");
   const locale: Locale = raw === "ja" || raw === "en" ? raw : "ko";
+  // D-207 — 제품군을 고르면 그 전용 속성까지 합쳐 온다
+  const subtype = sp.get("subtype") ?? undefined;
 
-  const attributes = await getCategoryAttributes(key, locale);
+  const [attributes, subtypes] = await Promise.all([
+    getCategoryAttributes(key, locale, subtype),
+    getSubtypeOptions(key, locale),
+  ]);
 
+  /*
+    ⚠️ **`subtypes` 는 제품군 선택 여부와 무관하게 항상 낸다.** 폼이 선택 UI 를
+    그릴지 판단하는 값이라, 고른 뒤에 빠지면 바꿀 수단이 사라진다.
+    비어 있으면(6개 카테고리) 폼이 UI 를 그리지 않는다
+  */
   return NextResponse.json(
-    { attributes },
+    { attributes, subtypes },
     {
       headers: {
         // 어드민이 A-02 에서 바꾸면 반영돼야 하므로 짧게 잡는다

@@ -47,47 +47,83 @@ export type AttrDef = {
  * ⚠️ 결과가 비면 **어드민이 A-02 에서 조합을 구성하지 않은 것이다** (D-097).
  * 폼은 그 상태를 빈 화면이 아니라 안내로 내야 한다.
  */
+/**
+ * 속성 행 select — **공통 조회와 제품군 조회가 같은 모양을 써야 한다** (D-207).
+ * 따로 쓰면 한쪽에만 필드가 빠져 폼에서 그 항목만 라벨·단위가 사라진다.
+ */
+const ATTR_SELECT = {
+  required: true,
+  // 카테고리별 라벨 override (D-168)
+  labelKo: true, labelJa: true, labelEn: true,
+  attributeDefinition: {
+    select: {
+      key: true,
+      type: true,
+      labelKo: true, labelJa: true, labelEn: true,
+      unitKo: true, unitJa: true, unitEn: true,
+      options: {
+        where: { active: true },
+        orderBy: { displayOrder: "asc" as const },
+        select: {
+          key: true,
+          labelKo: true, labelJa: true, labelEn: true,
+        },
+      },
+    },
+  },
+} as const;
+
 export async function getCategoryAttributes(
   categoryKey: string,
   locale: Locale,
+  /**
+   * D-207 — 하위 제품군 `key`. 주면 **공통 + 그 제품군 전용**을 합쳐 낸다.
+   * 안 주면 공통만 — 제품군이 없는 6개 카테고리가 그 경우이고 기존과 같다
+   */
+  subtypeKey?: string,
 ): Promise<AttrDef[]> {
   const category = await prisma.category.findUnique({
     where: { key: categoryKey },
     select: {
       id: true,
       matchingKey: { select: { attributeKeys: true } },
+      subtypes: {
+        where: subtypeKey ? { key: subtypeKey, active: true } : { id: "__none__" },
+        select: { id: true, matchingKey: { select: { attributeKeys: true } } },
+      },
       attributes: {
         where: { active: true },
         orderBy: { displayOrder: "asc" },
-        select: {
-          required: true,
-          // 카테고리별 라벨 override (D-168)
-          labelKo: true, labelJa: true, labelEn: true,
-          attributeDefinition: {
-            select: {
-              key: true,
-              type: true,
-              labelKo: true, labelJa: true, labelEn: true,
-              unitKo: true, unitJa: true, unitEn: true,
-              options: {
-                where: { active: true },
-                orderBy: { displayOrder: "asc" },
-                select: {
-                  key: true,
-                  labelKo: true, labelJa: true, labelEn: true,
-                },
-              },
-            },
-          },
-        },
+        select: ATTR_SELECT,
       },
     },
   });
   if (!category) return [];
 
-  const matchingKeys = new Set(category.matchingKey?.attributeKeys ?? []);
+  /*
+    D-207 — 제품군 전용 속성을 따로 읽어 **공통 뒤에 붙인다.**
+    `category.attributes` 는 `categoryId` 로만 걸리므로(카테고리 XOR 제품군)
+    제품군 행은 거기 안 들어온다.
 
-  return category.attributes.map((ca) => {
+    ⚠️ **공통이 먼저다.** 브랜드·모델명이 위에 오고 제품군 전용(수용 인원·
+    내한 온도)이 뒤따라야, 카테고리를 바꿔도 폼 상단이 같아 유저가 매번
+    다시 읽지 않는다
+  */
+  const subtype = category.subtypes[0] ?? null;
+  const subtypeAttrs = subtype
+    ? await prisma.categoryAttribute.findMany({
+        where: { subtypeId: subtype.id, active: true },
+        orderBy: { displayOrder: "asc" },
+        select: ATTR_SELECT,
+      })
+    : [];
+
+  // 제품군 매칭 키가 있으면 그것이 이긴다 — 합치지 않는다 (`lib/subtype.ts` 참조)
+  const matchingKeys = new Set(
+    subtype?.matchingKey?.attributeKeys ?? category.matchingKey?.attributeKeys ?? [],
+  );
+
+  return [...category.attributes, ...subtypeAttrs].map((ca) => {
     const d = ca.attributeDefinition;
     const unit = pick(locale, { ko: d.unitKo, ja: d.unitJa, en: d.unitEn });
     return {

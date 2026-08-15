@@ -14,6 +14,12 @@ import {
   syncPrimaryMatchKey,
   type MatchVia,
 } from "@/lib/codex-match-key";
+import {
+  ATTRIBUTE_SCOPE_ORDER,
+  attributeScopeWhere,
+  resolveMatchingKeyOrder,
+  resolveSubtypeId,
+} from "@/lib/subtype";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -44,7 +50,12 @@ export type CreateItemInput = {
   photoUrls: string[];
   /** 유저 별칭(선택) — 같은 도감 아이템 구분용 (D-112) */
   nickname?: string;
-  /** "고유값을 모르겠어요" — 매칭 키 필수를 면제한다 (D-032, FR-01-A-02b) */
+  /**
+   * D-207 — 하위 제품군 `key` (캠핑의 `tent`·`lantern`). **선택이다.**
+   * 제품군이 없는 카테고리는 보내지 않으며, 그때 폼은 공통 속성만 그린다.
+   * ⚠️ 서버가 카테고리 소속을 다시 검증한다 — 폼 값을 믿지 않는다
+   */
+  subtype?: string;
 };
 
 export type CreateItemResult =
@@ -121,15 +132,27 @@ export async function createItemAs(
     return { ok: false, fieldErrors: {}, formError: "이 카테고리는 현재 등록할 수 없습니다" };
   }
 
-  // 활성 속성만, 지정된 순서로 (FR-05-A-02, D-036)
+  /*
+    하위 제품군 (D-207) — **선택이다.** 캠핑 외 카테고리는 `null` 이고 그때
+    아래 조회·해석이 전부 지금과 같게 동작한다.
+
+    ⚠️ **폼이 보낸 값을 그대로 믿지 않는다.** 다른 카테고리의 제품군을 붙이면
+    속성 집합이 통째로 어긋난다
+  */
+  const st = await resolveSubtypeId({ categoryId: category.id, subtypeKey: input.subtype });
+  if (!st.ok) return { ok: false, fieldErrors: { __subtype: st.error } };
+  const subtypeId = st.subtypeId;
+
+  // 활성 속성만, 지정된 순서로 (FR-05-A-02, D-036).
+  // **공통 + 선택된 제품군**을 합친다 (D-207)
   const attrs = await prisma.categoryAttribute.findMany({
-    where: { categoryId: category.id, active: true },
+    where: attributeScopeWhere({ categoryId: category.id, subtypeId }),
     select: {
       id: true,
       required: true,
       attributeDefinition: { select: { key: true, type: true } },
     },
-    orderBy: { displayOrder: "asc" },
+    orderBy: ATTRIBUTE_SCOPE_ORDER,
   });
   if (attrs.length === 0) {
     // D-097 — 어드민이 A-02 에서 조합을 구성하지 않았다
@@ -140,14 +163,11 @@ export async function createItemAs(
     };
   }
 
-  const matchingKey = await prisma.matchingKeyDefinition.findUnique({
-    where: { categoryId: category.id },
-    select: { attributeKeys: true },
-  });
   // 순서가 정규화 순서다 (FR-01-A-05) — Set 으로만 들고 있으면 순서를 잃는다.
   // ⚠️ **면제 판정용 Set 은 없어졌다** (D-169) — 매칭 키가 `required` 가 아니므로
-  // 필수 검증에서 매칭 키를 특별 취급할 필요가 없다
-  const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
+  // 필수 검증에서 매칭 키를 특별 취급할 필요가 없다.
+  // 제품군 것이 있으면 그것이 이긴다 (D-207)
+  const keyOrder = await resolveMatchingKeyOrder({ categoryId: category.id, subtypeId });
 
   /* ── 검증 (FR-05-A-03) ── */
   const fieldErrors: Record<string, string> = {};
@@ -272,6 +292,7 @@ export async function createItemAs(
     data: {
       roomId,
       categoryId: category.id,
+      subtypeId,
       brandId,
       model: input.values.model?.trim() || null,
       nickname: input.nickname?.trim() || null,
@@ -379,21 +400,25 @@ export async function updateItemAs(
   // 구현이다 — 받아놓고 무시하면 언젠가 누가 반영해버린다
   const categoryId = owned.categoryId;
 
+  /*
+    ⚠️ **제품군도 기존 값을 쓴다** — 카테고리와 같은 이유다 (FR-05-B-02).
+    수정에서 제품군을 바꾸면 속성 집합이 통째로 갈리고, 이미 입력된 값들이
+    갈 곳을 잃는다. 바꾸려면 지우고 다시 등록하는 것이 명확하다
+  */
+  const subtypeId = owned.subtypeId;
+
   const attrs = await prisma.categoryAttribute.findMany({
-    where: { categoryId, active: true },
+    where: attributeScopeWhere({ categoryId, subtypeId }),
     select: {
       id: true,
       required: true,
       attributeDefinition: { select: { key: true, type: true } },
     },
-    orderBy: { displayOrder: "asc" },
+    orderBy: ATTRIBUTE_SCOPE_ORDER,
   });
 
-  const matchingKey = await prisma.matchingKeyDefinition.findUnique({
-    where: { categoryId },
-    select: { attributeKeys: true },
-  });
-  const keyOrder = matchingKey?.attributeKeys ?? ["uniqueId"];
+  // 등록과 **같은 해석기**를 쓴다 (D-207)
+  const keyOrder = await resolveMatchingKeyOrder({ categoryId, subtypeId });
 
   /* ── 검증 — 수정 시점에 필수로 바뀐 속성도 요구한다 (FR-05-B-04) ── */
   const fieldErrors: Record<string, string> = {};
