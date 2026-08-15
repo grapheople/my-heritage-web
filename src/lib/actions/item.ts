@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { getViewer, type Viewer } from "@/lib/auth/viewer";
-import { fail, grantExperience, ownItem, type ActionResult } from "@/lib/actions/shared";
+import {
+  fail,
+  grantExperience,
+  ownItem,
+  revalidate,
+  type ActionResult,
+} from "@/lib/actions/shared";
 import {
   buildMatchingKey,
   codexDisplayName,
@@ -541,5 +547,74 @@ export async function setItemVisibility(
   revalidatePath("/[locale]/me", "page");
   revalidatePath("/[locale]/market", "page");
   revalidatePath("/[locale]", "page");
+  return { ok: true };
+}
+
+/* ────────────────────────────────────────────
+   구성 관계 — 부품 (D-211)
+   ──────────────────────────────────────────── */
+
+/**
+ * 기존 아이템을 다른 아이템의 **부품으로 편입**한다.
+ *
+ * ## ⚠️ 새로 등록하지 않고 **편입**이다
+ * 부품도 아이템이므로 등록 경로(`createItemAs`)를 그대로 쓴다 — 도감 매칭·
+ * 정규화·키 alias 가 전부 재사용된다. 여기서는 **관계만** 맺는다.
+ * 등록 경로를 하나 더 만들면 규칙이 갈린다 (D-185 가 삽입 규칙을 한 곳에 모은 이유).
+ */
+export async function attachPart(input: {
+  parentId: string;
+  partId: string;
+}): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+
+  const [parent, part] = await Promise.all([
+    ownItem(viewer, input.parentId),
+    ownItem(viewer, input.partId),
+  ]);
+  // ⚠️ **둘 다 내 것이어야 한다.** 남의 아이템을 내 자전거에 매달 수 없다
+  if (!parent || !part) return fail({}, "아이템을 찾을 수 없습니다");
+  if (parent.id === part.id) return fail({}, "자기 자신을 부품으로 넣을 수 없습니다");
+
+  /*
+    ⚠️ **깊이 1 단계만.** 부품의 부품을 허용하면 진열·판매·보유자 수 판정이
+    재귀가 되고, "이 자전거의 일부의 일부"는 유저에게도 의미가 없다.
+  */
+  if (parent.parentId) return fail({}, "부품에는 다시 부품을 넣을 수 없습니다");
+  const hasChildren = await prisma.item.count({ where: { parentId: part.id } });
+  if (hasChildren > 0) return fail({}, "부품을 가진 아이템은 부품이 될 수 없습니다");
+
+  /*
+    ⚠️ **판매중·판매완료는 편입하지 않는다.** 팔고 있는 물건이 남의 자전거의
+    일부가 되면 마켓에서 사라지거나(D-211 — 부품은 마켓 조회에서 빠진다)
+    "이미 떠난 아이템"이 구성에 남는다
+  */
+  if (part.saleStatus !== "DISPLAYED") {
+    return fail({}, "판매중이거나 판매완료된 아이템은 부품으로 넣을 수 없습니다");
+  }
+
+  await prisma.item.update({ where: { id: part.id }, data: { parentId: parent.id } });
+  // ⚠️ 공용 헬퍼를 쓴다 — `revalidatePath` 직접 호출은 **요청 스코프 밖에서
+  // 던져서** 이 액션을 스크립트로 검증할 수 없게 만든다 (`shared.ts` 주석 참조)
+  revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return { ok: true };
+}
+
+/**
+ * 부품을 구성에서 **떼어낸다** — 독립 아이템으로 돌아간다 (D-211 Q5).
+ *
+ * ⚠️ **삭제가 아니다.** 떼어내면 방 진열에 다시 나타나고 판매도 가능해진다.
+ * 자전거를 팔아도 떼어낸 부품은 남길 수 있어야 한다 (D-023·D-036 과 같은 태도).
+ */
+export async function detachPart(partId: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const part = await ownItem(viewer, partId);
+  if (!part) return fail({}, "아이템을 찾을 수 없습니다");
+  if (!part.parentId) return fail({}, "부품이 아닙니다");
+
+  await prisma.item.update({ where: { id: part.id }, data: { parentId: null } });
+  revalidate("/[locale]/items/[itemId]", "/[locale]/me");
   return { ok: true };
 }

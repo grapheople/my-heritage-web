@@ -67,6 +67,17 @@ export async function convertToSaleAs(
     return fail({}, "이 카테고리는 마켓에 올릴 수 없습니다");
   }
 
+  /*
+    ⚠️ **부품은 팔 수 없다** (D-211). "이 자전거의 일부"를 파는 것은 모순이다 —
+    사면 자전거가 반쪽이 된다. **먼저 떼어내면 독립 아이템이 되고 그때 판다.**
+
+    ⚠️ **D-173(`category.sellable`)과 다른 층이다** — 카테고리가 막는 것이
+    아니라 **관계**가 막는다. 위와 같은 이유로 **여기가 진짜 관문**이다
+  */
+  if (item.parentId) {
+    return fail({}, "부품은 먼저 구성에서 떼어내야 판매할 수 있습니다");
+  }
+
   /* ── 검증 (FR-01-A-03) ── */
   const errors: Record<string, string> = {};
   const price = Number(input.price);

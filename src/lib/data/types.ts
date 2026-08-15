@@ -86,6 +86,13 @@ export type ItemDetail = {
   /** 도감 연결. 없으면 "같은 물건 가진 사람"에 나타나지 않는다 (D-032) */
   codexId?: string;
   /**
+   * D-211 — **구성 부품.** 자전거의 프레임·구동계·휠셋.
+   * 부품도 각자 도감에 연결되므로 `Ultegra R8100` 소유자 목록에 들어간다 (원칙 4)
+   */
+  parts: { id: string; name: string; subtypeLabel?: string; codexId?: string }[];
+  /** 값이 있으면 **이 아이템 자체가 부품**이다 — 부모로 돌아가는 길을 준다 */
+  parent?: { id: string; name: string };
+  /**
    * 사진 URL — **순서가 표시 순서이고 첫 장이 대표**다 (D-037, FR-07-A-04).
    * 아이템은 1장 이상이 보장된다 (FR-07-A-03)
    */
