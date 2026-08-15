@@ -25,6 +25,8 @@ type CodexRow = {
   verification: "UNVERIFIED" | "VERIFIED";
   aliases: unknown;
   category: { key: string };
+  /** FR-06-C-08 — 키 alias (이미 정규화된 값이다) */
+  matchKeys?: { value: string }[];
 };
 
 function aliasList(aliases: unknown): string[] {
@@ -136,6 +138,21 @@ const CODEX_SELECT = {
   verification: true,
   aliases: true,
   category: { select: { key: true } },
+  /*
+    FR-06-C-08 — **키 alias 도 검색 대상이다** (D-192).
+    등록으로 되는 값이 검색으로 안 되면 유저는 같은 값을 두 곳에서 다르게
+    대접받는다. `1460` 으로 등록이 되는데 검색이 안 되면 안 된다.
+
+    ⚠️ **승인 전 AI 제안은 뺀다** — 매칭에 안 쓰이는 값이(FR-06-C-05) 검색에만
+    나오면 "찾았는데 등록하면 다른 도감이 생긴다"가 된다.
+  */
+  matchKeys: {
+    where: {
+      kind: "ALIAS" as const,
+      NOT: { source: "AI_APPROVED" as const, approvedBy: null },
+    },
+    select: { value: true },
+  },
 } as const;
 
 /**
@@ -172,9 +189,14 @@ export async function searchCodex(
     const name = normalizeBrandToken(row.displayName);
     const uid = row.uniqueId ? normalizeBrandToken(row.uniqueId) : "";
     const aliases = aliasList(row.aliases);
+    // ⚠️ 이미 정규화된 값이다 — 다시 정규화하지 않는다 (FR-02-A-07)
+    const keyAliases = row.matchKeys?.map((k) => k.value) ?? [];
 
     // 랭크가 낮을수록 앞. 원문·고유값 일치가 alias 일치보다 우선 (E-06-05)
     if (name === nq || uid === nq) scored.push({ row, rank: 0 });
+    // ⚠️ **키 alias 완전일치는 rank 0 급이다** (FR-06-C-08). 등록하면 이 도감에
+    // 연결될 값이므로 "정확히 이것"에 해당한다 — 명칭 alias(rank 1)보다 앞이다
+    else if (keyAliases.includes(nq)) scored.push({ row, rank: 0 });
     else {
       const exact = aliases.find((a) => normalizeBrandToken(a) === nq);
       if (exact) scored.push({ row, rank: 1, alias: exact });

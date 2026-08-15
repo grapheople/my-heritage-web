@@ -187,10 +187,22 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       id: true,
       displayName: true,
       uniqueId: true,
+      /** 키 alias 편집 화면이 "편집 대상이 아닌 정식 값"으로 보여준다 (D-197) */
+      normalizedKey: true,
       verification: true,
       aliases: true,
       category: { select: { key: true } },
       _count: { select: { items: true } },
+      /*
+        D-192 — **키 alias 는 명칭 alias 와 다른 축이다.** 언어별로 나뉘지 않고
+        카테고리 안에서 유일하며 **등록 매칭에 쓰인다**(FR-02-B-05).
+        PRIMARY 는 정식 값이라 편집 대상이 아니다 — `ALIAS` 만 가져온다.
+      */
+      matchKeys: {
+        where: { kind: "ALIAS" as const },
+        select: { id: true, value: true, source: true, approvedBy: true },
+        orderBy: { createdAt: "asc" as const },
+      },
     },
     take: 200,
   });
@@ -210,6 +222,7 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       id: c.id,
       displayName: c.displayName,
       uniqueId: c.uniqueId ?? "",
+      normalizedKey: c.normalizedKey,
       categoryKey: `category.${c.category.key}`,
       // 화면이 라벨 맵을 들고 있지 않게 한다 (위 `getCodexKeyForms` 주석 참조)
       categoryLabel: labels.get(c.category.key) ?? c.category.key,
@@ -218,8 +231,86 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
       // 편집 폼은 언어별로 나눠 받아야 한다 (D-009)
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
+      /*
+        키 alias (D-192). ⚠️ **승인 대기 중인 AI 제안이 섞여 있다** —
+        `approvedBy` 가 없으면 매칭에 쓰이지 않으므로(FR-06-C-05) 화면이
+        구분해서 보여줘야 한다. 안 그러면 어드민은 "넣었는데 왜 안 되나"가 된다
+      */
+      keyAliases: c.matchKeys.map((k) => ({
+        id: k.id,
+        value: k.value,
+        source: k.source,
+        /** `AI_APPROVED` 인데 승인 전이면 매칭에서 제외된다 */
+        active: k.source !== "AI_APPROVED" || k.approvedBy !== null,
+      })),
     };
   });
+}
+
+/**
+ * 키 alias 후보 큐 (FR-06-C-09·10, D-198).
+ *
+ * ## ⚠️ 이 큐의 재료는 AI 가 아니라 **유저가 실제로 넣은 값**이다
+ * 등록 매칭이 미스로 끝났는데(`CREATED`) **같은 값으로 검색하면 도감이 나온**
+ * 경우다 — 검색은 부분일치이므로(FR-06-B-01) 이 조합은 "도감은 있는데 키가
+ * 안 맞았다" = **단위 차이**를 뜻한다 (OI-97 유형).
+ *
+ * 지어낸 값이 아니므로 D-186 가드(슬러그·숫자 없음 차단)의 관심사가 원천
+ * 차단되고, **검색이 이미 같은 제품으로 판단한 도감**이 짝으로 붙어 있다.
+ * D-194 가 병합 축적(①)을 1순위로 둔 근거를 **병합을 기다리지 않고** 얻는다.
+ *
+ * ⚠️ **빈도 순으로 준다** (FR-06-C-10). 같은 값이 반복 등장할수록 실제 통용
+ * 표기일 가능성이 높다. 1회짜리는 오타일 수 있다.
+ *
+ * ⚠️ **이미 키 alias 인 값은 뺀다** — 승인했는데 큐에 남아 있으면 어드민이
+ * 같은 것을 다시 처리한다.
+ */
+export async function getCodexKeyAliasCandidates(limit = 50) {
+  const rows = await prisma.codexMatchLog.groupBy({
+    by: ["categoryId", "attempted", "topHitCodexId"],
+    where: { outcome: "CREATED", searchHits: { gt: 0 }, topHitCodexId: { not: null } },
+    _count: { _all: true },
+    _max: { createdAt: true },
+    orderBy: { _count: { attempted: "desc" } },
+    take: limit,
+  });
+  if (rows.length === 0) return [];
+
+  // 이미 매칭 인덱스에 있는 값은 후보가 아니다 (승인 완료 또는 정식 값)
+  const taken = new Set(
+    (
+      await prisma.codexMatchKey.findMany({
+        where: { OR: rows.map((r) => ({ categoryId: r.categoryId, value: r.attempted })) },
+        select: { categoryId: true, value: true },
+      })
+    ).map((k) => `${k.categoryId}${k.value}`),
+  );
+
+  const fresh = rows.filter((r) => !taken.has(`${r.categoryId}${r.attempted}`));
+  if (fresh.length === 0) return [];
+
+  const targets = await prisma.codexItem.findMany({
+    where: { id: { in: [...new Set(fresh.map((r) => r.topHitCodexId!))] } },
+    select: { id: true, displayName: true, normalizedKey: true, mergedIntoId: true },
+  });
+  const byId = new Map(targets.map((t) => [t.id, t]));
+
+  return fresh
+    .map((r) => {
+      const t = byId.get(r.topHitCodexId!);
+      // 그 사이 병합·삭제됐을 수 있다 — survivor 를 따라가지 않고 후보에서 뺀다
+      // (어느 도감에 붙일지는 어드민 판단이고, 추측으로 옮기면 조용히 틀린다)
+      if (!t || t.mergedIntoId) return null;
+      return {
+        categoryId: r.categoryId,
+        /** 유저가 실제로 넣은 정규화 값 */
+        attempted: r.attempted,
+        count: r._count._all,
+        lastSeenAt: r._max.createdAt,
+        target: { id: t.id, displayName: t.displayName, normalizedKey: t.normalizedKey },
+      };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
 }
 
 /**
