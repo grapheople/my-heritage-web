@@ -43,8 +43,9 @@ export type BrandHit<T extends SearchableBrand = SearchableBrand> = {
  *
  * ⚠️ 유사 문자 치환(`O`↔`0`)도 하지 않는다 — 실제 코드 체계에 둘 다 쓰인다.
  *
- * D-014 는 "대문자 변환"이라고 적었지만 방향은 무관하다. **한 방향으로
- * 일관되면 된다** — 여기서는 소문자로 모은다.
+ * ⚠️ **소문자로 모은다** — 방향은 무관하고 **한 방향으로 일관되면 된다.**
+ * D-014 초판이 "대문자 변환"으로 적혀 있었으나 **D-199 에서 문서를 소문자로
+ * 정정**했다 (정책은 "대소문자를 무시한다"이지 폴딩 방향이 아니다).
  */
 export function normalizeBrandToken(s: string): string {
   return s.normalize("NFKC").toLowerCase().replace(/[\s\-_]/g, "");
