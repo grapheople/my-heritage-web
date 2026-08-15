@@ -56,6 +56,67 @@ export async function getAdminCategories() {
   }));
 }
 
+/**
+ * A-01·A-02·A-03 하위 제품군 (D-207).
+ *
+ * ⚠️ **비활성 제품군도 낸다.** 어드민은 전체를 봐야 조치할 수 있고, 이미 그
+ * 제품군으로 등록된 아이템이 있으므로 목록에서 사라지면 안 된다 (D-036 태도).
+ */
+export async function getAdminSubtypes() {
+  const rows = await prisma.categorySubtype.findMany({
+    orderBy: [{ category: { displayOrder: "asc" } }, { displayOrder: "asc" }],
+    select: {
+      id: true,
+      key: true,
+      labelKo: true,
+      labelJa: true,
+      labelEn: true,
+      active: true,
+      category: { select: { key: true } },
+      matchingKey: { select: { attributeKeys: true } },
+      _count: { select: { items: true, attributes: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    key: r.key,
+    categoryKey: r.category.key,
+    labels: { ko: r.labelKo, ja: r.labelJa, en: r.labelEn },
+    active: r.active,
+    /** 제품군 전용 매칭 키. 없으면 카테고리 것으로 떨어진다 */
+    matchingKeys: r.matchingKey?.attributeKeys ?? [],
+    itemCount: r._count.items,
+    attributeCount: r._count.attributes,
+  }));
+}
+
+/**
+ * A-02 제품군 전용 속성 (D-207).
+ *
+ * ⚠️ `getAdminCategoryAttributes` 는 `category.attributes` 를 읽는데,
+ * 제품군 행은 `categoryId` 가 `null` 이라(카테고리 XOR 제품군) **거기 안 들어온다.**
+ * 그래서 별도 조회가 필요하다.
+ */
+export async function getAdminSubtypeAttributes(subtypeId: string) {
+  const rows = await prisma.categoryAttribute.findMany({
+    where: { subtypeId },
+    orderBy: { displayOrder: "asc" },
+    select: {
+      required: true,
+      active: true,
+      labelKo: true,
+      attributeDefinition: { select: { key: true, type: true, labelKo: true } },
+    },
+  });
+  return rows.map((a) => ({
+    key: a.attributeDefinition.key,
+    label: a.labelKo ?? a.attributeDefinition.labelKo,
+    type: a.attributeDefinition.type,
+    required: a.required,
+    active: a.active,
+  }));
+}
+
 /** A-11 브랜드 마스터 (D-043 · D-047) */
 export async function getAdminBrands() {
   const rows = await prisma.brand.findMany({

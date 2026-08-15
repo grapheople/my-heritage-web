@@ -3,12 +3,13 @@ import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/
 import { AdminActionButton } from "@/components/admin/action-button";
 import { AttributeCreateForm } from "@/components/admin/attribute-create-form";
 import { setCategoryAttribute } from "@/lib/actions/admin";
-import { getAdminCategoryAttributes } from "@/lib/data/admin";
-
-const CAT_LABEL: Record<string, string> = {
-  watch: "시계", shoes: "신발", bicycle: "자전거",
-  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어",
-};
+import { adminCategoryOptions } from "@/lib/admin-categories";
+import {
+  getAdminCategoryAttributes,
+  getAdminSubtypeAttributes,
+  getAdminSubtypes,
+} from "@/lib/data/admin";
+import { SubtypeAttributes } from "@/components/admin/subtype-attributes";
 
 const TYPE_LABEL: Record<string, string> = {
   text: "한 줄", textarea: "여러 줄", number: "숫자", select: "단일 선택",
@@ -32,12 +33,34 @@ const TYPE_LABEL: Record<string, string> = {
 export default async function AdminAttributesPage({
   searchParams,
 }: PageProps<"/admin/attributes">) {
-  const all = await getAdminCategoryAttributes();
+  const [all, categories, subtypes] = await Promise.all([
+    getAdminCategoryAttributes(),
+    adminCategoryOptions(),
+    getAdminSubtypes(),
+  ]);
+  /*
+    ⚠️ **라벨 맵을 화면마다 만들지 않는다.** 같은 함정을 네 번 만났다 —
+    D-173(A-01 이 운동을 빈칸으로) · D-182(A-11 이 전 브랜드를 "시계"로) ·
+    D-185(도감 화면 두 곳이 `workout` 을 그대로 렌더) · 그리고 이 화면의
+    A-03 은 **운동이 아예 목록에 없었다**. `adminCategoryOptions()` 하나만 쓴다
+  */
+  const label = new Map(categories.map((c) => [c.key, c.label]));
   const sp = await searchParams;
   // 카테고리 전환은 링크로 한다 — 클라이언트 상태를 둘 이유가 없다
   const slug = typeof sp.category === "string" ? sp.category : (all[0]?.slug ?? "");
   const current = all.find((c) => c.slug === slug) ?? all[0];
   const attrs = current?.attrs ?? [];
+
+  /*
+    D-207 — 현재 카테고리의 제품군과 각각의 전용 속성.
+    `getAdminCategoryAttributes` 는 제품군 행을 내지 않는다 (categoryId 가 null)
+  */
+  const mine = subtypes.filter((s) => s.categoryKey === current?.slug);
+  const subtypeRows = await Promise.all(
+    mine.map(async (s) => ({ ...s, attrs: await getAdminSubtypeAttributes(s.id) })),
+  );
+  /** 제품군에 붙일 수 있는 속성 후보 — 공통 표에 있는 정의를 그대로 쓴다 */
+  const allDefs = attrs.map((a) => ({ key: a.key, label: a.label }));
   return (
     <AdminPage
       id="A-02" title="동적 속성 관리"
@@ -57,7 +80,7 @@ export default async function AdminAttributesPage({
                 : "rounded-full border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             }
           >
-            {CAT_LABEL[c.slug] ?? c.slug}
+            {label.get(c.slug) ?? c.slug}
           </Link>
         ))}
       </div>
@@ -96,6 +119,32 @@ export default async function AdminAttributesPage({
           </tr>
         ))}
       </Table>
+
+      {/*
+        D-207 — 이 카테고리의 제품군 전용 속성. **공통 표에는 안 나온다** —
+        제품군 행은 `categoryId` 가 `null` 이라(카테고리 XOR 제품군) 위 조회에
+        걸리지 않는다. 등록 폼은 **공통 + 선택된 제품군**을 합쳐 그린다
+      */}
+      {subtypeRows.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-bold">하위 종류 전용 속성</h2>
+          <p className="mt-1 mb-3 text-xs text-muted-foreground">
+            위 공통 속성에 <b>더해서</b> 나옵니다. 종류를 고르지 않으면 공통만 나옵니다.
+          </p>
+          <div className="flex flex-col gap-4">
+            {subtypeRows.map((s) => (
+              <SubtypeAttributes
+                key={s.id}
+                subtypeId={s.id}
+                label={s.labels.ko}
+                active={s.active}
+                attrs={s.attrs}
+                candidates={allDefs}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ⚠️ 유저 노출 필드는 3개 언어 (D-010·D-030) */}
       <section className="mt-8 rounded-lg border p-4">

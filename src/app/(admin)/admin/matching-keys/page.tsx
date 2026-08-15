@@ -1,11 +1,7 @@
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { MatchingKeyEditor } from "@/components/admin/matching-key-editor";
-import { getAdminMatchingKeys, getMatchingKeyCandidates } from "@/lib/data/admin";
-
-const CAT: Record<string, string> = {
-  watch: "시계", shoes: "신발", bicycle: "자전거",
-  apparel: "옷", camping: "캠핑", deskterior: "데스크테리어",
-};
+import { adminCategoryOptions } from "@/lib/admin-categories";
+import { getAdminMatchingKeys, getAdminSubtypes, getMatchingKeyCandidates } from "@/lib/data/admin";
 
 /**
  * A-03 매칭 키 정의 (codex F-02, D-013).
@@ -24,10 +20,20 @@ const CAT: Record<string, string> = {
  * 의미가 달라지기 때문이다.
  */
 export default async function AdminMatchingKeysPage() {
-  const [keys, candidates] = await Promise.all([
+  const [keys, candidates, categories, subtypes] = await Promise.all([
     getAdminMatchingKeys(),
     getMatchingKeyCandidates(),
+    adminCategoryOptions(),
+    getAdminSubtypes(),
   ]);
+  /*
+    ⚠️ **라벨 맵을 화면마다 만들지 않는다.** 같은 함정을 네 번 만났다 —
+    D-173(A-01 이 운동을 빈칸으로) · D-182(A-11 이 전 브랜드를 "시계"로) ·
+    D-185(도감 화면 두 곳이 `workout` 을 그대로 렌더) · 그리고 이 화면의
+    A-03 은 **운동이 아예 목록에 없었다**. `adminCategoryOptions()` 하나만 쓴다
+  */
+  const label = new Map(categories.map((c) => [c.key, c.label]));
+
   return (
     <AdminPage
       id="A-03" title="매칭 키 정의"
@@ -41,7 +47,7 @@ export default async function AdminMatchingKeysPage() {
       <Table head={["카테고리", "매칭 키", "검증", "조치"]}>
         {keys.map((m) => (
           <tr key={m.category}>
-            <Td className="font-semibold">{CAT[m.category]}</Td>
+            <Td className="font-semibold">{label.get(m.category) ?? m.category}</Td>
             <Td>
               {m.keys.length > 0 ? (
                 <span className="flex gap-1">
@@ -57,10 +63,44 @@ export default async function AdminMatchingKeysPage() {
             <Td>
               <MatchingKeyEditor
                   categoryKey={m.category}
-                  categoryLabel={CAT[m.category] ?? m.category}
+                  categoryLabel={label.get(m.category) ?? m.category}
                   current={m.keys}
                   candidates={candidates}
                 />
+            </Td>
+          </tr>
+        ))}
+
+        {/*
+          D-207 — 제품군 전용 매칭 키. **없으면 카테고리 것으로 떨어지므로**
+          "카테고리 기본"으로 표시한다. 텐트만 품번을 쓰고 나머지는 카테고리
+          규칙을 따르는 상태가 정상이다
+        */}
+        {subtypes.map((s) => (
+          <tr key={s.id} className={s.active ? "" : "text-muted-foreground"}>
+            <Td className="pl-6 text-sm">
+              ↳ {label.get(s.categoryKey) ?? s.categoryKey} · <b>{s.labels.ko}</b>
+            </Td>
+            <Td>
+              {s.matchingKeys.length > 0 ? (
+                <span className="flex gap-1">
+                  {s.matchingKeys.map((k) => <Pill key={k} tone="sale">{k}</Pill>)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">— 카테고리 기본을 따름</span>
+              )}
+            </Td>
+            <Td>
+              <Pill tone="warn">미검증</Pill>
+            </Td>
+            <Td>
+              <MatchingKeyEditor
+                categoryKey={s.categoryKey}
+                categoryLabel={`${label.get(s.categoryKey) ?? s.categoryKey} · ${s.labels.ko}`}
+                current={s.matchingKeys}
+                candidates={candidates}
+                subtypeId={s.id}
+              />
             </Td>
           </tr>
         ))}

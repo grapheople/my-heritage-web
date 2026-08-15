@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setMatchingKey } from "@/lib/actions/admin";
+import { setMatchingKey, setSubtypeMatchingKey } from "@/lib/actions/admin";
 
 /**
  * A-03 매칭 키 편집 (D-013 · D-041).
@@ -21,12 +21,21 @@ export function MatchingKeyEditor({
   categoryLabel,
   current,
   candidates,
+  subtypeId,
 }: {
   categoryKey: string;
   categoryLabel: string;
   current: string[];
   /** 매칭 키로 쓸 수 있는 속성만 (D-041) */
   candidates: { key: string; label: string; type: string }[];
+  /**
+   * D-207 — 주면 **그 제품군 전용** 매칭 키를 편집한다.
+   *
+   * ⚠️ **에디터를 두 벌로 나누지 않았다.** 타입 제한(D-041)·최소 개수·경고
+   * 문구가 같은데 컴포넌트가 둘이면 한쪽만 고쳐진다 — D-190·D-197·D-202 가
+   * 전부 "같은 규칙을 두 곳에 뒀다"는 실패였다.
+   */
+  subtypeId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [keys, setKeys] = useState<string[]>(current);
@@ -93,7 +102,14 @@ export function MatchingKeyEditor({
           disabled={pending || keys.length === 0}
           onClick={() =>
             startTransition(async () => {
-              const res = await setMatchingKey({ categoryKey, attributeKeys: keys });
+              /*
+                ⚠️ **제품군은 빈 배열이 허용된다** — "전용을 없앤다"는 뜻이고
+                그러면 카테고리 기본으로 떨어진다 (D-207 결정 4). 카테고리
+                기본은 최소 1개가 필요하다 (FR-01-A-03)
+              */
+              const res = subtypeId
+                ? await setSubtypeMatchingKey({ subtypeId, attributeKeys: keys })
+                : await setMatchingKey({ categoryKey, attributeKeys: keys });
               if (res.ok) {
                 setSaved(true);
                 setOpen(false);
