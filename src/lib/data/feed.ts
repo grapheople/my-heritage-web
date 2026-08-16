@@ -4,6 +4,7 @@ import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
+import { DISPLAYABLE_ITEM } from "@/lib/item-display";
 
 /**
  * S-01 NEW 피드.
@@ -68,8 +69,8 @@ export async function getFeed(
 
   const items = await prisma.item.findMany({
     where: {
-      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
-      parentId: null,
+      // ⚠️ **전시 단위 판정은 한 곳에서 온다** (D-211·D-221) — 조건을 여기 적지 않는다
+      ...DISPLAYABLE_ITEM,
       visibility: "PUBLIC",
       room: roomWhere,
       // 떠난 아이템은 피드에 올리지 않는다 (D-023).

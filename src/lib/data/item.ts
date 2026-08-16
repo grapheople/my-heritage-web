@@ -8,6 +8,7 @@ import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import type { Locale } from "@/i18n/routing";
 import { pickCategoryAttrLabel, pickLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
+import { DISPLAYABLE_ITEM } from "@/lib/item-display";
 
 /**
  * S-05 아이템 상세.
@@ -381,8 +382,8 @@ export function isItemIndexable(item: {
 export async function indexableItemIds(): Promise<string[]> {
   const rows = await prisma.item.findMany({
     where: {
-      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
-      parentId: null,
+      // ⚠️ **전시 단위 판정은 한 곳에서 온다** (D-211·D-221) — 조건을 여기 적지 않는다
+      ...DISPLAYABLE_ITEM,
       saleStatus: "ON_SALE",
       visibility: "PUBLIC",
       room: { visibility: "PUBLIC", user: { deletedAt: null } },

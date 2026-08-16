@@ -105,6 +105,10 @@ export async function ownItem(
   visibility: string;
   /** 이 카테고리를 마켓에 올릴 수 있는가 (D-173) */
   sellable: boolean;
+  /** 카테고리 `key`. 구성 관계가 **같은 카테고리 안에서만** 성립하는지 본다 (E-10-04) */
+  categoryKey: string;
+  /** 제품군 `key`. 루틴인지 종목인지를 가른다 (D-221) */
+  subtypeKey: string | null;
 } | null> {
   if (!viewer.roomId) return null;
   const item = await prisma.item.findFirst({
@@ -116,12 +120,18 @@ export async function ownItem(
       parentId: true,
       saleStatus: true,
       visibility: true,
-      category: { select: { sellable: true } },
+      category: { select: { sellable: true, key: true } },
+      subtype: { select: { key: true } },
     },
   });
   if (!item) return null;
-  const { category, ...rest } = item;
-  return { ...rest, sellable: category.sellable };
+  const { category, subtype, ...rest } = item;
+  return {
+    ...rest,
+    sellable: category.sellable,
+    categoryKey: category.key,
+    subtypeKey: subtype?.key ?? null,
+  };
 }
 
 export async function ownDiary(

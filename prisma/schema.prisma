@@ -392,6 +392,21 @@ model Category {
   /// 카테고리를 코드에 열거해 예외를 두지 않는다 — 어드민이 카테고리를 늘리면
   /// (A-01) 그때마다 예외 목록을 고쳐야 하고, 빠뜨리면 팔 수 없는 것이 팔린다.
   sellable      Boolean                @default(true)
+
+  /// **사진 1장이 필수인가** (D-224, `FR-07-A-12`).
+  ///
+  /// ⚠️ **코드에 카테고리를 열거하지 않는다.** D-173 이 `sellable` 을 만들며
+  /// "운동만 코드에 예외" 안을 명시적으로 탈락시켰다 — 어드민이 카테고리를
+  /// 늘리면 그때마다 예외 목록을 고쳐야 하고, **빠뜨리면 사진 없이 등록되면
+  /// 안 되는 것이 등록된다.**
+  ///
+  /// ⚠️ **기본이 `true`** 라 새 카테고리는 안전한 쪽으로 붙는다. `workout` 만
+  /// `false` 이고, 사진이 없으면 **근육맵**이 대표 이미지가 된다 (D-222·D-223).
+  ///
+  /// ⚠️ **어드민 토글을 만들지 않았다** (`FR-07-A-13`). `sellable` 은 운영
+  /// 판단이라 토글이 맞지만 사진 필수는 **카테고리의 성질**이고, 잘못 끄면
+  /// **판매 매물에서 사진이 사라져** 거래 신뢰가 무너진다 (원칙 1).
+  requiresPhoto Boolean @default(true)
 }
 
 /// D-207 — **카테고리 하위 제품군.** 캠핑의 텐트·침낭·랜턴처럼
@@ -903,11 +918,16 @@ model Item {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  photos          ItemPhoto[]
-  attributeValues ItemAttributeValue[]
-  diaries         DiaryItem[]
+  photos             ItemPhoto[]
+  attributeValues    ItemAttributeValue[]
+  diaries            DiaryItem[]
+  /// D-221 — **이 아이템이 루틴일 때** 담고 있는 종목들
+  routineItems       RoutineExercise[]    @relation("routineOf")
+  /// D-221 — **이 아이템이 종목일 때** 자신이 속한 루틴들.
+  /// ⚠️ 비어 있어야 방 진열에 나온다 (`FR-10-C-01`)
+  routineMemberships RoutineExercise[]    @relation("routineItem")
   /// 착용샷 (D-148) — 아이템 종속 1:N. 일기(N:M, D-054)와 다른 층이다
-  wearShots       WearShot[]
+  wearShots          WearShot[]
 
   @@index([visibility, saleStatus, createdAt])
   /// 마켓 기본 정렬 (D-048) — 판매중만 훑는다
@@ -1121,4 +1141,43 @@ model WearShot {
   @@unique([itemId, wornOn])
   /// 목록은 최신순 (S-25)
   @@index([itemId, wornOn])
+}
+
+/// 루틴 ← 종목 (D-221). **운동 루틴의 구성 관계**다.
+///
+/// ## ⚠️ 왜 `Item.parentId`(D-211)를 쓰지 않는가
+/// 자전거 부품은 **한 자전거에만** 붙지만 **한 종목은 여러 루틴에 들어간다**
+/// — `벤치프레스` 가 A 루틴에도 B 루틴에도 있는 것이 정상이다. `parentId` 는
+/// 1:N 이라 이것을 담을 수 없다.
+///
+/// 그리고 **루틴은 순서가 곧 내용**이다(1번 벤치 → 2번 인클라인). 부품에는
+/// 없던 축이라 `parentId` 로는 표현할 자리조차 없다.
+///
+/// ## ⚠️ 종목 카드는 하나다 (D-221 Q4)
+/// 세트·횟수·중량은 **종목 아이템의 속성**이므로 두 루틴이 공유한다. 중량을
+/// 올리면 양쪽에 반영된다 — 값이 한 곳에만 있어 갈릴 여지가 없다.
+///
+/// ## ⚠️ `Cascade` 는 관계만 지운다
+/// 루틴을 삭제하면 이 행만 사라지고 **종목 아이템은 남아 진열로 돌아온다**
+/// (`FR-10-B-06·07`). D-211 Q5(부모 삭제 시 자식 독립 승격)가 여기서는
+/// 자동으로 성립한다.
+model RoutineExercise {
+  id String @id @default(cuid())
+
+  routineItemId  String
+  routine        Item   @relation("routineOf", fields: [routineItemId], references: [id], onDelete: Cascade)
+  exerciseItemId String
+  exercise       Item   @relation("routineItem", fields: [exerciseItemId], references: [id], onDelete: Cascade)
+
+  /// 루틴 안에서의 순서 (`FR-10-B-02`)
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  /// ⚠️ 한 루틴에 같은 종목이 두 번 들어가지 못한다 (`FR-10-B-03`).
+  /// 서킷("벤치 → 스쿼트 → 벤치")이 실재하지만 허용하면 **순서·중량이 어느
+  /// 행의 것인지 모호**해진다. 막고 시작하고 필요가 관측되면 푼다
+  @@unique([routineItemId, exerciseItemId])
+  @@index([routineItemId, displayOrder])
+  @@index([exerciseItemId])
 }
