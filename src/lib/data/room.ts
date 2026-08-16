@@ -6,6 +6,8 @@ import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { prisma } from "@/lib/prisma";
+import { DISPLAYABLE_ITEM } from "@/lib/item-display";
+import { MUSCLE_SELECT, musclesOf, musclesOfRoutine } from "@/lib/data/muscles";
 
 /**
  * 방 조회 — S-02(본인) · S-03(타인) 공용.
@@ -73,8 +75,8 @@ export async function getRoom(
 
   const items = await prisma.item.findMany({
     where: {
-      // ⚠️ **부품은 전시 단위가 아니다** (D-211). 전시 단위는 부모다
-      parentId: null,
+      // ⚠️ **전시 단위 판정은 한 곳에서 온다** (D-211·D-221) — 조건을 여기 적지 않는다
+      ...DISPLAYABLE_ITEM,
       roomId,
       // ⚠️ 타인에게는 비공개 아이템을 **응답에서 뺀다.** 화면에서 숨기는 것이
       // 아니다 — 흐리게 두면 "비공개가 몇 개 있다"가 새어나간다 (D-083)
@@ -91,6 +93,16 @@ export async function getRoom(
         orderBy: { displayOrder: "asc" },
         take: 1, // 첫 장이 대표 이미지 (D-037, FR-07-A-04)
       },
+      /*
+        ⚠️ 사진이 없을 수 있다 (D-224 — 운동은 `requiresPhoto: false`). 그때
+        대표 이미지는 **근육맵**이므로 자극부위를 함께 읽는다 (`FR-07-A-14`)
+      */
+      ...MUSCLE_SELECT,
+      /** 루틴이면 구성 종목의 합집합이 자극부위다 (`FR-10-D-01`) */
+      routineItems: {
+        select: { exercise: { select: MUSCLE_SELECT } },
+        orderBy: { displayOrder: "asc" },
+      },
       ...NAME_SELECT,
     },
     orderBy: { createdAt: "desc" },
@@ -102,6 +114,16 @@ export async function getRoom(
     nickname: i.nickname ?? undefined,
     // 스토리지 전이라 플레이스홀더는 없는 것으로 다룬다 (OI-47)
     photoUrl: realPhotoUrl(i.photos[0]?.url),
+    /*
+      ⚠️ 루틴이면 **구성 종목의 합집합**, 종목이면 **자기 값**이다 (D-221 §7).
+      사진이 있으면 카드가 사진을 쓰므로 이 값은 쓰이지 않는다 — 우선순위는
+      `ItemThumb` 가 정한다 (`FR-10-D-04`)
+    */
+    muscles:
+      i.routineItems.length > 0
+        ? musclesOfRoutine(i.routineItems.map((r) => r.exercise))
+        : musclesOf(i),
+    categoryKey: i.category.key,
     onSale: i.saleStatus === "ON_SALE",
     // 비공개 표식은 본인 방에서만 뜬다 — 타인 뷰에는 애초에 없다
     isPrivate: i.visibility === "PRIVATE",

@@ -128,7 +128,7 @@ export async function createItemAs(
 
   const category = await prisma.category.findUnique({
     where: { key: input.category },
-    select: { id: true, active: true },
+    select: { id: true, active: true, requiresPhoto: true },
   });
   if (!category) {
     return { ok: false, fieldErrors: {}, formError: "존재하지 않는 카테고리입니다" };
@@ -185,8 +185,17 @@ export async function createItemAs(
       fieldErrors[key] = "필수 항목이에요";
     }
   }
-  // 사진 1장 필수 (FR-07-A-03)
-  if (input.photoUrls.length < 1) fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
+  /*
+    사진 1장 필수 — **카테고리가 정한다** (FR-07-A-02·03, D-224).
+
+    ⚠️ 여기에 카테고리를 열거하지 않는다. D-173 이 `sellable` 을 만들며
+    "운동만 코드에 예외" 안을 명시적으로 탈락시켰다 — 카테고리가 늘 때마다
+    예외 목록을 고쳐야 하고 **빠뜨리면 사진 없이 등록되면 안 되는 것이
+    등록된다.** 플래그면 데이터가 규칙을 들고 있다.
+  */
+  if (category.requiresPhoto && input.photoUrls.length < 1) {
+    fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
+  }
   if (input.photoUrls.length > MAX_PHOTOS) {
     fieldErrors.__photos = `사진은 최대 ${MAX_PHOTOS}장입니다`;
   }
@@ -435,8 +444,17 @@ export async function updateItemAs(
       fieldErrors[key] = "필수 항목이에요";
     }
   }
-  // 사진 1장 필수는 수정에서도 같다 (FR-07-A-03)
-  if (input.photoUrls.length < 1) {
+  /*
+    ⚠️ **등록과 같은 규칙을 쓴다** (FR-07-A-15). 한쪽만 고치면 우회 경로가
+    된다 — 등록은 되는데 수정에서 막히거나, 그 반대가 생긴다
+  */
+  const requiresPhoto = (
+    await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { requiresPhoto: true },
+    })
+  )?.requiresPhoto ?? true;
+  if (requiresPhoto && input.photoUrls.length < 1) {
     fieldErrors.__photos = "사진을 1장 이상 등록해주세요";
   }
   if (input.photoUrls.length > MAX_PHOTOS) {
@@ -616,5 +634,182 @@ export async function detachPart(partId: string): Promise<ActionResult> {
 
   await prisma.item.update({ where: { id: part.id }, data: { parentId: null } });
   revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return { ok: true };
+}
+
+/* ────────────────────── 운동 루틴 구성 (D-221) ────────────────────── */
+
+/** 루틴 제품군 키. 시드(`setup-workout-routine.ts`)와 같은 값이어야 한다 */
+const ROUTINE_SUBTYPE = "routine";
+
+/**
+ * 루틴에 **종목을 넣는다** (`FR-10-B-01~05`).
+ *
+ * ## ⚠️ 자전거 부품(`attachPart`)과 규칙이 다르다
+ * | | 부품 | 종목 |
+ * |---|---|---|
+ * | 몇 개의 부모 | **하나** (`parentId`) | **여럿** (`RoutineExercise`) |
+ * | 순서 | 없음 | **있다** (`displayOrder`) |
+ * | 판매중 편입 | 막는다 | **판정 불필요** — 운동은 `sellable: false` (D-173) |
+ *
+ * 그래서 같은 함수로 합치지 않았다. 합치면 두 규칙이 한 함수 안에서 분기로
+ * 갈리고, 어느 쪽 규칙인지 읽어야 알 수 있게 된다.
+ */
+export async function attachExercise(input: {
+  routineId: string;
+  exerciseId: string;
+}): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const res = await attachExerciseAs(viewer, input);
+  if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return res;
+}
+
+/**
+ * 본체 — **뷰어를 주입받는다.** 요청 스코프가 필요 없어 스크립트로 검증할 수
+ * 있다 (`10-frontend-spec` §6-2 가 정한 분리). `auth()` 와 `revalidatePath()` 는
+ * 요청 스코프를 요구하므로 진입점에만 둔다.
+ */
+export async function attachExerciseAs(
+  viewer: Viewer,
+  input: { routineId: string; exerciseId: string },
+): Promise<ActionResult> {
+  const [routine, exercise] = await Promise.all([
+    ownItem(viewer, input.routineId),
+    ownItem(viewer, input.exerciseId),
+  ]);
+  // ⚠️ **둘 다 내 것이어야 한다** (FR-10-B-04). 남의 종목을 내 루틴에 넣을 수 없다
+  if (!routine || !exercise) return fail({}, "아이템을 찾을 수 없습니다");
+  if (routine.id === exercise.id) return fail({}, "자기 자신을 넣을 수 없습니다");
+
+  if (routine.subtypeKey !== ROUTINE_SUBTYPE) {
+    return fail({}, "루틴이 아닙니다");
+  }
+  /*
+    ⚠️ **깊이 1 단계만** (FR-10-B-05). 루틴 안에 루틴을 허용하면 진열·자극부위
+    판정이 재귀가 되고, "루틴의 루틴"은 유저에게도 의미가 없다 (D-211 과 같은 이유)
+  */
+  if (exercise.subtypeKey === ROUTINE_SUBTYPE) {
+    return fail({}, "루틴을 루틴에 넣을 수 없습니다");
+  }
+  /*
+    ⚠️ **같은 카테고리 안에서만 성립한다** (E-10-04). 시계를 운동 루틴에 넣는
+    것은 구성 관계가 아니다 — 막지 않으면 진열·자극부위가 전부 이상해진다
+  */
+  if (routine.categoryKey !== exercise.categoryKey) {
+    return fail({}, "같은 카테고리의 아이템만 넣을 수 있습니다");
+  }
+
+  /*
+    ⚠️ **순서는 맨 뒤에 붙인다.** 0 으로 넣으면 기존 항목과 겹쳐 정렬이
+    불안정해진다 — 같은 루틴이 새로고침마다 다르게 보인다
+  */
+  const last = await prisma.routineExercise.findFirst({
+    where: { routineItemId: routine.id },
+    orderBy: { displayOrder: "desc" },
+    select: { displayOrder: true },
+  });
+
+  try {
+    await prisma.routineExercise.create({
+      data: {
+        routineItemId: routine.id,
+        exerciseItemId: exercise.id,
+        displayOrder: (last?.displayOrder ?? -1) + 1,
+      },
+    });
+  } catch {
+    // `@@unique` 위반 = 이미 들어 있다 (FR-10-B-03). 경합도 여기로 온다
+    return fail({}, "이미 이 루틴에 있는 종목입니다");
+  }
+
+  return { ok: true };
+}
+
+/**
+ * 루틴에서 **종목을 뺀다** (`FR-10-B-07`).
+ *
+ * ⚠️ **삭제가 아니다.** 관계만 지우므로 종목은 남고 **방 진열로 돌아온다**.
+ * 다른 루틴에 여전히 속해 있으면 그쪽은 그대로다 — M:N 이라 하나를 빼도
+ * 나머지가 유지된다 (부품의 `detachPart` 와 다른 점).
+ */
+export async function detachExercise(input: {
+  routineId: string;
+  exerciseId: string;
+}): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const res = await detachExerciseAs(viewer, input);
+  if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return res;
+}
+
+/** 본체 — 뷰어 주입 (위 분리 이유 참조) */
+export async function detachExerciseAs(
+  viewer: Viewer,
+  input: { routineId: string; exerciseId: string },
+): Promise<ActionResult> {
+  // 루틴이 내 것인지만 보면 된다 — 관계는 루틴에 매달려 있다
+  const routine = await ownItem(viewer, input.routineId);
+  if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
+
+  await prisma.routineExercise.deleteMany({
+    where: { routineItemId: routine.id, exerciseItemId: input.exerciseId },
+  });
+
+  return { ok: true };
+}
+
+/**
+ * 루틴 안 종목 **순서를 바꾼다** (`FR-10-B-02`).
+ *
+ * ⚠️ **없는 관계는 건너뛴다** (E-10-08). 다른 기기에서 종목을 빼는 사이에
+ * 순서를 저장하면 그 id 가 사라져 있다 — 전체를 실패시키면 유저는 이유를
+ * 알 수 없고 순서도 잃는다. **있는 것만 적용한다.**
+ */
+export async function reorderExercises(input: {
+  routineId: string;
+  /** 원하는 순서대로 나열된 종목 아이템 id */
+  exerciseIds: string[];
+}): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const res = await reorderExercisesAs(viewer, input);
+  if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return res;
+}
+
+/** 본체 — 뷰어 주입 (위 분리 이유 참조) */
+export async function reorderExercisesAs(
+  viewer: Viewer,
+  input: { routineId: string; exerciseIds: string[] },
+): Promise<ActionResult> {
+  const routine = await ownItem(viewer, input.routineId);
+  if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
+
+  const rows = await prisma.routineExercise.findMany({
+    where: { routineItemId: routine.id },
+    select: { id: true, exerciseItemId: true },
+  });
+  const byExercise = new Map(rows.map((r) => [r.exerciseItemId, r.id]));
+
+  const updates = input.exerciseIds
+    .map((exerciseId, i) => ({ id: byExercise.get(exerciseId), displayOrder: i }))
+    .filter((u): u is { id: string; displayOrder: number } => Boolean(u.id));
+
+  /*
+    ⚠️ **한 트랜잭션에서 바꾼다.** 도중에 실패하면 순서가 절반만 적용된 상태가
+    남고, 그 상태는 화면에서 정상처럼 보인다 — 알아채기 어렵다
+  */
+  await prisma.$transaction(
+    updates.map((u) =>
+      prisma.routineExercise.update({
+        where: { id: u.id },
+        data: { displayOrder: u.displayOrder },
+      }),
+    ),
+  );
+
   return { ok: true };
 }

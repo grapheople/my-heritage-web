@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { MuscleMap } from "./muscle-map";
 import { StatusBadge } from "./status-badge";
 
 /**
@@ -29,6 +30,17 @@ export type ItemThumbData = {
   onSale?: boolean;
   /** 비공개 배지 — 본인 방에서만 (FR-01-B-01) */
   isPrivate?: boolean;
+  /**
+   * 자극부위 (`targetMuscle` 옵션 키). **사진이 없을 때 대표 이미지가 된다**
+   * (D-222·D-224, `FR-07-A-14`·`FR-10-D-04`).
+   *
+   * ⚠️ 운동이 아닌 카테고리는 비어 있고, 그쪽은 사진이 필수라(D-037) 이
+   * 값이 쓰일 일이 없다. **빈 배열이어도 운동이면 빈 실루엣을 그린다** —
+   * 그것이 "종목을 추가하세요" 상태다 (E-10-01)
+   */
+  muscles?: readonly string[];
+  /** 운동 카테고리인가. 대체 이미지의 **종류를 카테고리가 정한다** */
+  categoryKey?: string;
 };
 
 /** id에서 결정적 색상을 만든다 — 매 렌더 같은 그림이어야 SSR/CSR이 어긋나지 않는다 */
@@ -66,6 +78,19 @@ export function ItemThumb({
             sizes="(min-width:1024px) 224px, (min-width:640px) 25vw, 33vw"
             className="object-cover transition-transform group-hover:scale-[1.03]"
           />
+        ) : item.categoryKey === "workout" ? (
+          /*
+            ⚠️ **운동은 사진이 없을 수 있다** (D-224). 그때 대표 이미지는
+            **근육맵**이다 — 그라디언트를 쓰지 않는다. 그 경로는 주석이
+            "스토리지 붙기 전 개발용"이라고 못박고 있고, 루틴 카드가 전부
+            의미 없는 색 블록이 되면 방이 죽는다 (D-222·D-223).
+
+            자극부위가 비어 있어도 **빈 실루엣**이 그려진다 — 그것이
+            "종목을 추가하세요" 상태다 (E-10-01)
+          */
+          <div className="absolute inset-0 flex items-center justify-center p-2.5">
+            <MuscleMap muscles={item.muscles ?? []} className="h-full w-full" />
+          </div>
         ) : (
           /* 사진 자리. D-079("색은 아이템이 담당한다")를 눈으로 검증하려면
              무채색 블록이 아니라 실제 사진처럼 컬러여야 한다 */
