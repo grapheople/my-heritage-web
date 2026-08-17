@@ -64,7 +64,18 @@
     "makePublic": "Make public",
     "publicNow": "Currently public. Making it private removes it from the feed, search and market",
     "privateNow": "Currently private. Only you can see it",
-    "privateOnSaleWarn": "This item is on sale. Making it private removes it from the market. Continue?"
+    "privateOnSaleWarn": "This item is on sale. Making it private removes it from the market. Continue?",
+    "routine": "Routine",
+    "routineEmpty": "Add exercises",
+    "routineHint": "The order is the routine. An exercise can belong to several routines.",
+    "routineAdd": "Add exercise",
+    "routineRemove": "Remove",
+    "routineUp": "Up",
+    "routineDown": "Down",
+    "routineNone": "No exercises to add. Register an exercise first.",
+    "inRoutines": "This exercise is in —",
+    "inRoutinesHint": "Exercises inside a routine are not shown separately in the room.",
+    "muscles": "Target muscles"
   },
   "diary": {
     "visibility": {

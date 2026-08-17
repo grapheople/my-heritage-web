@@ -12,6 +12,19 @@
  * 갈리는 것**이 이 그림이 하는 일이다 (D-074 — 카드의 정보량 예산).
  * 그래서 원·둥근 사각형만 쓴다. 작게 줄여도 뭉개지지 않는다.
  *
+ * ## ⚠️ 인접 근육이 겹치면 한 덩어리로 보인다
+ * 승모근↔광배, 어깨↔이두/삼두가 그랬다. **둘 다 같은 루틴에서 함께 켜지는
+ * 조합**이라 겹치면 "무슨 루틴인지"가 구분되지 않는다. 좌표를 잘라 띄웠다 —
+ * 전부 **렌더해서 찾았고 좌표만 보고는 보이지 않았다** (D-203 과 같은 교훈).
+ *
+ * ## ⚠️ 실루엣은 `border` 톤이다 — `muted` 가 아니다
+ * 초판은 실루엣에 `fill-muted` 를 썼는데, **이 그림이 놓이는 자리가 대부분
+ * `bg-muted`** 다(아이템 상세 히어로·방 진열 카드 둘 다). 같은 토큰이라
+ * 실루엣이 배경에 녹아 **칠해진 부위만 공중에 떠 보였다.** 렌더해서 알았다.
+ *
+ * `border`(`oklch(.922 0 0)`)는 `background`(1.0)·`muted`(.97) 양쪽에서 보이고
+ * 활성 `foreground`(.145)와도 충분히 갈린다.
+ *
  * ## ⚠️ 무채색이다 (D-079 · DS-2)
  * "색은 아이템이 담당한다"가 이 서비스의 방향이고 `--primary` 는 검정이다.
  * 근육맵에 색을 넣으면 방 진열에서 **사진보다 근육맵이 튄다.** 활성 부위는
@@ -36,7 +49,11 @@ export type MuscleKey = (typeof MUSCLE_KEYS)[number];
 type Shape =
   | { t: "e"; cx: number; cy: number; rx: number; ry: number }
   | { t: "r"; x: number; y: number; w: number; h: number; rx: number }
-  | { t: "p"; d: string };
+  /**
+   * 다각형. ⚠️ `flip` 은 **좌우 반전**을 뜻한다 — 경로 좌표를 손으로 뒤집는
+   * 대신 `transform` 으로 뒤집는다 (아래 `mirror` 주석 참조)
+   */
+  | { t: "p"; d: string; flip?: boolean };
 
 /**
  * 한 사람의 좌표계는 **80 × 112** 다. 좌우 대칭이라 한쪽만 적고 `mirror` 로
@@ -62,11 +79,17 @@ export const BODY: Shape[] = [
   { t: "r", x: 42, y: 70, w: 10, h: 36, rx: 4 },           // 오른다리
 ];
 
-/** 좌우 대칭 도형을 반대편으로 옮긴다 */
+/**
+ * 좌우 대칭 도형을 반대편으로 옮긴다.
+ *
+ * ⚠️ **초판은 `path` 를 그대로 돌려줬다.** 그래서 `pair(path)` 가 **같은 도형
+ * 두 개**를 만들고 광배가 **한쪽만 칠해졌다** — 예외도 경고도 없이 조용히.
+ * 렌더해서 알았다. 지금은 `flip` 을 세워 `transform` 으로 뒤집는다.
+ */
 function mirror(s: Shape): Shape {
   if (s.t === "e") return { ...s, cx: W - s.cx };
   if (s.t === "r") return { ...s, x: W - s.x - s.w };
-  return s;
+  return { ...s, flip: !s.flip };
 }
 
 function pair(...shapes: Shape[]): Shape[] {
@@ -76,11 +99,11 @@ function pair(...shapes: Shape[]): Shape[] {
 /** 앞모습에서 보이는 근육 */
 const FRONT: Partial<Record<MuscleKey, Shape[]>> = {
   traps: [{ t: "p", d: "M30 26 H50 L45 33 H35 Z" }],
-  shoulders: pair({ t: "e", cx: 24.5, cy: 33, rx: 6, ry: 5.5 }),
+  shoulders: pair({ t: "e", cx: 24.5, cy: 32, rx: 6, ry: 5 }),
   chest: pair({ t: "r", x: 28, y: 33, w: 11, h: 12, rx: 4 }),
   abdominals: [{ t: "r", x: 34, y: 46, w: 12, h: 16, rx: 3 }],
-  biceps: pair({ t: "e", cx: 20, cy: 41, rx: 4, ry: 7 }),
-  forearms: pair({ t: "e", cx: 20, cy: 56, rx: 3.6, ry: 7 }),
+  biceps: pair({ t: "e", cx: 20, cy: 45, rx: 4, ry: 6.5 }),
+  forearms: pair({ t: "e", cx: 20, cy: 57.5, rx: 3.6, ry: 5.5 }),
   quadriceps: pair({ t: "r", x: 29, y: 72, w: 9, h: 19, rx: 4 }),
   calves: pair({ t: "r", x: 30, y: 93, w: 7, h: 12, rx: 3 }),
 };
@@ -93,13 +116,13 @@ const BACK: Partial<Record<MuscleKey, Shape[]>> = {
     루틴인지 구분되지 않는다 — 미리보기를 눈으로 보고 찾았다
   */
   traps: [{ t: "p", d: "M30 26 H50 L47 38 H33 Z" }],
-  shoulders: pair({ t: "e", cx: 24.5, cy: 33, rx: 6, ry: 5.5 }),
+  shoulders: pair({ t: "e", cx: 24.5, cy: 32, rx: 6, ry: 5 }),
   // 광배는 겨드랑이에서 허리로 좁아지는 V — 이 실루엣의 특징이다
   lats: pair({ t: "p", d: "M26.5 39 H34 L32.5 58 L28.5 52 Z" }),
   middleBack: [{ t: "r", x: 36, y: 40, w: 8, h: 13, rx: 2 }],
   lowerBack: [{ t: "r", x: 34, y: 54, w: 12, h: 8, rx: 2 }],
-  triceps: pair({ t: "e", cx: 20, cy: 41, rx: 4, ry: 7 }),
-  forearms: pair({ t: "e", cx: 20, cy: 56, rx: 3.6, ry: 7 }),
+  triceps: pair({ t: "e", cx: 20, cy: 45, rx: 4, ry: 6.5 }),
+  forearms: pair({ t: "e", cx: 20, cy: 57.5, rx: 3.6, ry: 5.5 }),
   glutes: pair({ t: "e", cx: 34.5, cy: 67, rx: 6, ry: 5 }),
   hamstrings: pair({ t: "r", x: 29, y: 74, w: 9, h: 17, rx: 4 }),
   calves: pair({ t: "r", x: 30, y: 93, w: 7, h: 12, rx: 3 }),
@@ -112,7 +135,15 @@ function render(s: Shape, key: string, className: string) {
     return <ellipse key={key} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} className={className} />;
   if (s.t === "r")
     return <rect key={key} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} className={className} />;
-  return <path key={key} d={s.d} className={className} />;
+  const path = <path d={s.d} className={className} />;
+  // x → W - x. 경로 좌표를 손으로 뒤집으면 두 벌이 되어 한쪽만 고쳐진다
+  return s.flip ? (
+    <g key={key} transform={`translate(${W} 0) scale(-1 1)`}>
+      {path}
+    </g>
+  ) : (
+    <g key={key}>{path}</g>
+  );
 }
 
 function Figure({
@@ -128,7 +159,7 @@ function Figure({
   return (
     <g transform={`translate(${dx} 0)`}>
       {/* 실루엣 — 활성 부위가 없어도 사람 형태는 보인다 */}
-      {BODY.map((s, i) => render(s, `b${i}`, "fill-muted"))}
+      {BODY.map((s, i) => render(s, `b${i}`, "fill-border"))}
       {/*
         ⚠️ **활성 부위만 그린다.** 비활성까지 다른 톤으로 그리면 실루엣과
         구분이 안 되면서 카드만 복잡해진다 — 기호의 목적을 해친다
