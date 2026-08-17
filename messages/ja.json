@@ -64,7 +64,18 @@
     "makePublic": "公開にする",
     "publicNow": "現在は公開です。非公開にするとフィード・検索・マーケットから外れます",
     "privateNow": "現在は非公開です。自分だけが見られます",
-    "privateOnSaleWarn": "販売中のアイテムです。非公開にするとマーケットから外れます。続けますか？"
+    "privateOnSaleWarn": "販売中のアイテムです。非公開にするとマーケットから外れます。続けますか？",
+    "routine": "ルーティン構成",
+    "routineEmpty": "種目を追加してください",
+    "routineHint": "順番がそのままルーティンです。同じ種目を複数のルーティンに入れられます。",
+    "routineAdd": "種目を追加",
+    "routineRemove": "外す",
+    "routineUp": "上へ",
+    "routineDown": "下へ",
+    "routineNone": "追加できる種目がありません。先に種目を登録してください。",
+    "inRoutines": "この種目は次のルーティンにあります —",
+    "inRoutinesHint": "ルーティンに含まれる種目は部屋の陳列には別途表示されません。",
+    "muscles": "対象部位"
   },
   "diary": {
     "visibility": {

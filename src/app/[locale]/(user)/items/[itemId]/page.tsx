@@ -9,13 +9,15 @@ import { ExternalLinkWarning } from "@/components/common/external-link-warning";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
-import { getItemDetail, isItemIndexable } from "@/lib/data/item";
+import { getAddableExercises, getItemDetail, isItemIndexable } from "@/lib/data/item";
 import { getItemWearShots } from "@/lib/data/wear-shot";
 import { todaysWearShot } from "@/lib/actions/wear-shot";
 import { WearShotForm } from "@/components/domain/wear-shot-form";
 import { WearShotGrid } from "@/components/domain/wear-shot-grid";
 import { formatPrice, ownershipDuration } from "@/lib/format";
 import { localeAlternates } from "@/lib/site";
+import { MuscleMap } from "@/components/domain/muscle-map";
+import { RoutineComposer } from "@/components/domain/routine-composer";
 
 /**
  * S-05 아이템 상세.
@@ -77,9 +79,13 @@ export default async function ItemDetailPage({
 
   // 착용샷 (D-148). 공개 판정은 조회 계층이 끝낸다 — 타인에게는 공개
   // 아이템의 것만 온다
-  const [wearShots, today] = await Promise.all([
+  const [wearShots, today, addable] = await Promise.all([
     getItemWearShots(itemId, viewer),
     isOwner ? todaysWearShot(itemId) : Promise.resolve(null),
+    // 루틴 소유자에게만 필요하다 — 남의 루틴에 내 종목을 넣을 수 없다
+    isOwner && item.isRoutine
+      ? getAddableExercises(itemId, viewer)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -99,7 +105,7 @@ export default async function ItemDetailPage({
       */}
       <div>
         <div className="relative aspect-square w-full overflow-hidden border-b bg-muted">
-          {item.photos[0] && (
+          {item.photos[0] ? (
             <Image
               src={item.photos[0]}
               alt={item.name}
@@ -109,7 +115,20 @@ export default async function ItemDetailPage({
               className="object-cover"
               priority
             />
-          )}
+          ) : item.categoryKey === "category.workout" ? (
+            /*
+              ⚠️ **운동은 사진이 없을 수 있다** (D-224). 대표 이미지는 근육맵이고
+              (D-222·D-223) 자극부위가 비면 **빈 실루엣**이다 — 그것이 "종목을
+              추가하세요" 상태를 그대로 보여준다 (E-10-01)
+            */
+            <div className="absolute inset-0 flex items-center justify-center p-8">
+              <MuscleMap
+                muscles={item.muscles}
+                title={t("item.muscles")}
+                className="h-full w-full"
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* 나머지 사진 (FR-07-A-01) — 대표 이미지와 같은 폭 안에서 */}
@@ -232,6 +251,61 @@ export default async function ItemDetailPage({
               </ul>
             </>
           )}
+        </section>
+      )}
+
+      {/*
+        D-221 — **루틴 구성.** 자전거 부품과 달리 **읽기만 하지 않는다** —
+        추가·제거·순서까지 여기서 한다. 액션만 있고 화면이 없으면 도달할 수
+        없다는 것을 D-133·D-157 이 이미 겪었다.
+      */}
+      {item.isRoutine && (
+        <section className="border-t px-4 py-4 lg:px-0">
+          <h2 className="text-sm font-semibold">{t("item.routine")}</h2>
+          <div className="mt-2">
+            {isOwner ? (
+              <RoutineComposer
+                routineId={item.id}
+                exercises={item.exercises}
+                addable={addable}
+              />
+            ) : item.exercises.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("item.routineEmpty")}</p>
+            ) : (
+              /* 타인에게는 읽기 전용 — 순서가 곧 내용이므로 번호를 낸다 */
+              <ol className="flex flex-col gap-1">
+                {item.exercises.map((e, i) => (
+                  <li key={e.id} className="flex items-baseline gap-2 text-sm">
+                    <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
+                    <Link href={`/items/${e.id}`} className="min-w-0 truncate underline">
+                      {e.name}
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/*
+        ⚠️ **이 종목이 왜 방 진열에 없는지**를 알린다 (FR-10-C-01). 말하지 않으면
+        유저는 아이템이 사라진 것으로 읽는다 — 실제로 진열에서 빠져 있다
+      */}
+      {item.routines.length > 0 && (
+        <section className="border-t px-4 py-4 text-sm lg:px-0">
+          <p className="text-muted-foreground">
+            {t("item.inRoutines")}{" "}
+            {item.routines.map((r, i) => (
+              <span key={r.id}>
+                {i > 0 && " · "}
+                <Link href={`/items/${r.id}`} className="font-semibold underline">
+                  {r.name}
+                </Link>
+              </span>
+            ))}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("item.inRoutinesHint")}</p>
         </section>
       )}
 

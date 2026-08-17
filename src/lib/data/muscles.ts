@@ -12,12 +12,14 @@ import type { Prisma } from "@/generated/prisma/client";
  * D-166 이 `1RM` 을 "중량·횟수에서 나오는 파생값"이라며 넣지 않은 것과 같다
  * (D-073 정신).
  *
- * ## ⚠️ 순서를 고정한다
- * 합집합을 만든 순서로 내면 **같은 루틴이 새로고침마다 다르게 보인다.**
- * `AttributeOption.displayOrder` 를 기준으로 정렬한다 (`FR-10-D-03`).
+ * ## ⚠️ 판정을 **한 함수**에 둔다
+ * 초판은 `MUSCLE_SELECT` 의 모양에 묶인 함수를 만들었다가, 아이템 상세가 이미
+ * 갖고 있던 `attributeValues` 선택과 **충돌**했다 — 스프레드가 그것을 덮어써
+ * 단위·라벨이 통째로 사라졌다. 지금은 **최소 모양만 요구**하므로 어느 쿼리의
+ * 결과든 그대로 넣을 수 있다.
  */
 
-/** 자극부위를 읽기 위한 `select` 조각. 아이템 조회에 펼쳐 넣는다 */
+/** `targetMuscle` 하나만 읽는 가벼운 `select`. 자식 종목 조회에 쓴다 */
 export const MUSCLE_SELECT = {
   attributeValues: {
     where: { categoryAttribute: { attributeDefinition: { key: "targetMuscle" } } },
@@ -26,7 +28,7 @@ export const MUSCLE_SELECT = {
       categoryAttribute: {
         select: {
           attributeDefinition: {
-            select: { options: { select: { key: true, displayOrder: true } } },
+            select: { key: true, options: { select: { key: true, displayOrder: true } } },
           },
         },
       },
@@ -34,57 +36,73 @@ export const MUSCLE_SELECT = {
   },
 } satisfies Prisma.ItemSelect;
 
-type WithMuscles = {
-  attributeValues: {
-    value: Prisma.JsonValue;
-    categoryAttribute: {
-      attributeDefinition: { options: { key: string; displayOrder: number }[] };
+/**
+ * 이 함수가 요구하는 최소 모양.
+ *
+ * ⚠️ **`options.displayOrder` 가 없으면 순서가 흔들린다.** 호출부의 `select` 에
+ * 그 필드가 없으면 타입이 막는다 — 런타임에 조용히 뒤섞이지 않게 하려는 것이다.
+ */
+type MuscleRow = {
+  value: Prisma.JsonValue;
+  categoryAttribute: {
+    attributeDefinition: {
+      key: string;
+      options: { key: string; displayOrder: number }[];
     };
-  }[];
+  };
 };
 
 /** `multiselect` 는 `string[]` 로 저장된다 (`ItemAttributeValue.value` 주석) */
-function values(row: WithMuscles["attributeValues"][number]): string[] {
+function listOf(row: MuscleRow): string[] {
   return Array.isArray(row.value)
     ? row.value.filter((v): v is string => typeof v === "string")
     : [];
 }
 
 /**
+ * 속성값 행들에서 자극부위를 뽑는다.
+ *
+ * ⚠️ **`targetMuscle` 만 본다.** 호출부가 다른 속성까지 담은 `select` 를 넘겨도
+ * 안전하다 — 아이템 상세가 그 경우다.
+ *
+ * ⚠️ **순서를 `displayOrder` 로 고정한다** (`FR-10-D-03`). 합집합을 만든 순서로
+ * 내면 같은 루틴이 **새로고침마다 다르게** 보인다.
+ */
+export function musclesFrom(rows: readonly MuscleRow[]): string[] {
+  const order = new Map<string, number>();
+  const keys: string[] = [];
+
+  for (const row of rows) {
+    const def = row.categoryAttribute.attributeDefinition;
+    if (def.key !== "targetMuscle") continue;
+    for (const o of def.options) order.set(o.key, o.displayOrder);
+    keys.push(...listOf(row));
+  }
+
+  return [...new Set(keys)].sort((a, b) => {
+    const oa = order.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const ob = order.get(b) ?? Number.MAX_SAFE_INTEGER;
+    // 순서를 모르는 키는 뒤로 보내되 이름순으로 **안정** 정렬한다
+    return oa !== ob ? oa - ob : a.localeCompare(b);
+  });
+}
+
+/**
  * 아이템 하나의 자극부위. **종목은 이것으로 끝난다** — 합집합이 필요 없다.
  * 그래서 루틴과 종목이 **같은 컴포넌트**를 쓸 수 있다 (D-224).
  */
-export function musclesOf(item: WithMuscles): string[] {
-  return sortMuscles(item.attributeValues.flatMap(values), item);
+export function musclesOf(item: { attributeValues: readonly MuscleRow[] }): string[] {
+  return musclesFrom(item.attributeValues);
 }
 
 /**
  * 루틴의 자극부위 = 구성 종목의 **합집합** (`FR-10-D-01`).
  *
  * ⚠️ 루틴 자신의 값은 보지 않는다 — 루틴에는 `targetMuscle` 속성이 없다.
- * 있다면 그것은 시드가 잘못된 것이다.
+ * 있다면 시드가 잘못된 것이다.
  */
-export function musclesOfRoutine(children: WithMuscles[]): string[] {
-  const all = children.flatMap((c) => c.attributeValues.flatMap(values));
-  return sortMuscles(all, children[0]);
-}
-
-/** 중복 제거 + `displayOrder` 정렬 (`FR-10-D-03`) */
-function sortMuscles(keys: string[], sample?: WithMuscles): string[] {
-  const uniq = [...new Set(keys)];
-  const order = new Map<string, number>();
-  for (const row of sample?.attributeValues ?? []) {
-    for (const o of row.categoryAttribute.attributeDefinition.options) {
-      order.set(o.key, o.displayOrder);
-    }
-  }
-  /*
-    ⚠️ 순서를 모르는 키는 **뒤로 보내되 이름순으로** 안정 정렬한다. 그냥 두면
-    `Map` 삽입 순서에 따라 렌더마다 달라진다
-  */
-  return uniq.sort((a, b) => {
-    const oa = order.get(a) ?? Number.MAX_SAFE_INTEGER;
-    const ob = order.get(b) ?? Number.MAX_SAFE_INTEGER;
-    return oa !== ob ? oa - ob : a.localeCompare(b);
-  });
+export function musclesOfRoutine(
+  children: readonly { attributeValues: readonly MuscleRow[] }[],
+): string[] {
+  return musclesFrom(children.flatMap((c) => [...c.attributeValues]));
 }

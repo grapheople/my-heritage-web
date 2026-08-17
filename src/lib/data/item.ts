@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/routing";
 import { pickCategoryAttrLabel, pickLabel } from "@/lib/data/label";
 import { prisma } from "@/lib/prisma";
 import { DISPLAYABLE_ITEM } from "@/lib/item-display";
+import { MUSCLE_SELECT, musclesFrom, musclesOfRoutine } from "@/lib/data/muscles";
 
 /**
  * S-05 아이템 상세.
@@ -124,6 +125,8 @@ export async function getItemDetail(
                       labelKo: true,
                       labelJa: true,
                       labelEn: true,
+                      // 자극부위 순서 고정에 쓴다 (FR-10-D-03) — 없으면 흔들린다
+                      displayOrder: true,
                     },
                   },
                 },
@@ -147,6 +150,22 @@ export async function getItemDetail(
       },
       /** 이 아이템 자체가 부품일 때 부모로 돌아가는 길 */
       parent: { select: { id: true, ...NAME_SELECT } },
+      /*
+        D-221 — **루틴이 담은 종목들.** 순서가 곧 내용이므로 `displayOrder` 로
+        정렬한다. 자극부위는 이 목록에서 **계산**한다 (FR-10-D-01·02)
+      */
+      routineItems: {
+        orderBy: { displayOrder: "asc" },
+        select: {
+          exercise: { select: { id: true, ...NAME_SELECT, ...MUSCLE_SELECT } },
+        },
+      },
+      /** 이 아이템(종목)이 속한 루틴들 — 되돌아가는 길 */
+      routineMemberships: {
+        select: { routine: { select: { id: true, ...NAME_SELECT } } },
+      },
+      /** 루틴인지 종목인지 (D-221) */
+      subtype: { select: { key: true } },
       ...NAME_SELECT,
     },
   });
@@ -240,6 +259,29 @@ export async function getItemDetail(
       codexId: p.codexItemId ?? undefined,
     })),
     parent: item.parent ? { id: item.parent.id, name: deriveItemName(item.parent) } : undefined,
+    /*
+      D-221 — 루틴 구성. **빈 배열이면 종목 0개인 루틴**이고, 그 상태는 루틴을
+      만든 직후 반드시 거친다 (E-10-01) — `undefined` 와 구분해야 화면이
+      "종목을 추가하세요"를 낼 수 있다
+    */
+    isRoutine: item.subtype?.key === "routine",
+    exercises: item.routineItems.map((r) => ({
+      id: r.exercise.id,
+      name: deriveItemName(r.exercise),
+      muscles: musclesFrom(r.exercise.attributeValues),
+    })),
+    /** 이 종목이 속한 루틴들 (FR-10-C-01 로 진열에서 빠진 이유를 알린다) */
+    routines: item.routineMemberships.map((m) => ({
+      id: m.routine.id,
+      name: deriveItemName(m.routine),
+    })),
+    /** 근육맵 입력 — 루틴이면 구성 종목의 합집합, 종목이면 자기 값 */
+    muscles:
+      item.routineItems.length > 0
+        ? musclesOfRoutine(item.routineItems.map((r) => r.exercise))
+        // ⚠️ 아이템 상세는 이미 `attributeValues` 를 갖고 있다. 별도 select 를
+        // 펼치면 **그것을 덮어써** 단위·라벨이 통째로 사라진다 (겪었다)
+        : musclesFrom(item.attributeValues),
     categoryKey: `category.${item.category.key}`,
     roomId: item.room.id,
     roomName: item.room.name,
@@ -393,4 +435,48 @@ export async function indexableItemIds(): Promise<string[]> {
     take: 5000,
   });
   return rows.map((r) => r.id);
+}
+
+/**
+ * 루틴에 **추가할 수 있는 종목** 목록 (D-221, `FR-10-B-01·04·05`).
+ *
+ * ⚠️ **이미 이 루틴에 있는 것만 뺀다.** 다른 루틴에 속한 종목은 **그대로
+ * 낸다** — M:N 이므로 여러 루틴에 들어가는 것이 정상이고(Q1), 거르면
+ * "왜 이 종목이 목록에 없지"가 된다.
+ *
+ * ⚠️ **내 것만** 낸다 (`FR-10-B-04`). 루틴도 종목도 같은 방의 것이어야 한다.
+ * 액션이 다시 검증하지만, 목록에 남의 것이 보이면 그 자체가 정보 노출이다.
+ *
+ * ⚠️ **루틴은 제외한다** (`FR-10-B-05`) — 루틴 안에 루틴은 없다.
+ */
+export async function getAddableExercises(
+  routineId: string,
+  viewer: Viewer | null,
+): Promise<{ id: string; name: string }[]> {
+  if (!viewer?.roomId) return [];
+
+  const routine = await prisma.item.findFirst({
+    where: { id: routineId, roomId: viewer.roomId },
+    select: { categoryId: true },
+  });
+  if (!routine) return [];
+
+  const rows = await prisma.item.findMany({
+    where: {
+      roomId: viewer.roomId,
+      // 같은 카테고리 안에서만 구성이 성립한다 (E-10-04)
+      categoryId: routine.categoryId,
+      id: { not: routineId },
+      // 루틴은 종목이 될 수 없다 (FR-10-B-05)
+      subtype: { is: null },
+      // 자전거 부품처럼 이미 다른 구성에 묶인 것은 제외한다 (D-211)
+      parentId: null,
+      // ⚠️ 이 루틴에 이미 있는 것만 뺀다 — 다른 루틴 소속은 그대로 낸다
+      routineMemberships: { none: { routineItemId: routineId } },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, ...NAME_SELECT },
+    take: 200,
+  });
+  return rows.map((r) => ({ id: r.id, name: deriveItemName(r) }));
 }
