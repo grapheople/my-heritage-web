@@ -52,6 +52,17 @@ const MOVED_TO_RELATION = [
 /** 루틴에 남는 속성 — 루틴명(`model`)과 수행 요일·메모 */
 const KEEP = ["model", "workoutDays", "note"];
 
+/** 수행 요일 선택지 — 월요일 시작 (ko/ja/en 공통 관행). D-221 의 값 그대로 */
+const DAYS: [string, string, string, string][] = [
+  ["mon", "월", "月", "Mon"],
+  ["tue", "화", "火", "Tue"],
+  ["wed", "수", "水", "Wed"],
+  ["thu", "목", "木", "Thu"],
+  ["fri", "금", "金", "Fri"],
+  ["sat", "토", "土", "Sat"],
+  ["sun", "일", "日", "Sun"],
+];
+
 /**
  * 초기 마스터 시드 (D-230 — 봇 6종목의 분류 값을 그대로 옮긴다).
  *
@@ -237,6 +248,71 @@ async function main() {
     console.log(`제품군 'routine' 삭제 — 전용 속성 ${subtypeAttrs.length}개를 카테고리 공통으로 승격`);
   } else {
     console.log("제품군 'routine' 없음 (이미 정리됨 또는 운영처럼 처음부터 없음)");
+  }
+
+  /* ── 3-1. 수행 요일 속성 보장 (FR-10-A-05) ──────────────── */
+  /*
+    ⚠️ **운영에는 이 속성이 없었다** — 실측으로 드러났다. `workoutDays` 는
+    `setup-workout-routine.ts`(D-221)가 **제품군 전용 속성**으로 만들던 것이고,
+    운영은 그 시드를 돌린 적이 없다(D-225 의 "원격 미적용"). 제품군을 승격하는
+    위 3단계는 **제품군이 있을 때만** 동작하므로 운영에서는 아무것도 승격되지
+    않았고, 루틴에 **수행 요일 칸이 아예 없는** 상태가 됐다.
+
+    그래서 이 시드가 **직접 보장한다** — "앞선 시드가 돌았을 것"이라는 전제를
+    두지 않는다. 그 전제가 이 갭을 만들었다.
+  */
+  let days = await prisma.attributeDefinition.findUnique({
+    where: { key: "workoutDays" },
+    select: { id: true },
+  });
+  if (!days) {
+    days = await prisma.attributeDefinition.create({
+      data: {
+        key: "workoutDays",
+        type: "multiselect",
+        labelKo: "수행 요일",
+        labelJa: "実施曜日",
+        labelEn: "Days",
+        isCommon: false,
+        options: {
+          create: DAYS.map(([k, ko, ja, en], i) => ({
+            key: k,
+            labelKo: ko,
+            labelJa: ja,
+            labelEn: en,
+            displayOrder: i,
+          })),
+        },
+      },
+      select: { id: true },
+    });
+    console.log("속성 `workoutDays` 생성 (요일 7개)");
+  }
+  const daysLink = await prisma.categoryAttribute.findUnique({
+    where: {
+      categoryId_attributeDefinitionId: {
+        categoryId: category.id,
+        attributeDefinitionId: days.id,
+      },
+    },
+    select: { id: true, active: true },
+  });
+  if (!daysLink) {
+    // 요일을 모를 수 있다. 필수로 걸면 등록이 막힌다 (원칙 3)
+    await prisma.categoryAttribute.create({
+      data: {
+        categoryId: category.id,
+        attributeDefinitionId: days.id,
+        required: false,
+        displayOrder: 1,
+      },
+    });
+    console.log("수행 요일을 카테고리 공통 속성으로 연결");
+  } else if (!daysLink.active) {
+    await prisma.categoryAttribute.update({ where: { id: daysLink.id }, data: { active: true } });
+    console.log("수행 요일 재활성화");
+  } else {
+    console.log("수행 요일 이미 연결됨");
   }
 
   /* ── 4. 이관된 속성 12종 비활성화 (D-227·D-036) ──────────── */
