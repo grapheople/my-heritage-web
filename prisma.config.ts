@@ -35,5 +35,8 @@ export default defineConfig({
       process.env["POSTGRES_URL_NON_POOLING"] ||
       process.env["DATABASE_URL"] ||
       process.env["POSTGRES_PRISMA_URL"],
+    // `migrate dev` / `migrate diff --from-migrations` 가 마이그레이션을 재생할
+    // 빈 DB. 로컬 컨테이너 안의 별도 DB 를 쓴다 (운영 DB 를 절대 shadow 로 쓰지 않는다)
+    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
 });
