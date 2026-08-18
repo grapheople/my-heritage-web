@@ -361,6 +361,107 @@ function paginate<T>(all: T[], filteredRows: T[], opts: AdminListQuery) {
   };
 }
 
+/* ────────────────────────────────────────────
+   A-17 운동 마스터 · A-18 요청 큐 (D-227~D-232)
+   ──────────────────────────────────────────── */
+
+/**
+ * A-17 운동 마스터 목록.
+ *
+ * ⚠️ **사용 수를 함께 낸다** (`FR-11-A-10`) — 그 값이 삭제/비활성 판단의 근거다
+ * (`FR-11-A-07·08`). 없으면 어드민은 "지워도 되나"를 알 수 없다.
+ *
+ * ⚠️ **비활성도 낸다.** 숨기면 되살릴 화면이 없어진다 (A-11 브랜드와 같은 태도).
+ *
+ * ⚠️ 검색은 **운동명 + 키 alias** 를 본다 (D-009·D-192). 어드민이 유저가 쓴
+ * 이름으로 찾을 수 있어야 요청 큐 처리가 된다.
+ */
+export async function getAdminExercises(q: AdminListQuery = {}) {
+  const rows = await prisma.exercise.findMany({
+    orderBy: { codexItem: { displayName: "asc" } },
+    take: ADMIN_LIST_LIMIT,
+    select: {
+      id: true,
+      targetMuscles: true,
+      equipmentType: true,
+      mechanic: true,
+      forceType: true,
+      referenceUrl: true,
+      active: true,
+      codexItem: {
+        select: {
+          id: true,
+          displayName: true,
+          verification: true,
+          matchKeys: { select: { value: true, kind: true } },
+        },
+      },
+      _count: { select: { routines: true } },
+    },
+  });
+
+  const all = rows.map((r) => ({
+    id: r.id,
+    codexId: r.codexItem.id,
+    name: r.codexItem.displayName,
+    verified: r.codexItem.verification === "VERIFIED",
+    aliases: r.codexItem.matchKeys.filter((k) => k.kind === "ALIAS").map((k) => k.value),
+    targetMuscles: r.targetMuscles,
+    equipmentType: r.equipmentType,
+    mechanic: r.mechanic,
+    forceType: r.forceType,
+    referenceUrl: r.referenceUrl,
+    active: r.active,
+    /** 이 운동을 담은 루틴 수 (`FR-11-A-10`) */
+    usage: r._count.routines,
+  }));
+
+  const filtered = all.filter((e) => (q.q ? matchesQuery([e.name, ...e.aliases], q.q) : true));
+  return {
+    ...paginate(all, filtered, q),
+    /*
+      ⚠️ **분류가 빈 운동을 센다.** 자극부위가 없으면 근육맵이 아무것도 칠하지
+      못하고(`FR-10-D-01`) 루틴 카드가 빈 실루엣이 된다 — AI 수집분에서 생기기
+      쉬운 상태다. 전체 기준으로 센다 (D-183 — 페이지 기준이면 2페이지에서 줄어든다)
+    */
+    missingMusclesTotal: all.filter((e) => e.targetMuscles.length === 0).length,
+  };
+}
+
+/**
+ * A-18 운동 요청 큐 — **같은 요청은 합쳐서 건수로** (`FR-11-D-05`).
+ *
+ * ⚠️ 요청 건수 순이다. 많이 요청된 것이 마스터 시드의 구멍이고, 그것이 이 큐를
+ * **계측기**로 쓰는 방법이다 (D-229).
+ */
+export async function getAdminExerciseRequests() {
+  const rows = await prisma.exerciseRequest.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, requestedName: true, normalizedName: true, createdAt: true },
+  });
+
+  const groups = new Map<
+    string,
+    { id: string; name: string; count: number; firstAt: Date }
+  >();
+  for (const r of rows) {
+    const g = groups.get(r.normalizedName);
+    if (g) {
+      g.count++;
+      continue;
+    }
+    // 대표 id 는 **가장 먼저 온 요청**이다 — 처리 액션이 그것으로 그룹을 찾는다
+    groups.set(r.normalizedName, {
+      id: r.id,
+      name: r.requestedName,
+      count: 1,
+      firstAt: r.createdAt,
+    });
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count || +a.firstAt - +b.firstAt);
+}
+
 /** A-04·A-05·A-07 도감 목록. 보유자 수는 **전체 기준**이다 (운영은 차단을 안 본다) */
 export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
   const rows = await prisma.codexItem.findMany({

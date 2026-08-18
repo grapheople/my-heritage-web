@@ -66,16 +66,24 @@
     "privateNow": "現在は非公開です。自分だけが見られます",
     "privateOnSaleWarn": "販売中のアイテムです。非公開にするとマーケットから外れます。続けますか？",
     "routine": "ルーティン構成",
-    "routineEmpty": "種目を追加してください",
-    "routineHint": "順番がそのままルーティンです。同じ種目を複数のルーティンに入れられます。",
-    "routineAdd": "種目を追加",
+    "routineEmpty": "種目を追加しましょう",
+    "routineHint": "順番がそのままルーティンです。同じ運動を複数のルーティンに入れられ、セット・重量はルーティンごとに保存されます。",
     "routineRemove": "外す",
     "routineUp": "上へ",
     "routineDown": "下へ",
-    "routineNone": "追加できる種目がありません。先に種目を登録してください。",
     "inRoutines": "この種目は次のルーティンにあります —",
     "inRoutinesHint": "ルーティンに含まれる種目は部屋の陳列には別途表示されません。",
-    "muscles": "対象部位"
+    "muscles": "対象部位",
+    "routineSearch": "運動を検索（例：ベンチ）",
+    "routineAddOne": "追加",
+    "routineNoResult": "探している運動がありませんか？",
+    "routineRequest": "この名前で追加をリクエスト",
+    "routineRequested": "「{name}」のリクエストを受け付けました。承認されたらお知らせします。",
+    "routineSettings": "自分の設定",
+    "routineSettingsSave": "設定を保存",
+    "routineSetsShort": "{n}セット",
+    "routineInactive": "運営が非表示にした運動です。ルーティンにはそのまま残ります。",
+    "routineFailed": "失敗しました"
   },
   "diary": {
     "visibility": {
@@ -196,7 +204,8 @@
     "more": "{shown}件表示 · 全{total}件。検索で探してください",
     "wearTitle": "着用・使用ショット",
     "noWear": "まだ着用ショットがありません",
-    "wearLoginRequired": "ログインするとこの{category}の着用・使用ショットを見られます"
+    "wearLoginRequired": "ログインするとこの{category}の着用・使用ショットを見られます",
+    "exerciseReference": "フォーム動画を見る"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
@@ -344,7 +353,8 @@
     },
     "NEW_FOLLOWER": "「{room}」さんがフォローしました",
     "WEAR_SHOT_COMMENT": "「{room}」さんが着用ショットにコメントしました",
-    "markAllRead": "すべて既読にする"
+    "markAllRead": "すべて既読にする",
+    "EXERCISE_REQUEST_RESULT": "リクエストされた「{exercise}」が{result, select, approved {追加されました。ルーティンに入れてみましょう。} other {追加されませんでした。}}"
   },
   "reg": {
     "newTitle": "アイテム登録",

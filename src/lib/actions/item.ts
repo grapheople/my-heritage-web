@@ -27,6 +27,8 @@ import {
   resolveSubtypeId,
 } from "@/lib/subtype";
 import { prisma } from "@/lib/prisma";
+import { WORKOUT_CATEGORY } from "@/lib/categories";
+import { parseRoutineSettings, type RoutineSettingsInput } from "@/lib/routine-settings";
 
 /**
  * 아이템 등록 (S-04, item-catalog F-05).
@@ -128,7 +130,8 @@ export async function createItemAs(
 
   const category = await prisma.category.findUnique({
     where: { key: input.category },
-    select: { id: true, active: true, requiresPhoto: true },
+    // `userCodexCreation` — 유저 등록이 도감을 만드는가 (D-231)
+    select: { id: true, active: true, requiresPhoto: true, userCodexCreation: true },
   });
   if (!category) {
     return { ok: false, fieldErrors: {}, formError: "존재하지 않는 카테고리입니다" };
@@ -226,7 +229,15 @@ export async function createItemAs(
     // ⚠️ **복합 키를 전부 쓴다** (D-013). 첫 키만 쓰면 캠핑에서 Snow Peak
     // 제품이 도감 한 칸으로 뭉친다 — `lib/codex-key.ts` 참조
     const key = buildMatchingKey(keyOrder, input.values);
-    if (key) {
+    /*
+      ⚠️ **플래그를 먼저 본다** (D-231 · `FR-10-A-02b`). 운동 카테고리는 도감을
+      **어드민이 준비하므로**(D-228) 유저 등록이 도감을 만들면 안 된다.
+
+      매칭 키가 빈 배열이라 `buildMatchingKey` 도 `null` 을 내지만, 그것에만
+      의존하면 **나중에 누가 매칭 키를 채웠을 때 조용히 도감이 생긴다.** 빈
+      배열은 결과이고 플래그가 의도다.
+    */
+    if (key && category.userCodexCreation) {
       const normalizedKey = key.normalizedKey;
       attemptedKey = normalizedKey;
       /*
@@ -637,27 +648,26 @@ export async function detachPart(partId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/* ────────────────────── 운동 루틴 구성 (D-221) ────────────────────── */
-
-/** 루틴 제품군 키. 시드(`setup-workout-routine.ts`)와 같은 값이어야 한다 */
-const ROUTINE_SUBTYPE = "routine";
+/* ─────────────── 루틴 구성 — 담기·빼기·순서·내 설정 (D-227) ─────────────── */
 
 /**
- * 루틴에 **종목을 넣는다** (`FR-10-B-01~05`).
+ * 루틴에 **운동을 담는다** (`FR-10-B-01·03·04`).
  *
- * ## ⚠️ 자전거 부품(`attachPart`)과 규칙이 다르다
- * | | 부품 | 종목 |
+ * ## ⚠️ D-221 과 규칙이 달라졌다 — 담는 대상이 아이템이 아니다
+ * | | D-221 (폐기) | 지금 (D-227) |
  * |---|---|---|
- * | 몇 개의 부모 | **하나** (`parentId`) | **여럿** (`RoutineExercise`) |
- * | 순서 | 없음 | **있다** (`displayOrder`) |
- * | 판매중 편입 | 막는다 | **판정 불필요** — 운동은 `sellable: false` (D-173) |
+ * | 담는 대상 | 내 종목 **아이템** | **`Exercise` 마스터** (전역) |
+ * | 소유 검증 | 루틴·종목 **둘 다** 내 것 | **루틴만** 내 것 |
+ * | 루틴에 루틴 | 명시적으로 차단 | **타입이 막는다** |
+ * | 같은 카테고리 | 명시적으로 검증 | 마스터가 운동뿐이라 **성립 불필요** |
+ * | 내 설정 | 종목 아이템의 속성값 | **이 관계 행에** 실린다 |
  *
- * 그래서 같은 함수로 합치지 않았다. 합치면 두 규칙이 한 함수 안에서 분기로
- * 갈리고, 어느 쪽 규칙인지 읽어야 알 수 있게 된다.
+ * 검증이 줄어든 것이 이 개편의 이득이다 — 막을 것이 없어졌다.
  */
 export async function attachExercise(input: {
   routineId: string;
   exerciseId: string;
+  settings?: RoutineSettingsInput;
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer) return fail({}, "로그인이 필요합니다");
@@ -673,33 +683,26 @@ export async function attachExercise(input: {
  */
 export async function attachExerciseAs(
   viewer: Viewer,
-  input: { routineId: string; exerciseId: string },
+  input: { routineId: string; exerciseId: string; settings?: RoutineSettingsInput },
 ): Promise<ActionResult> {
-  const [routine, exercise] = await Promise.all([
-    ownItem(viewer, input.routineId),
-    ownItem(viewer, input.exerciseId),
-  ]);
-  // ⚠️ **둘 다 내 것이어야 한다** (FR-10-B-04). 남의 종목을 내 루틴에 넣을 수 없다
-  if (!routine || !exercise) return fail({}, "아이템을 찾을 수 없습니다");
-  if (routine.id === exercise.id) return fail({}, "자기 자신을 넣을 수 없습니다");
+  const routine = await ownItem(viewer, input.routineId);
+  if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
+  /*
+    ⚠️ **운동 카테고리인지 본다.** 제품군(`routine`)으로 가르던 판정이 사라졌다
+    (`FR-10-A-08`) — 운동 카테고리의 아이템은 루틴뿐이므로 카테고리가 곧 답이다
+  */
+  if (routine.categoryKey !== WORKOUT_CATEGORY) return fail({}, "루틴이 아닙니다");
 
-  if (routine.subtypeKey !== ROUTINE_SUBTYPE) {
-    return fail({}, "루틴이 아닙니다");
-  }
   /*
-    ⚠️ **깊이 1 단계만** (FR-10-B-05). 루틴 안에 루틴을 허용하면 진열·자극부위
-    판정이 재귀가 되고, "루틴의 루틴"은 유저에게도 의미가 없다 (D-211 과 같은 이유)
+    ⚠️ **비활성 운동은 새로 담지 못한다** (`FR-11-C-07`). 이미 담긴 루틴에서는
+    유지되지만(`FR-10-B-08`) 새 후보로는 내지 않는다 — 목록에서 빠져 있어도
+    직접 호출은 막아야 한다
   */
-  if (exercise.subtypeKey === ROUTINE_SUBTYPE) {
-    return fail({}, "루틴을 루틴에 넣을 수 없습니다");
-  }
-  /*
-    ⚠️ **같은 카테고리 안에서만 성립한다** (E-10-04). 시계를 운동 루틴에 넣는
-    것은 구성 관계가 아니다 — 막지 않으면 진열·자극부위가 전부 이상해진다
-  */
-  if (routine.categoryKey !== exercise.categoryKey) {
-    return fail({}, "같은 카테고리의 아이템만 넣을 수 있습니다");
-  }
+  const exercise = await prisma.exercise.findFirst({
+    where: { id: input.exerciseId, active: true },
+    select: { id: true },
+  });
+  if (!exercise) return fail({}, "운동을 찾을 수 없습니다");
 
   /*
     ⚠️ **순서는 맨 뒤에 붙인다.** 0 으로 넣으면 기존 항목과 겹쳐 정렬이
@@ -711,28 +714,32 @@ export async function attachExerciseAs(
     select: { displayOrder: true },
   });
 
+  const parsed = parseRoutineSettings(input.settings);
+  if (!parsed.ok) return fail({}, parsed.message);
+
   try {
     await prisma.routineExercise.create({
       data: {
         routineItemId: routine.id,
-        exerciseItemId: exercise.id,
+        exerciseId: exercise.id,
         displayOrder: (last?.displayOrder ?? -1) + 1,
+        ...parsed.data,
       },
     });
   } catch {
-    // `@@unique` 위반 = 이미 들어 있다 (FR-10-B-03). 경합도 여기로 온다
-    return fail({}, "이미 이 루틴에 있는 종목입니다");
+    // `@@unique` 위반 = 이미 담겨 있다 (`FR-10-B-03`). 경합도 여기로 온다
+    return fail({}, "이미 이 루틴에 담긴 운동입니다");
   }
 
   return { ok: true };
 }
 
 /**
- * 루틴에서 **종목을 뺀다** (`FR-10-B-07`).
+ * 루틴에서 **운동을 뺀다** (`FR-10-B-07`).
  *
- * ⚠️ **삭제가 아니다.** 관계만 지우므로 종목은 남고 **방 진열로 돌아온다**.
- * 다른 루틴에 여전히 속해 있으면 그쪽은 그대로다 — M:N 이라 하나를 빼도
- * 나머지가 유지된다 (부품의 `detachPart` 와 다른 점).
+ * ⚠️ **마스터는 건드리지 않는다.** 관계와 내 설정만 사라진다 — 운동은 어드민
+ * 데이터이고 다른 유저의 루틴에 그대로 남아 있다. D-221 의 "종목이 방 진열로
+ * 돌아온다"는 **성립하지 않는다** (종목이 아이템이 아니다).
  */
 export async function detachExercise(input: {
   routineId: string;
@@ -755,22 +762,22 @@ export async function detachExerciseAs(
   if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
 
   await prisma.routineExercise.deleteMany({
-    where: { routineItemId: routine.id, exerciseItemId: input.exerciseId },
+    where: { routineItemId: routine.id, exerciseId: input.exerciseId },
   });
 
   return { ok: true };
 }
 
 /**
- * 루틴 안 종목 **순서를 바꾼다** (`FR-10-B-02`).
+ * 루틴 안 운동 **순서를 바꾼다** (`FR-10-B-02`).
  *
- * ⚠️ **없는 관계는 건너뛴다** (E-10-08). 다른 기기에서 종목을 빼는 사이에
+ * ⚠️ **없는 관계는 건너뛴다** (E-10-05). 다른 기기에서 운동을 빼는 사이에
  * 순서를 저장하면 그 id 가 사라져 있다 — 전체를 실패시키면 유저는 이유를
  * 알 수 없고 순서도 잃는다. **있는 것만 적용한다.**
  */
 export async function reorderExercises(input: {
   routineId: string;
-  /** 원하는 순서대로 나열된 종목 아이템 id */
+  /** 원하는 순서대로 나열된 **운동 마스터 id** */
   exerciseIds: string[];
 }): Promise<ActionResult> {
   const viewer = await getViewer();
@@ -790,9 +797,9 @@ export async function reorderExercisesAs(
 
   const rows = await prisma.routineExercise.findMany({
     where: { routineItemId: routine.id },
-    select: { id: true, exerciseItemId: true },
+    select: { id: true, exerciseId: true },
   });
-  const byExercise = new Map(rows.map((r) => [r.exerciseItemId, r.id]));
+  const byExercise = new Map(rows.map((r) => [r.exerciseId, r.id]));
 
   const updates = input.exerciseIds
     .map((exerciseId, i) => ({ id: byExercise.get(exerciseId), displayOrder: i }))
@@ -810,6 +817,49 @@ export async function reorderExercisesAs(
       }),
     ),
   );
+
+  return { ok: true };
+}
+
+/**
+ * 루틴 안 한 운동의 **내 설정을 저장한다** (`FR-10-B-04·05·06`).
+ *
+ * ## ⚠️ 이것이 D-227 이 새로 만든 자리다
+ * 전에는 세트·중량이 **종목 아이템의 속성값**이라 아이템 수정 폼이 다뤘고, 그
+ * 값은 종목 하나에 하나뿐이었다. 지금은 **루틴별로 독립**하므로(`FR-10-B-05`)
+ * 저장 대상이 `(루틴, 운동)` 쌍이다.
+ *
+ * ⚠️ **빈 문자열은 "지움"이다.** 7종 전부 선택이므로(`FR-10-B-06`) 유저가 칸을
+ * 비우면 `null` 로 저장한다 — 무시하면 한번 넣은 값을 못 지운다.
+ */
+export async function updateRoutineExercise(input: {
+  routineId: string;
+  exerciseId: string;
+  settings: RoutineSettingsInput;
+}): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  const res = await updateRoutineExerciseAs(viewer, input);
+  if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
+  return res;
+}
+
+/** 본체 — 뷰어 주입 (위 분리 이유 참조) */
+export async function updateRoutineExerciseAs(
+  viewer: Viewer,
+  input: { routineId: string; exerciseId: string; settings: RoutineSettingsInput },
+): Promise<ActionResult> {
+  const routine = await ownItem(viewer, input.routineId);
+  if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
+
+  const parsed = parseRoutineSettings(input.settings);
+  if (!parsed.ok) return fail({}, parsed.message);
+
+  const res = await prisma.routineExercise.updateMany({
+    where: { routineItemId: routine.id, exerciseId: input.exerciseId },
+    data: parsed.data,
+  });
+  if (res.count === 0) return fail({}, "이 루틴에 담긴 운동이 아닙니다");
 
   return { ok: true };
 }

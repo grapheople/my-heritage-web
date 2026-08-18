@@ -9,7 +9,7 @@ import { ExternalLinkWarning } from "@/components/common/external-link-warning";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
-import { getAddableExercises, getItemDetail, isItemIndexable } from "@/lib/data/item";
+import { getItemDetail, getRoutineFieldLabels, isItemIndexable } from "@/lib/data/item";
 import { getItemWearShots } from "@/lib/data/wear-shot";
 import { todaysWearShot } from "@/lib/actions/wear-shot";
 import { WearShotForm } from "@/components/domain/wear-shot-form";
@@ -79,13 +79,18 @@ export default async function ItemDetailPage({
 
   // 착용샷 (D-148). 공개 판정은 조회 계층이 끝낸다 — 타인에게는 공개
   // 아이템의 것만 온다
-  const [wearShots, today, addable] = await Promise.all([
+  /*
+    ⚠️ D-227 — **담을 수 있는 운동 목록을 미리 싣지 않는다.** 마스터는 전역이고
+    수백 건이 될 수 있어 전부 내려보낼 수 없다. `RoutineComposer` 가 입력에 따라
+    검색한다 (`FR-10-B-09`)
+  */
+  const [wearShots, today, fieldLabels] = await Promise.all([
     getItemWearShots(itemId, viewer),
     isOwner ? todaysWearShot(itemId) : Promise.resolve(null),
-    // 루틴 소유자에게만 필요하다 — 남의 루틴에 내 종목을 넣을 수 없다
+    // 내 설정 라벨·단위는 **DB 에서** 온다 (D-135). 소유자만 폼을 본다
     isOwner && item.isRoutine
-      ? getAddableExercises(itemId, viewer)
-      : Promise.resolve([]),
+      ? getRoutineFieldLabels(locale as Locale)
+      : Promise.resolve({}),
   ]);
 
   return (
@@ -267,19 +272,36 @@ export default async function ItemDetailPage({
               <RoutineComposer
                 routineId={item.id}
                 exercises={item.exercises}
-                addable={addable}
+                locale={locale as Locale}
+                labels={fieldLabels}
               />
             ) : item.exercises.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("item.routineEmpty")}</p>
             ) : (
-              /* 타인에게는 읽기 전용 — 순서가 곧 내용이므로 번호를 낸다 */
+              /*
+                타인에게는 읽기 전용 — 순서가 곧 내용이므로 번호를 낸다.
+                ⚠️ **링크가 도감으로 간다** (D-227) — 운동은 아이템이 아니므로
+                `/items/{id}` 가 없다. 그 링크를 두면 404 로 간다
+              */
               <ol className="flex flex-col gap-1">
                 {item.exercises.map((e, i) => (
                   <li key={e.id} className="flex items-baseline gap-2 text-sm">
                     <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
-                    <Link href={`/items/${e.id}`} className="min-w-0 truncate underline">
+                    <Link href={`/codex/${e.codexId}`} className="min-w-0 truncate underline">
                       {e.name}
                     </Link>
+                    {/* 남의 루틴에서도 세트·중량은 보인다 — 참고가 이 서비스의 가치다 */}
+                    {(e.settings.sets || e.settings.reps || e.settings.weight) && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {[
+                          e.settings.sets && t("item.routineSetsShort", { n: e.settings.sets }),
+                          e.settings.reps,
+                          e.settings.weight && `${e.settings.weight}kg`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -288,26 +310,6 @@ export default async function ItemDetailPage({
         </section>
       )}
 
-      {/*
-        ⚠️ **이 종목이 왜 방 진열에 없는지**를 알린다 (FR-10-C-01). 말하지 않으면
-        유저는 아이템이 사라진 것으로 읽는다 — 실제로 진열에서 빠져 있다
-      */}
-      {item.routines.length > 0 && (
-        <section className="border-t px-4 py-4 text-sm lg:px-0">
-          <p className="text-muted-foreground">
-            {t("item.inRoutines")}{" "}
-            {item.routines.map((r, i) => (
-              <span key={r.id}>
-                {i > 0 && " · "}
-                <Link href={`/items/${r.id}`} className="font-semibold underline">
-                  {r.name}
-                </Link>
-              </span>
-            ))}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("item.inRoutinesHint")}</p>
-        </section>
-      )}
 
       {/* 소유자 액션 — 수정·판매 전환·취소·완료 (market F-01) */}
       {isOwner && (

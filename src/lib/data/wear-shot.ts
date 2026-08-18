@@ -94,10 +94,22 @@ export async function getCodexWearShots(
   const rows = await prisma.wearShot.findMany({
     where: {
       item: {
-        codexItemId: codexId,
         ...visibleItemWhere(blockedIds),
         // 위 주석 참조 — 떠난 아이템은 이 목록에 없다 (D-023)
         saleStatus: { not: "SOLD" },
+        /*
+          ⚠️ **두 경로가 있다** (D-227, `FR-07-C-07`).
+          ① 보통 카테고리 — 아이템이 이 도감에 연결돼 있다
+          ② **운동** — 운동은 아이템이 아니므로 아이템이 도감을 가리키지 않는다.
+             착용샷은 **그 운동을 담은 루틴**에 달린다
+
+          운동 도감에서 ①만 보면 착용샷이 **항상 0건**이다. `OR` 로 합치면 한
+          쿼리로 끝나고, 카테고리를 미리 조회해 분기하는 경로가 생기지 않는다
+        */
+        OR: [
+          { codexItemId: codexId },
+          { routineItems: { some: { exercise: { codexItemId: codexId } } } },
+        ],
       },
     },
     orderBy: [{ wornOn: "desc" }, { createdAt: "desc" }],

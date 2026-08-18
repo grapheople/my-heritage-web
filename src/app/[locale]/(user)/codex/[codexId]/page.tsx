@@ -4,6 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { Locale } from "@/i18n/routing";
 import { CodexWearShots } from "@/components/domain/codex-wear-shots";
+import { ExternalLinkWarning } from "@/components/common/external-link-warning";
+import { MuscleMap } from "@/components/domain/muscle-map";
 import { MarketCard } from "@/components/domain/market-card";
 import { StatusBadge } from "@/components/domain/status-badge";
 import {
@@ -11,6 +13,7 @@ import {
   getCodexDesc,
   getCodexListings,
   getCodexPublic,
+  getExerciseDetail,
 } from "@/lib/data/codex";
 import { localeAlternates } from "@/lib/site";
 
@@ -93,11 +96,16 @@ export default async function CodexDetailPage({
   const entry = await getCodexPublic(codexId);
   if (!entry) notFound();
 
-  const [attrs, desc, listings] = await Promise.all([
+  const [attrs, desc, listings, exercise] = await Promise.all([
     getCodexAttrs(codexId, locale as Locale),
     // 검증본은 3개 언어 + 폴백, 미검증본은 원문 그대로 (FR-07-A-05)
     getCodexDesc(codexId, locale as "ko" | "ja" | "en"),
     getCodexListings(codexId),
+    /*
+      운동이면 분류·영상·자극부위가 **마스터에서** 온다 (D-227, `FR-11-C-02`).
+      운동이 아니면 `null` 이라 아래 섹션이 렌더되지 않는다
+    */
+    getExerciseDetail(codexId, locale as Locale),
   ]);
 
   return (
@@ -109,7 +117,7 @@ export default async function CodexDetailPage({
         {/* ⚠️ 4:3 이 아니라 **정방형**이다 (D-131). 빌려 쓰는 아이템 사진이
               이미 정방형이라 4:3 은 두 번 자르는 셈이 된다 */}
           <div className="relative aspect-square w-full overflow-hidden rounded-lg border bg-muted lg:max-w-lg">
-          {entry.imageUrl && (
+          {entry.imageUrl ? (
             <Image
               src={entry.imageUrl}
               alt={entry.displayName}
@@ -118,6 +126,19 @@ export default async function CodexDetailPage({
               className="object-cover"
               priority
             />
+          ) : (
+            /*
+              ⚠️ **운동 도감에는 빌려 쓸 사진이 없다** (D-227). 아이템이 이 도감을
+              가리키지 않으므로 `imageUrl` 이 언제나 빈다. 그 자리를 **근육맵**으로
+              채운다 — 루틴 카드가 이미 쓰는 방식이다 (D-222·D-223, `FR-07-A-14`)
+            */
+            exercise && (
+              <MuscleMap
+                muscles={exercise.muscles}
+                className="h-full w-full"
+                title={entry.displayName}
+              />
+            )
           )}
         </div>
         <div className="mt-4 flex items-start gap-2">
@@ -143,6 +164,36 @@ export default async function CodexDetailPage({
             </div>
           ))}
         </dl>
+      )}
+
+      {/*
+        운동 분류 — 자극부위·장비·복합단일·밀기당기기 (`FR-11-C-02`).
+        ⚠️ 위의 `attrs`(매칭 키 파생)와 **다른 출처**라 섹션을 나눈다
+      */}
+      {exercise && exercise.attrs.length > 0 && (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-t px-4 py-5 lg:px-0">
+          {exercise.attrs.map((a) => (
+            <div key={a.key} className="col-span-2 grid grid-cols-subgrid">
+              <dt className="text-sm text-muted-foreground">{a.label}</dt>
+              <dd className="text-sm font-semibold">{a.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {/*
+        폼 시연 영상 — **외부 링크 경고를 거친다** (D-040·D-028). 직접 `<a>` 로
+        내보내면 그 경고를 우회하게 된다
+      */}
+      {exercise?.referenceUrl && (
+        <section className="border-t px-4 py-5 lg:px-0">
+          <ExternalLinkWarning
+            href={exercise.referenceUrl}
+            className="text-sm font-semibold underline"
+          >
+            {t("codex.exerciseReference")}
+          </ExternalLinkWarning>
+        </section>
       )}
 
       {/* 설명 — 검증본은 3개 언어, 미검증본은 원문 그대로 (FR-07-A-05) */}

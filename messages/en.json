@@ -66,16 +66,24 @@
     "privateNow": "Currently private. Only you can see it",
     "privateOnSaleWarn": "This item is on sale. Making it private removes it from the market. Continue?",
     "routine": "Routine",
-    "routineEmpty": "Add exercises",
-    "routineHint": "The order is the routine. An exercise can belong to several routines.",
-    "routineAdd": "Add exercise",
+    "routineEmpty": "Add exercises to this routine",
+    "routineHint": "The order is the routine. An exercise can belong to several routines, and sets and weight are saved per routine.",
     "routineRemove": "Remove",
     "routineUp": "Up",
     "routineDown": "Down",
-    "routineNone": "No exercises to add. Register an exercise first.",
     "inRoutines": "This exercise is in —",
     "inRoutinesHint": "Exercises inside a routine are not shown separately in the room.",
-    "muscles": "Target muscles"
+    "muscles": "Target muscles",
+    "routineSearch": "Search exercises (e.g. bench)",
+    "routineAddOne": "Add",
+    "routineNoResult": "Can’t find the exercise?",
+    "routineRequest": "Request this exercise",
+    "routineRequested": "Requested “{name}”. We’ll let you know once it’s approved.",
+    "routineSettings": "My settings",
+    "routineSettingsSave": "Save settings",
+    "routineSetsShort": "{n} sets",
+    "routineInactive": "This exercise was retired by the team. It stays in your routine.",
+    "routineFailed": "Something went wrong"
   },
   "diary": {
     "visibility": {
@@ -196,7 +204,8 @@
     "more": "Showing {shown} of {total}. Use search to find more",
     "wearTitle": "Worn & used",
     "noWear": "No shots yet",
-    "wearLoginRequired": "Log in to see the shots"
+    "wearLoginRequired": "Log in to see the shots",
+    "exerciseReference": "Watch form video"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
@@ -344,7 +353,8 @@
     },
     "NEW_FOLLOWER": "{room} started following you",
     "WEAR_SHOT_COMMENT": "{room} commented on your shot",
-    "markAllRead": "Mark all read"
+    "markAllRead": "Mark all read",
+    "EXERCISE_REQUEST_RESULT": "The exercise “{exercise}” you requested {result, select, approved {was added. Try putting it in a routine.} other {was not added.}}"
   },
   "reg": {
     "newTitle": "Add an item",

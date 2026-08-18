@@ -1,4 +1,5 @@
-import type { CodexAttr, ItemDetail } from "@/lib/data/types";
+import type { Prisma } from "@/generated/prisma/client";
+import type { CodexAttr, ItemDetail, RoutineSettings } from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import type { CurrencyCode } from "@/lib/format";
 import { blockedUserIds } from "@/lib/data/scope";
@@ -6,10 +7,12 @@ import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import type { Locale } from "@/i18n/routing";
-import { pickCategoryAttrLabel, pickLabel } from "@/lib/data/label";
+import { pickAttrLabel, pickCategoryAttrLabel, pickLabel } from "@/lib/data/label";
+import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
 import { DISPLAYABLE_ITEM } from "@/lib/item-display";
-import { MUSCLE_SELECT, musclesFrom, musclesOfRoutine } from "@/lib/data/muscles";
+import { muscleOrder, musclesOfRoutine, sortMuscleKeys } from "@/lib/data/muscles";
+import { WORKOUT_CATEGORY } from "@/lib/categories";
 
 /**
  * S-05 아이템 상세.
@@ -25,6 +28,36 @@ import { MUSCLE_SELECT, musclesFrom, musclesOfRoutine } from "@/lib/data/muscles
 
 /** ⚠️ 타인에게 보이면 안 되는 소유 정보 (FR-06-A-05) */
 const OWNER_ONLY_KEYS = new Set(["purchasedFrom", "purchaseDate", "purchasePrice"]);
+
+/**
+ * 관계 행 → **내 설정** (D-227 `FR-10-B-04`).
+ *
+ * ⚠️ **빈 값은 키 자체를 넣지 않는다.** `null` 을 넘기면 화면이 "중량: -" 처럼
+ * 빈 항목을 렌더할 여지가 생긴다 — 7종 전부 선택이라(`FR-10-B-06`) 대부분 비어
+ * 있는 것이 정상이고, 없는 것은 **없는 것으로** 내려보낸다.
+ *
+ * ⚠️ `Decimal` 은 **문자열로** 바꾼다. 클라이언트 컴포넌트 경계를 넘을 수 없고
+ * 표시는 어차피 문자열이다. `toString()` 이 `100` / `2.5` 를 그대로 낸다
+ */
+function routineSettingsOf(r: {
+  sets: number | null;
+  repsPerSet: string | null;
+  restSeconds: number | null;
+  workingWeight: Prisma.Decimal | null;
+  rpe: Prisma.Decimal | null;
+  tempo: string | null;
+  machineSetting: string | null;
+}): RoutineSettings {
+  const out: RoutineSettings = {};
+  if (r.sets !== null) out.sets = String(r.sets);
+  if (r.repsPerSet) out.reps = r.repsPerSet;
+  if (r.restSeconds !== null) out.restSeconds = String(r.restSeconds);
+  if (r.workingWeight !== null) out.weight = r.workingWeight.toString();
+  if (r.rpe !== null) out.rpe = r.rpe.toString();
+  if (r.tempo) out.tempo = r.tempo;
+  if (r.machineSetting) out.machineSetting = r.machineSetting;
+  return out;
+}
 
 /** 속성값 Json → 표시 문자열. multiselect 는 배열, boolean 은 진짜 boolean 이다 */
 function displayValue(value: unknown): string {
@@ -151,20 +184,33 @@ export async function getItemDetail(
       /** 이 아이템 자체가 부품일 때 부모로 돌아가는 길 */
       parent: { select: { id: true, ...NAME_SELECT } },
       /*
-        D-221 — **루틴이 담은 종목들.** 순서가 곧 내용이므로 `displayOrder` 로
-        정렬한다. 자극부위는 이 목록에서 **계산**한다 (FR-10-D-01·02)
+        D-227 — **루틴이 담은 운동 + 내 설정.** 순서가 곧 내용이므로
+        `displayOrder` 로 정렬한다. 자극부위는 이 목록에서 **계산**한다
+        (FR-10-D-01·02).
+
+        ⚠️ 운동명은 **마스터의 도감**에서 온다 (`CodexItem.displayName`) —
+        아이템 명칭 파생(D-073)을 쓰지 않는다. 운동은 아이템이 아니다
       */
       routineItems: {
         orderBy: { displayOrder: "asc" },
         select: {
-          exercise: { select: { id: true, ...NAME_SELECT, ...MUSCLE_SELECT } },
+          sets: true,
+          repsPerSet: true,
+          restSeconds: true,
+          workingWeight: true,
+          rpe: true,
+          tempo: true,
+          machineSetting: true,
+          exercise: {
+            select: {
+              id: true,
+              targetMuscles: true,
+              active: true,
+              codexItem: { select: { id: true, displayName: true } },
+            },
+          },
         },
       },
-      /** 이 아이템(종목)이 속한 루틴들 — 되돌아가는 길 */
-      routineMemberships: {
-        select: { routine: { select: { id: true, ...NAME_SELECT } } },
-      },
-      /** 루틴인지 종목인지 (D-221) */
       subtype: { select: { key: true } },
       ...NAME_SELECT,
     },
@@ -234,6 +280,12 @@ export async function getItemDetail(
     attrs.push({ key, label: labels[key], value: text });
   }
 
+  /*
+    자극부위 표시 순서 (`FR-10-D-03`) — **화면당 한 번만 읽는다.**
+    행마다 읽으면 담긴 운동 수만큼 쿼리가 붙는다
+  */
+  const muscleOrderMap = await muscleOrder();
+
   const diaries = await prisma.diary.findMany({
     where: {
       items: { some: { itemId } },
@@ -260,28 +312,25 @@ export async function getItemDetail(
     })),
     parent: item.parent ? { id: item.parent.id, name: deriveItemName(item.parent) } : undefined,
     /*
-      D-221 — 루틴 구성. **빈 배열이면 종목 0개인 루틴**이고, 그 상태는 루틴을
-      만든 직후 반드시 거친다 (E-10-01) — `undefined` 와 구분해야 화면이
-      "종목을 추가하세요"를 낼 수 있다
+      D-227 — 루틴 구성. **빈 배열이면 운동 0개인 루틴**이고, 그 상태는 루틴을
+      만든 직후 반드시 거친다 (E-10-01) — `isRoutine` 과 구분해야 화면이
+      "운동을 담아보세요"를 낼 수 있다.
+
+      ⚠️ **운동 카테고리의 아이템은 루틴뿐이다** (`FR-10-A-01`). 제품군으로
+      가르지 않고 카테고리로 판정한다 — 제품군 `routine` 은 폐기됐다
+      (`FR-10-A-08`)
     */
-    isRoutine: item.subtype?.key === "routine",
+    isRoutine: item.category.key === WORKOUT_CATEGORY,
     exercises: item.routineItems.map((r) => ({
       id: r.exercise.id,
-      name: deriveItemName(r.exercise),
-      muscles: musclesFrom(r.exercise.attributeValues),
+      name: r.exercise.codexItem.displayName,
+      muscles: sortMuscleKeys(r.exercise.targetMuscles, muscleOrderMap),
+      codexId: r.exercise.codexItem.id,
+      inactive: !r.exercise.active,
+      settings: routineSettingsOf(r),
     })),
-    /** 이 종목이 속한 루틴들 (FR-10-C-01 로 진열에서 빠진 이유를 알린다) */
-    routines: item.routineMemberships.map((m) => ({
-      id: m.routine.id,
-      name: deriveItemName(m.routine),
-    })),
-    /** 근육맵 입력 — 루틴이면 구성 종목의 합집합, 종목이면 자기 값 */
-    muscles:
-      item.routineItems.length > 0
-        ? musclesOfRoutine(item.routineItems.map((r) => r.exercise))
-        // ⚠️ 아이템 상세는 이미 `attributeValues` 를 갖고 있다. 별도 select 를
-        // 펼치면 **그것을 덮어써** 단위·라벨이 통째로 사라진다 (겪었다)
-        : musclesFrom(item.attributeValues),
+    /** 근육맵 입력 — 담긴 운동 `targetMuscles` 의 합집합 (FR-10-D-01) */
+    muscles: musclesOfRoutine(item.routineItems, muscleOrderMap),
     categoryKey: `category.${item.category.key}`,
     roomId: item.room.id,
     roomName: item.room.name,
@@ -438,45 +487,180 @@ export async function indexableItemIds(): Promise<string[]> {
 }
 
 /**
- * 루틴에 **추가할 수 있는 종목** 목록 (D-221, `FR-10-B-01·04·05`).
+ * 내 설정 7종의 **라벨과 단위** (D-227, D-135 의 원칙 유지).
  *
- * ⚠️ **이미 이 루틴에 있는 것만 뺀다.** 다른 루틴에 속한 종목은 **그대로
- * 낸다** — M:N 이므로 여러 루틴에 들어가는 것이 정상이고(Q1), 거르면
- * "왜 이 종목이 목록에 없지"가 된다.
+ * ## ⚠️ 왜 메시지 파일에 넣지 않는가
+ * 이 7개는 D-166 이 만든 **공통 속성 라이브러리 항목**이고 `labelKo/Ja/En` 과
+ * `unitKo/Ja/En` 이 이미 DB 에 있다. 메시지 파일에 문구를 새로 박으면 같은 값이
+ * 두 곳에 생기고, 어드민이 A-02 에서 이름을 바꿨을 때 **폼과 상세가 다르게
+ * 부른다** — D-135 가 겪은 자리다(`attr.color` 를 못 찾아 화면이 터졌다).
  *
- * ⚠️ **내 것만** 낸다 (`FR-10-B-04`). 루틴도 종목도 같은 방의 것이어야 한다.
- * 액션이 다시 검증하지만, 목록에 남의 것이 보이면 그 자체가 정보 노출이다.
+ * ## ⚠️ 단위가 없으면 값이 거짓말한다
+ * "세트 사이 휴식: 180" 은 초인지 분인지 알 수 없다 — D-166 이 아이템 상세에서
+ * 겪고 고친 문제다. `number` 성격 항목에만 단위를 붙인다.
  *
- * ⚠️ **루틴은 제외한다** (`FR-10-B-05`) — 루틴 안에 루틴은 없다.
+ * ⚠️ 이 7개는 D-227 이후 **`CategoryAttribute` 에 연결돼 있지 않다**(관계 행의
+ * 컬럼이 됐다). 그래서 카테고리 override(D-168)가 아니라 `AttributeDefinition`
+ * 을 직접 읽는다.
  */
-export async function getAddableExercises(
-  routineId: string,
-  viewer: Viewer | null,
-): Promise<{ id: string; name: string }[]> {
-  if (!viewer?.roomId) return [];
+export async function getRoutineFieldLabels(
+  locale: Locale,
+): Promise<Record<string, { label: string; unit?: string }>> {
+  const KEYS = [
+    "sets",
+    "repsPerSet",
+    "restSeconds",
+    "workingWeight",
+    "rpe",
+    "tempo",
+    "machineSetting",
+  ];
+  const defs = await prisma.attributeDefinition.findMany({
+    where: { key: { in: KEYS } },
+    select: {
+      key: true,
+      labelKo: true,
+      labelJa: true,
+      labelEn: true,
+      unitKo: true,
+      unitJa: true,
+      unitEn: true,
+    },
+  });
+  const out: Record<string, { label: string; unit?: string }> = {};
+  for (const d of defs) {
+    out[d.key] = {
+      label: pickAttrLabel(locale, d),
+      unit:
+        pickLabel(locale, { ko: d.unitKo, ja: d.unitJa, en: d.unitEn }) || undefined,
+    };
+  }
+  /*
+    ⚠️ **없는 키는 키 이름으로 대체한다.** 시드가 안 돌았거나 속성이 지워졌을 때
+    폼이 빈 라벨로 뜨면 무엇을 입력하는 칸인지 알 수 없다 (D-174 의 태도)
+  */
+  for (const k of KEYS) out[k] ??= { label: k };
+  return out;
+}
 
+/**
+ * 루틴에 **담을 수 있는 운동**을 마스터에서 찾는다 (D-227 `FR-10-B-09`).
+ *
+ * ## ⚠️ 유저 아이템을 뒤지지 않는다
+ * D-221 때는 "내 종목 목록"이었다. 지금 운동은 **어드민 마스터**이므로 전역
+ * 목록을 검색한다 — 소유 판정할 대상이 없다 (`FR-10-B-04` 폐기).
+ *
+ * ⚠️ **이미 이 루틴에 있는 것은 뺀다** (`FR-10-B-03`). 다른 루틴에 있는 것은
+ * **그대로 낸다** — 같은 운동을 여러 루틴에 담는 것이 정상이고(`FR-10-B-01`)
+ * 거르면 "왜 이 운동이 목록에 없지"가 된다.
+ *
+ * ⚠️ **비활성 운동은 제외한다** (`FR-11-C-07`). 이미 담긴 루틴에서는 유지되지만
+ * (`FR-10-B-08`) 새로 담을 후보로는 내지 않는다.
+ *
+ * ⚠️ **검색은 운동명 + alias 를 본다** (D-009). `벤치` 로 `바벨 벤치프레스` 가
+ * 걸려야 한다 — alias 가 없으면 유저는 정식 명칭을 알아야만 찾을 수 있다.
+ */
+export async function searchExercisesForRoutine(input: {
+  routineId: string;
+  viewer: Viewer | null;
+  /** 검색어. 비어 있으면 최근 등록된 운동을 낸다 (첫 화면이 비지 않게) */
+  q?: string;
+  locale: Locale;
+}): Promise<{ id: string; name: string; muscles: string[]; codexId: string }[]> {
+  if (!input.viewer?.roomId) return [];
+
+  // 루틴이 내 것인지만 확인한다 — 목록 자체는 전역이라 정보 노출이 아니다
   const routine = await prisma.item.findFirst({
-    where: { id: routineId, roomId: viewer.roomId },
-    select: { categoryId: true },
+    where: { id: input.routineId, roomId: input.viewer.roomId },
+    select: { id: true },
   });
   if (!routine) return [];
 
-  const rows = await prisma.item.findMany({
-    where: {
-      roomId: viewer.roomId,
-      // 같은 카테고리 안에서만 구성이 성립한다 (E-10-04)
-      categoryId: routine.categoryId,
-      id: { not: routineId },
-      // 루틴은 종목이 될 수 없다 (FR-10-B-05)
-      subtype: { is: null },
-      // 자전거 부품처럼 이미 다른 구성에 묶인 것은 제외한다 (D-211)
-      parentId: null,
-      // ⚠️ 이 루틴에 이미 있는 것만 뺀다 — 다른 루틴 소속은 그대로 낸다
-      routineMemberships: { none: { routineItemId: routineId } },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, ...NAME_SELECT },
-    take: 200,
-  });
-  return rows.map((r) => ({ id: r.id, name: deriveItemName(r) }));
+  const [rows, order] = await Promise.all([
+    prisma.exercise.findMany({
+      where: {
+        active: true,
+        // 이 루틴에 이미 담긴 것만 제외 (FR-10-B-03)
+        routines: { none: { routineItemId: input.routineId } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: MASTER_SCAN_LIMIT,
+      select: {
+        id: true,
+        targetMuscles: true,
+        codexItem: { select: { id: true, displayName: true, aliases: true } },
+      },
+    }),
+    muscleOrder(),
+  ]);
+
+  const nq = normalizeBrandToken(input.q ?? "");
+  /*
+    검색어가 없으면 최근 등록 순으로 낸다 — **첫 화면을 비우지 않는다.** 빈 목록은
+    "마스터가 비었나"로 읽힌다 (E-11-01 과 구분되어야 한다)
+  */
+  const picked = nq
+    ? rank(rows, nq).slice(0, SEARCH_LIMIT)
+    : rows.slice(0, SEARCH_LIMIT);
+
+  return picked.map((r) => ({
+    id: r.id,
+    name: r.codexItem.displayName,
+    muscles: sortMuscleKeys(r.targetMuscles, order),
+    codexId: r.codexItem.id,
+  }));
+}
+
+/** 마스터 전수를 읽는 상한. 목표 규모가 80~120건이라(D-232) 여유가 크다 */
+const MASTER_SCAN_LIMIT = 500;
+/** 화면에 내는 개수 */
+const SEARCH_LIMIT = 50;
+
+type ExerciseRow = {
+  id: string;
+  targetMuscles: string[];
+  codexItem: { id: string; displayName: string; aliases: unknown };
+};
+
+/**
+ * 정규화 랭킹 — **도감 검색(`searchCodex`)과 같은 방식**이다 (D-014).
+ *
+ * ## ⚠️ `aliases` 를 DB 조건으로 밀 수 없다 — 실측으로 확인했다
+ * 초판은 `aliases: { string_contains: q }` 를 썼다. **동작하지 않았다** —
+ * `string_contains` 는 Json 이 **문자열일 때만** 매칭하고, 우리 `aliases` 는
+ * `{"en":["Bench Press"],"ja":[…]}` 형태의 **객체**다. 에러도 나지 않고 조용히
+ * 0건이었다: `bench` 로 검색해도 `바벨 벤치프레스` 가 나오지 않았다.
+ *
+ * 정규화 비교 자체도 DB 로 밀 수 없다(`displayName` 에 정규화 컬럼이 없다).
+ * 그래서 후보를 읽어 **애플리케이션에서 랭킹한다** — `searchCodex` 가 이미 그
+ * 구조다. 마스터가 80~120건이라 비용이 문제되지 않는다.
+ *
+ * 랭크가 낮을수록 앞: 이름 완전일치 → alias 완전일치 → 이름 접두 → alias 접두 →
+ * 부분일치.
+ */
+function rank(rows: readonly ExerciseRow[], nq: string): ExerciseRow[] {
+  const scored: { row: ExerciseRow; r: number }[] = [];
+  for (const row of rows) {
+    const name = normalizeBrandToken(row.codexItem.displayName);
+    const aliases = aliasStrings(row.codexItem.aliases).map((a) => normalizeBrandToken(a));
+    if (name === nq) scored.push({ row, r: 0 });
+    else if (aliases.includes(nq)) scored.push({ row, r: 1 });
+    else if (name.startsWith(nq)) scored.push({ row, r: 2 });
+    else if (aliases.some((a) => a.startsWith(nq))) scored.push({ row, r: 3 });
+    else if (name.includes(nq)) scored.push({ row, r: 4 });
+    else if (aliases.some((a) => a.includes(nq))) scored.push({ row, r: 5 });
+  }
+  scored.sort(
+    (a, b) => a.r - b.r || a.row.codexItem.displayName.localeCompare(b.row.codexItem.displayName),
+  );
+  return scored.map((s) => s.row);
+}
+
+/** `CodexItem.aliases`(언어별 배열)를 평평하게 (D-009) */
+function aliasStrings(aliases: unknown): string[] {
+  if (!aliases || typeof aliases !== "object") return [];
+  const a = aliases as Record<string, unknown>;
+  return (["ko", "ja", "en"] as const).flatMap((k) =>
+    Array.isArray(a[k]) ? (a[k] as unknown[]).filter((v): v is string => typeof v === "string") : [],
+  );
 }

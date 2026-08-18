@@ -1,6 +1,14 @@
 "use client";
 
-import { AlertTriangle, Bell, Layers, MessageCircle, Tag, UserPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Dumbbell,
+  Layers,
+  MessageCircle,
+  Tag,
+  UserPlus,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions/settings";
@@ -31,6 +39,8 @@ const ICON: Record<NotificationKind, typeof Bell> = {
   // 유저 행동으로 오는 알림 2종 (D-178)
   NEW_FOLLOWER: UserPlus,
   WEAR_SHOT_COMMENT: MessageCircle,
+  // 운동 요청 결과 (D-229) — 브랜드 요청과 같은 성격이라 처리 결과 쪽이다
+  EXERCISE_REQUEST_RESULT: Dumbbell,
 };
 
 export function NotificationList({ items }: { items: NotificationItem[] }) {

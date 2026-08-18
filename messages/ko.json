@@ -66,16 +66,24 @@
     "privateNow": "지금은 비공개예요. 나만 볼 수 있습니다",
     "privateOnSaleWarn": "판매중인 아이템입니다. 비공개로 바꾸면 마켓에서 내려갑니다. 계속할까요?",
     "routine": "루틴 구성",
-    "routineEmpty": "종목을 추가하세요",
-    "routineHint": "순서가 곧 루틴입니다. 같은 종목을 여러 루틴에 넣을 수 있어요.",
-    "routineAdd": "종목 추가",
+    "routineEmpty": "운동을 담아보세요",
+    "routineHint": "순서가 곧 루틴입니다. 같은 운동을 여러 루틴에 담을 수 있고, 세트·중량은 루틴마다 따로 저장돼요.",
     "routineRemove": "빼기",
     "routineUp": "위로",
     "routineDown": "아래로",
-    "routineNone": "추가할 종목이 없습니다. 운동 종목을 먼저 등록해주세요.",
     "inRoutines": "이 종목은 다음 루틴에 있습니다 —",
     "inRoutinesHint": "루틴에 속한 종목은 방 진열에 따로 보이지 않습니다.",
-    "muscles": "자극부위"
+    "muscles": "자극부위",
+    "routineSearch": "운동 검색 (예: 벤치)",
+    "routineAddOne": "담기",
+    "routineNoResult": "찾는 운동이 없나요?",
+    "routineRequest": "이 이름으로 추가 요청",
+    "routineRequested": "\"{name}\" 요청이 접수됐어요. 승인되면 알려드릴게요.",
+    "routineSettings": "내 설정",
+    "routineSettingsSave": "설정 저장",
+    "routineSetsShort": "{n}세트",
+    "routineInactive": "운영에서 내린 운동이에요. 루틴에는 그대로 남습니다.",
+    "routineFailed": "실패했습니다"
   },
   "diary": {
     "visibility": {
@@ -196,7 +204,8 @@
     "more": "{shown}개 표시 · 전체 {total}개. 검색으로 찾아보세요",
     "wearTitle": "착용샷 · 사용샷",
     "noWear": "아직 착용샷이 없어요",
-    "wearLoginRequired": "로그인하면 이 {category}의 착용샷·사용샷을 볼 수 있어요"
+    "wearLoginRequired": "로그인하면 이 {category}의 착용샷·사용샷을 볼 수 있어요",
+    "exerciseReference": "폼 시연 영상 보기"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
@@ -344,7 +353,8 @@
     },
     "NEW_FOLLOWER": "‘{room}’ 님이 팔로우했어요",
     "WEAR_SHOT_COMMENT": "‘{room}’ 님이 착용샷에 댓글을 남겼어요",
-    "markAllRead": "모두 읽음"
+    "markAllRead": "모두 읽음",
+    "EXERCISE_REQUEST_RESULT": "요청한 \"{exercise}\" 운동이 {result, select, approved {추가됐어요. 루틴에 담아보세요.} other {추가되지 않았어요.}}"
   },
   "reg": {
     "newTitle": "아이템 등록",

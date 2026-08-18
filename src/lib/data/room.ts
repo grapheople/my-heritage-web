@@ -7,7 +7,11 @@ import { realPhotoUrl } from "@/lib/data/photo";
 import { levelOf } from "@/lib/data/level";
 import { prisma } from "@/lib/prisma";
 import { DISPLAYABLE_ITEM } from "@/lib/item-display";
-import { MUSCLE_SELECT, musclesOf, musclesOfRoutine } from "@/lib/data/muscles";
+import {
+  muscleOrder,
+  musclesOfRoutine,
+  ROUTINE_MUSCLE_SELECT,
+} from "@/lib/data/muscles";
 
 /**
  * 방 조회 — S-02(본인) · S-03(타인) 공용.
@@ -95,18 +99,20 @@ export async function getRoom(
       },
       /*
         ⚠️ 사진이 없을 수 있다 (D-224 — 운동은 `requiresPhoto: false`). 그때
-        대표 이미지는 **근육맵**이므로 자극부위를 함께 읽는다 (`FR-07-A-14`)
+        대표 이미지는 **근육맵**이고, 그 값은 담긴 운동의 마스터에서 온다
+        (`FR-07-A-14` · `FR-10-D-01`). D-227 이후 **아이템 속성값을 읽지 않는다**
       */
-      ...MUSCLE_SELECT,
-      /** 루틴이면 구성 종목의 합집합이 자극부위다 (`FR-10-D-01`) */
-      routineItems: {
-        select: { exercise: { select: MUSCLE_SELECT } },
-        orderBy: { displayOrder: "asc" },
-      },
+      ...ROUTINE_MUSCLE_SELECT,
       ...NAME_SELECT,
     },
     orderBy: { createdAt: "desc" },
   });
+
+  /*
+    자극부위 표시 순서 (`FR-10-D-03`) — **화면당 한 번.** 카드마다 읽으면 진열
+    한 화면에 쿼리가 수십 개 붙는다
+  */
+  const muscleOrderMap = await muscleOrder();
 
   const thumb = (i: (typeof items)[number]): ItemThumbData => ({
     id: i.id,
@@ -115,14 +121,11 @@ export async function getRoom(
     // 스토리지 전이라 플레이스홀더는 없는 것으로 다룬다 (OI-47)
     photoUrl: realPhotoUrl(i.photos[0]?.url),
     /*
-      ⚠️ 루틴이면 **구성 종목의 합집합**, 종목이면 **자기 값**이다 (D-221 §7).
-      사진이 있으면 카드가 사진을 쓰므로 이 값은 쓰이지 않는다 — 우선순위는
-      `ItemThumb` 가 정한다 (`FR-10-D-04`)
+      ⚠️ 루틴이면 **담긴 운동의 합집합**이다 (D-227). 운동 카테고리 밖의
+      아이템은 담긴 것이 없으므로 빈 배열이 된다 — 그 카드는 사진을 쓴다.
+      사진이 있으면 카드가 사진을 우선하므로 이 값은 쓰이지 않는다 (`FR-10-D-04`)
     */
-    muscles:
-      i.routineItems.length > 0
-        ? musclesOfRoutine(i.routineItems.map((r) => r.exercise))
-        : musclesOf(i),
+    muscles: musclesOfRoutine(i.routineItems, muscleOrderMap),
     categoryKey: i.category.key,
     onSale: i.saleStatus === "ON_SALE",
     // 비공개 표식은 본인 방에서만 뜬다 — 타인 뷰에는 애초에 없다

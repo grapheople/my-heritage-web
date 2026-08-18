@@ -6,6 +6,7 @@ import { normalizeBrandToken } from "@/lib/brand-search";
 import { categoryLabelKo } from "@/lib/category-label";
 import { resolveMasterBrand } from "@/lib/brand-master";
 import { insertCodex } from "@/lib/codex-insert";
+import { migrateRoutinesToSurvivor } from "@/lib/exercise-insert";
 import { researchCodexEntries } from "@/lib/bot/claude";
 import { botEnabled, botTargetDb, claudeConfigured } from "@/lib/bot/guard";
 import { categoryFields, matchingKeyFields, type CodexCandidate } from "@/lib/bot/fields";
@@ -810,7 +811,21 @@ export async function mergeCodex(input: {
     where: { codexItemId: { in: absorbedIds } },
     select: { room: { select: { userId: true } } },
   });
-  const ownerIds = [...new Set(owners.map((o) => o.room.userId))];
+  /*
+    ⚠️ **운동 도감은 아이템이 아니라 루틴에 걸려 있다** (D-227). 위 조회만 쓰면
+    운동 병합에서 알림 대상이 **항상 0명**이 된다 — 루틴 안 운동 이름이 바뀌는데
+    유저는 통보를 못 받는다
+  */
+  const routineOwners = await prisma.routineExercise.findMany({
+    where: { exercise: { codexItemId: { in: absorbedIds } } },
+    select: { routine: { select: { room: { select: { userId: true } } } } },
+  });
+  const ownerIds = [
+    ...new Set([
+      ...owners.map((o) => o.room.userId),
+      ...routineOwners.map((r) => r.routine.room.userId),
+    ]),
+  ];
 
   const merged = mergeAliases(
     survivor.aliases,
@@ -879,6 +894,26 @@ export async function mergeCodex(input: {
       where: { codexItemId: { in: absorbedIds } },
       data: { codexItemId: survivorId },
     });
+
+    /*
+      ⚠️ **운동 병합은 루틴 관계까지 옮겨야 한다** (`FR-05-B-12`, D-227, E-10-11).
+      운동은 아이템이 아니므로 위의 `item.updateMany` 가 아무것도 옮기지 않는다 —
+      그대로 두면 유저 루틴이 **패자 운동을 가리킨 채** 남고, 그 운동은
+      `mergedIntoId` 가 찍혀 목록·검색에서 사라진다.
+
+      규칙은 `lib/exercise-insert.ts` 에 있다 — 액션 밖이라 **스크립트로 검증할 수
+      있다** (D-225: "검증할 수 없는 코드는 검증되지 않는다").
+    */
+    const routineMove = await migrateRoutinesToSurvivor(tx, {
+      survivorCodexId: survivorId,
+      absorbedCodexIds: absorbedIds,
+    });
+    if (routineMove.moved > 0 || routineMove.deduped > 0) {
+      console.log(
+        `[merge] 루틴 관계 이관 ${routineMove.moved}건 · 중복 정리 ${routineMove.deduped}건`,
+      );
+    }
+
     await tx.codexItem.update({
       where: { id: survivorId },
       data: { aliases: merged },

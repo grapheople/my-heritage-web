@@ -217,6 +217,84 @@ export async function researchCodexEntries(input: {
 }
 
 /**
+ * 운동 마스터 후보 하나 (D-227·D-232, `FR-11-B-01·05`).
+ *
+ * ⚠️ **분류 값은 `AttributeOption.key`** 다 — `chest`·`barbell` 처럼. 모델이 라벨
+ * ("가슴")로 답하면 코드가 버린다 (`sanitizeExerciseFields`). 그래서 프롬프트에
+ * **선택지 목록을 키로** 주입한다.
+ */
+export type ExerciseCandidate = {
+  displayName: string;
+  targetMuscles: string[];
+  equipmentType: string | null;
+  mechanic: string | null;
+  forceType: string | null;
+};
+
+/**
+ * 운동 후보를 수집한다 (A-17, `FR-11-B-01·06·07`).
+ *
+ * ⚠️ **선택지 목록을 호출부가 넘긴다.** 이 함수가 DB 를 읽지 않는 것은 프롬프트
+ * 조립과 데이터 조회를 섞지 않기 위해서다 — 조회를 여기 두면 테스트에서 이
+ * 함수만 떼어낼 수 없다.
+ *
+ * ⚠️ **여기서 값을 검증하지 않는다.** 선택지 밖의 값은 저장 직전
+ * `sanitizeExerciseFields` 가 버리고 **사유를 남긴다** (`FR-11-B-05`). 검증을 두
+ * 곳에 두면 규칙이 갈린다 (D-190 의 교훈).
+ */
+export async function researchExercises(input: {
+  hint: string;
+  count: number;
+  options: {
+    muscles: string[];
+    equipment: string[];
+    mechanics: string[];
+    forces: string[];
+  };
+}): Promise<{ candidates: ExerciseCandidate[]; dropped: string[] }> {
+  const list = (keys: string[]) => keys.map((k) => `- \`${k}\``).join("\n");
+  const prompt = await loadPrompt("exercise-research", {
+    hint: input.hint || "(없음 — 대표적인 웨이트 트레이닝 종목)",
+    count: String(input.count),
+    muscles: list(input.options.muscles),
+    equipment: list(input.options.equipment),
+    mechanics: list(input.options.mechanics),
+    forces: list(input.options.forces),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  const rows = parseJsonArray(text);
+
+  const candidates: ExerciseCandidate[] = [];
+  const dropped: string[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") {
+      dropped.push("객체가 아닌 항목");
+      continue;
+    }
+    const r = row as Record<string, unknown>;
+    const name = typeof r.displayName === "string" ? r.displayName.trim() : "";
+    // ⚠️ 이름 없는 후보는 **버린다.** 이름이 식별자다 (`FR-11-A-09`)
+    if (!name) {
+      dropped.push("운동명이 없는 항목");
+      continue;
+    }
+    const muscles = Array.isArray(r.targetMuscles)
+      ? r.targetMuscles.filter((m): m is string => typeof m === "string")
+      : [];
+    const one = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    candidates.push({
+      displayName: name,
+      targetMuscles: muscles,
+      equipmentType: one(r.equipmentType),
+      mechanic: one(r.mechanic),
+      forceType: one(r.forceType),
+    });
+  }
+  return { candidates, dropped };
+}
+
+/**
  * 첫 `[` 의 **짝이 맞는** `]` 까지 잘라낸다.
  *
  * ⚠️ **"첫 `[` ~ 마지막 `]`" 로는 안 된다.** 실제로 그렇게 만들었다가 자전거

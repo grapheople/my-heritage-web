@@ -38,30 +38,71 @@ function aliasList(aliases: unknown): string[] {
 }
 
 /**
- * 보유자 수 (FR-07-A-02).
+ * 보유자 수 (FR-07-A-02 · **FR-07-C-01~05**).
  *
  * ⚠️ **사람 단위다** — 한 유저가 같은 도감의 아이템을 2개 이상 가져도 1로 센다
  * (E-07-01). 그래서 아이템이 아니라 **방을 distinct** 로 센다.
  *
  * ⚠️ **조회 유저마다 값이 다르다** (E-07-07, D-051) — 차단 관계가 빠지기
  * 때문이다. 그래서 전역 캐시에 올릴 수 없다 (FR-07-B-09).
+ *
+ * ## ⚠️ 운동 도감은 경로가 하나 더 길다 (D-227·D-228)
+ * 운동은 **아이템이 아니다.** 운동 카테고리의 아이템은 루틴뿐이고 루틴은 도감을
+ * 갖지 않으므로(`FR-10-A-02`), `Item.codexItemId` 로 세면 **모든 운동 도감이
+ * 0명**이 된다. 운동의 보유자는 **그 운동을 루틴에 담은 유저**다:
+ *
+ * ```
+ * Exercise → RoutineExercise → Item(루틴) → Room → User
+ * ```
+ *
+ * ⚠️ **분기를 이 함수 안에만 둔다** (`FR-07-C-02`). 보유자 수는 도감 상세 ·
+ * 도감 목록 · 검색 결과 row **세 곳**에 나온다(`FR-06-B-06`). 세 곳이 각자 세면
+ * **한 곳만 분기를 빠뜨려도 그 화면에서만 0명**이다 — D-221 이 진열 조건에서
+ * 겪은 것과 같은 유형이다.
+ *
+ * ⚠️ **공개·차단 조건은 완전히 같다** (`FR-07-C-04`). 다른 것은 **판매완료
+ * 제외가 무의미**하다는 점뿐이다 — 운동은 팔지 않는다 (D-173, `FR-07-C-05`).
+ * 루틴에 `saleStatus` 조건을 그대로 걸어도 결과가 같으므로 **같은 조건을 재사용**
+ * 한다. 규칙을 두 벌로 만들지 않는다.
  */
 async function ownerCounts(
   codexIds: string[],
   blockedIds: string[],
 ): Promise<Map<string, number>> {
   if (codexIds.length === 0) return new Map();
-  const rows = await prisma.item.findMany({
-    where: { codexItemId: { in: codexIds }, ...ownerItemWhere(blockedIds) },
-    select: { codexItemId: true, roomId: true },
-  });
+
+  const [items, routines] = await Promise.all([
+    prisma.item.findMany({
+      where: { codexItemId: { in: codexIds }, ...ownerItemWhere(blockedIds) },
+      select: { codexItemId: true, roomId: true },
+    }),
+    /*
+      운동 몫. `codexIds` 에 운동이 없으면 빈 배열이라 **추가 비용이 사실상
+      없다** — 카테고리를 미리 조회해 분기하면 쿼리가 하나 더 늘고, 그 조회가
+      빠지는 경로가 또 생긴다
+    */
+    prisma.routineExercise.findMany({
+      where: {
+        exercise: { codexItemId: { in: codexIds } },
+        routine: ownerItemWhere(blockedIds),
+      },
+      select: { exercise: { select: { codexItemId: true } }, routine: { select: { roomId: true } } },
+    }),
+  ]);
+
   const byCodex = new Map<string, Set<string>>();
-  for (const r of rows) {
-    if (!r.codexItemId) continue;
-    const set = byCodex.get(r.codexItemId) ?? new Set<string>();
-    set.add(r.roomId);
-    byCodex.set(r.codexItemId, set);
-  }
+  const add = (codexId: string | null | undefined, roomId: string) => {
+    if (!codexId) return;
+    const set = byCodex.get(codexId) ?? new Set<string>();
+    // ⚠️ **방 단위 집합**이라 한 유저가 루틴 2개에 같은 운동을 담아도 1명이다
+    // (`FR-07-C-03`, AC-07-C-03-1)
+    set.add(roomId);
+    byCodex.set(codexId, set);
+  };
+
+  for (const r of items) add(r.codexItemId, r.roomId);
+  for (const r of routines) add(r.exercise.codexItemId, r.routine.roomId);
+
   return new Map([...byCodex].map(([id, set]) => [id, set.size]));
 }
 
@@ -172,18 +213,57 @@ export async function searchCodex(
   const nq = normalizeBrandToken(query);
   if (!nq) return [];
 
+  /*
+    ## ⚠️ 초판은 **필터 없이 `take: 300`** 이었다 — 도감이 그보다 많으면 조용히 샌다
+    정렬도 없어서 **어느 300건이 오는지 정해지지 않았다.**
+
+    실측(2026-08-19, 로컬 947건 = 운영과 같은 규모):
+    | 카테고리 | 도감 | 검색이 훑던 범위 |
+    |---|---|---|
+    | **옷** | **339건** | 300건 — **39건 이상이 영원히 안 걸렸다** |
+    | 캠핑 | 208 | 전부 |
+    | 시계 | 184 | 전부 |
+
+    화면은 정상이고 **결과만 비어 있다** — "검색 결과가 없습니다"가 뜨므로 유저도
+    운영도 검색이 새고 있다는 것을 알 방법이 없었다. 지금 호출부는 둘 다 카테고리를
+    넘기지만(`codex/page.tsx` · `codex-match-key.ts` 의 계측), **카테고리 하나가
+    300건을 넘는 순간** 그 카테고리에서 새기 시작한다 — 옷이 이미 넘었다.
+
+    이제 **DB 에서 후보를 좁힌다.** 정규화 비교 자체는 DB 로 밀 수 없지만
+    (`displayName` 에 정규화 컬럼이 없다) 좁히기는 가능하다:
+
+    | 조건 | 무엇을 잡는가 |
+    |---|---|
+    | `normalizedKey contains` | **정규화된 부분일치** — `바벨벤치프레스` → `바벨 벤치프레스` |
+    | `displayName`·`uniqueId contains` | 원문 부분일치 (대소문자 무시) |
+    | `matchKeys.value contains` | 키 alias (이미 정규화된 값, D-192) |
+    | `aliases` 비어 있지 않음 | **언어별 표기 alias** — Json 객체라 조건으로 밀 수 없어 후보로만 |
+
+    ⚠️ **마지막 줄이 남은 약점이다.** alias 를 가진 도감이 상한을 넘게 늘면 그때는
+    다시 샌다. 근본 해법은 정규화 컬럼 + 인덱스(또는 전문 검색)이고, 이 변경의
+    범위를 넘는다 → planning 에 OI 로 남긴다.
+  */
   const rows = await prisma.codexItem.findMany({
     where: {
       // 병합으로 흡수된 도감은 결과에 내지 않는다 — survivor 를 보여줘야 한다 (D-016)
       mergedIntoId: null,
       ...(opts.category ? { category: { key: opts.category } } : {}),
+      OR: [
+        { normalizedKey: { contains: nq } },
+        { displayName: { contains: query.trim(), mode: "insensitive" } },
+        { uniqueId: { contains: query.trim(), mode: "insensitive" } },
+        { matchKeys: { some: { value: { contains: nq } } } },
+        // 언어별 표기 alias 는 메모리에서 판정한다 (아래 랭킹) — 후보로만 넣는다
+        { NOT: { aliases: { equals: {} } } },
+      ],
     },
     select: CODEX_SELECT,
-    take: 300,
+    orderBy: { displayName: "asc" },
+    take: SEARCH_CANDIDATE_LIMIT,
   });
 
   // 정규화 비교는 DB 로 밀 수 없다(정규화 컬럼이 displayName 에는 없다).
-  // 후보를 좁힌 뒤 애플리케이션에서 랭킹한다 — E-06-05 의 "관련도 순"
+  // 좁힌 후보를 애플리케이션에서 랭킹한다 — E-06-05 의 "관련도 순"
   const scored: { row: CodexRow; rank: number; alias?: string }[] = [];
   for (const row of rows) {
     const name = normalizeBrandToken(row.displayName);
@@ -228,6 +308,15 @@ export async function searchCodex(
     matchedAlias: s.alias,
   }));
 }
+
+/**
+ * 검색 후보 상한.
+ *
+ * ⚠️ **필터를 거친 뒤의 상한**이다. 초판은 필터 없이 300 이어서 옷 카테고리
+ * 339건 중 39건 이상이 검색에서 조용히 빠졌다 (위 주석 참조). 지금은 `OR` 조건이
+ * 후보를 좁히고, 그 뒤로 넉넉히 잡는다 — 운영 도감 전체(944건)를 담고도 남는다.
+ */
+const SEARCH_CANDIDATE_LIMIT = 2000;
 
 /** 도감 탭 브라우즈 상한 (D-160). 넘치면 개수를 함께 보여 절단을 숨기지 않는다 */
 export const CODEX_BROWSE_LIMIT = 60;
@@ -380,6 +469,105 @@ export async function getCodexAttrs(
     attrs.unshift({ key: "brand", label: labelOf("brand"), value: sample.brand.name });
   }
   return attrs;
+}
+
+/**
+ * 운동 도감의 분류·영상 (D-227, `FR-11-C-02`).
+ *
+ * ## ⚠️ 왜 `getCodexAttrs` 안에 넣지 않았나
+ * 그 함수는 **매칭 키에서 파생되는 값**(고유값·브랜드)을 만든다. 운동은 매칭 키가
+ * 없고(`FR-10-A-02`) 값의 출처가 **`Exercise` 컬럼**이다 — 성격이 다르다.
+ * 한 함수에 넣으면 "매칭 키에서 온 값"과 "마스터 컬럼에서 온 값"이 섞여, 나중에
+ * 매칭 키 규칙을 고칠 때 운동까지 함께 흔들린다.
+ *
+ * ⚠️ **라벨과 선택지 라벨을 모두 DB 에서 읽는다** (D-135·D-227). 메시지 파일에
+ * 박으면 어드민이 A-02·A-04 에서 이름을 바꿨을 때 같은 값이 화면마다 다르게
+ * 불린다.
+ *
+ * @returns 운동이 아니면 `null` — 호출부가 섹션 자체를 렌더하지 않는다
+ */
+export async function getExerciseDetail(
+  codexId: string,
+  locale: Locale,
+): Promise<{
+  attrs: CodexAttr[];
+  /** 근육맵 입력. 표시 순서는 `AttributeOption.displayOrder` (`FR-10-D-03`) */
+  muscles: string[];
+  /** 폼 시연 영상. 외부 링크 경고를 거쳐야 한다 (D-040) */
+  referenceUrl?: string;
+  /** 어드민이 내린 운동인가 — 목록에서는 빠지지만 상세는 열린다 (`FR-11-C-07`) */
+  inactive: boolean;
+} | null> {
+  const ex = await prisma.exercise.findUnique({
+    where: { codexItemId: codexId },
+    select: {
+      targetMuscles: true,
+      equipmentType: true,
+      mechanic: true,
+      forceType: true,
+      referenceUrl: true,
+      active: true,
+    },
+  });
+  if (!ex) return null;
+
+  const keys = ["targetMuscle", "equipmentType", "mechanic", "forceType"] as const;
+  const defs = await prisma.attributeDefinition.findMany({
+    where: { key: { in: [...keys] } },
+    select: {
+      key: true,
+      labelKo: true,
+      labelJa: true,
+      labelEn: true,
+      options: {
+        select: { key: true, labelKo: true, labelJa: true, labelEn: true, displayOrder: true },
+      },
+    },
+  });
+  const defOf = (key: string) => defs.find((d) => d.key === key);
+  const optLabel = (attr: string, value: string) => {
+    const o = defOf(attr)?.options.find((x) => x.key === value);
+    // 선택지에 없는 값이면 **키를 그대로 낸다** — 빈칸이면 무엇인지 알 수 없다 (D-174)
+    return o ? pickAttrLabel(locale, { key: o.key, labelKo: o.labelKo, labelJa: o.labelJa, labelEn: o.labelEn }) : value;
+  };
+
+  const attrs: CodexAttr[] = [];
+  const single = (attr: string, value: string | null) => {
+    const d = defOf(attr);
+    if (!value || !d) return;
+    attrs.push({ key: attr, label: pickAttrLabel(locale, d), value: optLabel(attr, value) });
+  };
+
+  const muscleDef = defOf("targetMuscle");
+  if (ex.targetMuscles.length > 0 && muscleDef) {
+    const order = new Map(muscleDef.options.map((o) => [o.key, o.displayOrder]));
+    const sorted = [...new Set(ex.targetMuscles)].sort(
+      (a, b) =>
+        (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER),
+    );
+    attrs.push({
+      key: "targetMuscle",
+      label: pickAttrLabel(locale, muscleDef),
+      value: sorted.map((m) => optLabel("targetMuscle", m)).join(", "),
+    });
+  }
+  single("equipmentType", ex.equipmentType);
+  single("mechanic", ex.mechanic);
+  single("forceType", ex.forceType);
+
+  const muscleOrderMap = new Map(
+    (muscleDef?.options ?? []).map((o) => [o.key, o.displayOrder]),
+  );
+  return {
+    attrs,
+    muscles: [...new Set(ex.targetMuscles)].sort(
+      (a, b) =>
+        (muscleOrderMap.get(a) ?? Number.MAX_SAFE_INTEGER) -
+        (muscleOrderMap.get(b) ?? Number.MAX_SAFE_INTEGER),
+    ),
+    referenceUrl: ex.referenceUrl ?? undefined,
+    inactive: !ex.active,
+  };
 }
 
 /**

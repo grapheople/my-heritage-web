@@ -67,6 +67,24 @@ export type MarketListing = {
   photoUrl?: string;
 };
 
+/**
+ * 루틴 안의 한 운동에 대한 **내 설정** (D-227 `FR-10-B-04`).
+ *
+ * ⚠️ **마스터가 아니라 관계 행의 값**이다. 세트·중량은 사람마다·루틴마다 다르다.
+ * ⚠️ `reps` 가 문자열인 것은 실무 표기가 범위이기 때문이다 ("6-8", "AMRAP", D-166).
+ * ⚠️ 숫자는 **문자열로 내려보낸다** — `Decimal` 을 클라이언트 컴포넌트 경계로
+ * 넘길 수 없고, 표시는 어차피 문자열이다. 입력 폼도 문자열을 그대로 쓴다.
+ */
+export type RoutineSettings = {
+  sets?: string;
+  reps?: string;
+  restSeconds?: string;
+  weight?: string;
+  rpe?: string;
+  tempo?: string;
+  machineSetting?: string;
+};
+
 export type ItemDetail = {
   id: string;
   /** 파생값. 저장하지 않는다 (D-073, FR-06-A-11) */
@@ -98,17 +116,28 @@ export type ItemDetail = {
    * 상태이고(E-10-01) 화면이 "종목을 추가하세요"를 내야 한다
    */
   isRoutine: boolean;
-  /** 루틴이 담은 종목들. **순서가 곧 내용**이다 (FR-10-B-02) */
-  exercises: { id: string; name: string; muscles: string[] }[];
   /**
-   * 이 종목이 속한 루틴들 (M:N — 여럿일 수 있다).
-   * 비어 있지 않으면 **이 아이템이 방 진열에서 빠져 있다**는 뜻이라, 왜
-   * 안 보이는지를 화면이 설명할 수 있어야 한다 (FR-10-C-01)
+   * 루틴이 담은 **운동 + 내 설정**. **순서가 곧 내용**이다 (`FR-10-B-02`).
+   *
+   * ⚠️ `id` 는 **관계 행(`RoutineExercise`)의 id** 가 아니라 **운동 마스터의
+   * id** 다 — 액션이 `(routineId, exerciseId)` 로 대상을 지목하기 때문이다.
+   * ⚠️ `settings` 는 **이 루틴에서의** 값이다. 같은 운동이 다른 루틴에서 다른
+   * 값을 갖는다 (`FR-10-B-05`)
    */
-  routines: { id: string; name: string }[];
+  exercises: {
+    id: string;
+    name: string;
+    muscles: string[];
+    /** 도감(운동) 상세로 가는 길 — 운동은 언제나 도감을 갖는다 (D-228) */
+    codexId: string;
+    /** 어드민이 내린 운동. **루틴에서 빼지 않고 흐리게 표시한다** (`FR-10-B-08`) */
+    inactive: boolean;
+    /** 내 설정 7종. 전부 선택이라 비어 있을 수 있다 (`FR-10-B-06`) */
+    settings: RoutineSettings;
+  }[];
   /**
-   * 자극부위 — 루틴이면 구성 종목의 **합집합**, 종목이면 자기 값 (FR-10-D-01).
-   * 저장하지 않는 파생값이다 (FR-10-D-02)
+   * 자극부위 — 루틴이면 담긴 운동의 **합집합** (`FR-10-D-01`).
+   * 저장하지 않는 파생값이다 (`FR-10-D-02`)
    */
   muscles: string[];
   /**
@@ -170,7 +199,9 @@ export type NotificationKind =
   | "SANCTION"
   | "CODEX_MERGED"
   | "NEW_FOLLOWER"
-  | "WEAR_SHOT_COMMENT";
+  | "WEAR_SHOT_COMMENT"
+  /** 운동 추가 요청 결과 (D-229, `FR-11-D-06`) — 브랜드 요청과 같은 성격이다 */
+  | "EXERCISE_REQUEST_RESULT";
 
 export type NotificationItem = {
   id: string;

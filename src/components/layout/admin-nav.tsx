@@ -7,12 +7,13 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * 어드민 화면 15개 + 로컬 전용 1개 (myroom-service §6). ko 단일 — i18n 대상
+ * 어드민 화면 17개 + 로컬 전용 1개 (myroom-service §6). ko 단일 — i18n 대상
  * 아님 (D-030). 하드코딩 문자열은 의도된 것이다. 어드민 UI 문구를
  * `messages/*.json` 에 넣지 않는다.
  *
  * ⚠️ **A-15 는 로컬 전용 봇 시딩이 이미 쓰고 있다.** 새 화면은 A-16 부터다 —
  * 번호를 재사용하면 문서·화면·로그가 서로 다른 것을 가리킨다 (D-220).
+ * A-17·A-18 은 운동 마스터·요청 큐다 (D-227~D-232).
  */
 const SECTIONS = [
   {
@@ -31,6 +32,13 @@ const SECTIONS = [
       { href: "/admin/attributes", label: "동적 속성 관리", id: "A-02" },
       { href: "/admin/brands", label: "브랜드 마스터", id: "A-11" },
       { href: "/admin/brands/requests", label: "브랜드 요청 큐", id: "A-12" },
+      /*
+        ⚠️ **운동은 아이템이 아니다** (D-227). 그래도 이 그룹에 두는 이유는
+        어드민의 작업 맥락이 "아이템에 쓰이는 마스터 데이터"이기 때문이다 —
+        브랜드 마스터와 성격이 같다. 도감 그룹에 두면 A-04 와 혼동된다
+      */
+      { href: "/admin/exercises", label: "운동 마스터", id: "A-17" },
+      { href: "/admin/exercises/requests", label: "운동 요청 큐", id: "A-18" },
     ],
   },
   {

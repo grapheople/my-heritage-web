@@ -42,3 +42,14 @@ export type CategoryKey = (typeof CATEGORY_KEYS)[number];
 export const BRANDED_CATEGORY_KEYS = CATEGORY_KEYS.filter(
   (k) => k !== "workout",
 );
+
+/**
+ * 운동 카테고리 key — **아이템이 루틴뿐인 유일한 카테고리** (D-227).
+ *
+ * ⚠️ 코드가 카테고리를 판정하는 자리를 **한 곳으로 모은다.** "운동인가"를 여러
+ * 파일에서 문자열로 비교하면 오타 하나가 조용히 통과한다. 정책 판정(도감 생성
+ * 여부·마켓 노출·사진 필수)은 **플래그**가 하고(D-173·D-224·D-231), 이 상수는
+ * **화면 분기**에만 쓴다 — 루틴 편집 UI 를 어디에 띄우는가 같은 것이다.
+ */
+export const WORKOUT_CATEGORY = "workout" satisfies CategoryKey;
+

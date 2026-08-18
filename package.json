@@ -42,7 +42,9 @@
     "db:fix-camping-mix": "tsx prisma/fix-camping-apparel.ts",
     "db:push:local": "DATABASE_URL='postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public' DIRECT_URL='postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public' prisma db push",
     "db:local-env": "echo DATABASE_URL='postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public' DIRECT_URL='postgresql://heritage:heritage@localhost:5434/my_heritage?schema=public'",
-    "attrs:workout-routine": "tsx prisma/setup-workout-routine.ts"
+    "attrs:workout-routine": "tsx prisma/setup-workout-routine.ts",
+    "attrs:workout-master": "tsx prisma/setup-workout-master.ts",
+    "db:cleanup-workout": "tsx prisma/cleanup-workout-items.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
