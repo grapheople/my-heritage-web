@@ -44,3 +44,6 @@ next-env.d.ts
 /public/uploads
 
 .idea/
+
+# 근육맵 미리보기 산출물 (D-239) — 생성물이므로 커밋하지 않는다. 스크립트가 SoT 다
+/.muscle-preview/
