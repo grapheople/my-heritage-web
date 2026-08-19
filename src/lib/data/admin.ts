@@ -396,7 +396,7 @@ export async function getAdminExercises(q: AdminListQuery = {}) {
           matchKeys: { select: { value: true, kind: true } },
         },
       },
-      _count: { select: { routines: true } },
+      _count: { select: { entries: true } },
     },
   });
 
@@ -413,7 +413,7 @@ export async function getAdminExercises(q: AdminListQuery = {}) {
     referenceUrl: r.referenceUrl,
     active: r.active,
     /** 이 운동을 담은 루틴 수 (`FR-11-A-10`) */
-    usage: r._count.routines,
+    usage: r._count.entries,
   }));
 
   const filtered = all.filter((e) => (q.q ? matchesQuery([e.name, ...e.aliases], q.q) : true));

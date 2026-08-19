@@ -816,7 +816,7 @@ export async function mergeCodex(input: {
     운동 병합에서 알림 대상이 **항상 0명**이 된다 — 루틴 안 운동 이름이 바뀌는데
     유저는 통보를 못 받는다
   */
-  const routineOwners = await prisma.routineExercise.findMany({
+  const routineOwners = await prisma.routineEntry.findMany({
     where: { exercise: { codexItemId: { in: absorbedIds } } },
     select: { routine: { select: { room: { select: { userId: true } } } } },
   });

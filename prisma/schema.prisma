@@ -917,8 +917,8 @@ model Exercise {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// 이 운동을 담은 루틴들 (내 설정이 각 행에 실린다)
-  routines RoutineExercise[]
+  /// 이 운동을 담은 루틴 항목들 (내 설정이 각 행에 실린다)
+  entries RoutineEntry[]
 
   @@index([active])
 }
@@ -1028,10 +1028,10 @@ model Item {
   photos          ItemPhoto[]
   attributeValues ItemAttributeValue[]
   diaries         DiaryItem[]
-  /// D-227 — **이 아이템이 루틴일 때** 담고 있는 운동들 + 각 운동의 내 설정.
+  /// D-236 — **이 아이템이 루틴일 때** 담고 있는 항목들 (운동 또는 휴식).
   /// ⚠️ D-221 의 `routineMemberships`(종목으로서 속한 루틴)는 **없어졌다** —
   /// 운동이 아이템이 아니므로 아이템이 루틴에 속하는 일 자체가 없다
-  routineItems    RoutineExercise[]
+  routineEntries  RoutineEntry[]
   /// 착용샷 (D-148) — 아이템 종속 1:N. 일기(N:M, D-054)와 다른 층이다
   wearShots       WearShot[]
 
@@ -1267,41 +1267,59 @@ model WearShot {
 /// 루틴을 삭제하면 이 행만 사라지고 **종목 아이템은 남아 진열로 돌아온다**
 /// (`FR-10-B-06·07`). D-211 Q5(부모 삭제 시 자식 독립 승격)가 여기서는
 /// 자동으로 성립한다.
-/// D-227 — **루틴에 담긴 운동 하나 + 그 루틴에서의 내 설정.**
+/// 루틴 항목 종류 (D-236).
 ///
-/// ## ⚠️ D-221 의 모양과 다르다 — 종목이 아이템이 아니게 됐다
-/// 전에는 `Item`(루틴) ↔ `Item`(종목) 의 M:N 이었다. 지금은
-/// `Item`(루틴) ↔ **`Exercise`**(어드민 마스터) 이고, **내 설정 7종이 이 행에
-/// 실린다.** D-166 이 속성을 `분류`(모두에게 같은 사실)와 `루틴·강도·세팅`
-/// (사람마다 다른 값)으로 갈라 적어둔 그 선이다.
+/// ⚠️ **휴식이 항목이 된 이유** — 실제 훈련에서 "운동 사이 3분"은 운동의 속성이
+/// 아니라 **순서상의 한 칸**이다. 운동 안에 넣으면 "어느 운동의 뒤쪽 휴식인가"가
+/// 모호해지고, 마지막 운동에는 뒤가 없다.
+enum RoutineEntryKind {
+  EXERCISE
+  REST
+}
+
+/// D-236 — **루틴의 한 항목.** 운동이거나 휴식이다.
 ///
-/// ## ⚠️ 내 설정은 **루틴별로 독립**한다 (`FR-10-B-05`)
-/// `가슴A` 의 벤치 100kg 과 `가슴B` 의 벤치 80kg 이 **공존한다.** 루틴은 목적
-/// (고중량일/볼륨일)이 달라 같은 운동을 다른 설정으로 한다.
-/// D-221 `AC-10-B-01-1`("고치면 양쪽에 반영")은 **정반대로 폐기**됐다.
+/// ## ⚠️ 이름이 `RoutineExercise` 가 아닌 이유
+/// 휴식이 들어가는 테이블을 그렇게 부르면 **읽는 사람이 매번 속는다.** 이
+/// 저장소가 반복해 겪은 실패다 — D-202(표시 URL 과 동작 URL 이 다른 함수) ·
+/// D-220(닉네임이 없는데 닉네임으로 부름).
 ///
-/// ## ⚠️ 7종 전부 선택이다 (`FR-10-B-06`)
-/// 운동을 담는 것만으로 "무엇을 하는지"는 정해지고 "얼마나"는 나중에 채워도 된다.
-model RoutineExercise {
+/// ## ⚠️ 세트 수 컬럼이 없다 — `reps` 배열 길이가 세트 수다 (D-236)
+/// `sets = 4` 인데 `reps` 가 3칸이면 어느 것이 맞는지 정해야 하고, 그 분기를
+/// 모든 조회 경로가 갖게 된다. 파생값은 저장하지 않는다 (D-073).
+///
+/// ## ⚠️ 휴식이 두 종류다 — 헷갈리게 두지 않는다
+/// | 필드 | 무엇 | 어디 |
+/// |---|---|---|
+/// | `restSeconds` | **세트 사이** 휴식 (한 운동 안에서 반복된다) | 운동 항목 |
+/// | `restDurationSeconds` | **운동 사이** 휴식 (이 항목 자체가 휴식이다) | 휴식 항목 |
+///
+/// ## ⚠️ `kind` 정합성은 애플리케이션이 지킨다
+/// `EXERCISE` 면 `exerciseId` 가, `REST` 면 `restDurationSeconds` 가 있어야 한다.
+/// DB CHECK 가 이상적이지만 **Prisma 가 CHECK 를 모델링하지 못해** 다음
+/// `migrate diff` 가 그것을 보지 못한다. 대신 **쓰기 경로를 한 곳으로 모았다**
+/// (`lib/routine-entry.ts`) — D-190·D-197 의 "규칙은 한 곳에" 그대로다.
+model RoutineEntry {
   id String @id @default(cuid())
 
-  /// 이 관계가 매달린 루틴 (운동 카테고리의 아이템)
+  /// 이 항목이 매달린 루틴 (운동 카테고리의 아이템)
   routineItemId String
   routine       Item   @relation(fields: [routineItemId], references: [id], onDelete: Cascade)
 
-  /// 담긴 운동 = 어드민 마스터. ⚠️ 유저 아이템이 아니다 (D-227)
-  exerciseId String
-  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  kind RoutineEntryKind @default(EXERCISE)
+
+  /// 담긴 운동 = 어드민 마스터. **휴식 항목에서는 `null`** 이다 (D-227·D-236)
+  exerciseId String?
+  exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   /// 루틴 안에서의 순서 (`FR-10-B-02`)
   displayOrder Int @default(0)
 
-  // ── 내 설정 7종 (D-166 의 타입을 그대로 옮긴다) ──────────────────────────
-  /// 세트 수
-  sets           Int?
-  /// ⚠️ **`Int` 가 아니다** — 실무 표기가 범위다 ("6-8", "AMRAP") (D-166)
-  repsPerSet     String?
-  /// 세트 사이 휴식 (초). 단위 없이 두면 초인지 분인지 알 수 없다 (D-166)
+  // ── 운동 항목의 내 설정 (D-166 의 타입을 옮긴 것) ─────────────────────────
+  /// **세트별 횟수** (D-236). 배열 길이가 세트 수다.
+  /// ⚠️ 각 칸이 문자열인 것은 실무 표기가 범위이기 때문이다 ("6-8", "AMRAP", D-166)
+  reps           String[]
+  /// **세트 사이** 휴식 (초). 단위 없이 두면 초인지 분인지 알 수 없다 (D-166)
   restSeconds    Int?
   /// 작업 중량 (kg). 소수를 쓰므로 정수가 아니다 (2.5kg 원판)
   workingWeight  Decimal? @db.Decimal(6, 2)
@@ -1312,12 +1330,19 @@ model RoutineExercise {
   /// 머신 세팅 메모 ("시트 4, 핀 7") — 종목마다 고정값이라 항목으로 승격했다 (D-166)
   machineSetting String?
 
+  // ── 휴식 항목 ─────────────────────────────────────────────────────────────
+  /// **운동 사이** 휴식 (초). 화면에서는 분/초로 입력받아 초로 저장한다 (D-236).
+  /// ⚠️ 분과 초를 따로 저장하지 않는다 — `3분 0초` 와 `180초` 가 다른 값으로
+  /// 남으면 비교·합산이 갈린다. 표시할 때 다시 분/초로 나눈다
+  restDurationSeconds Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   /// ⚠️ 한 루틴에 같은 운동이 두 번 들어가지 못한다 (`FR-10-B-03`).
-  /// 서킷("벤치 → 스쿼트 → 벤치")이 실재하지만 허용하면 **순서·설정이 어느
-  /// 행의 것인지 모호**해진다. 막고 시작하고 필요가 관측되면 푼다
+  /// **Postgres 는 `NULL` 을 서로 다른 값으로 취급**하므로 휴식 행
+  /// (`exerciseId = null`)은 **여러 개가 허용되고** 운동만 중복이 막힌다 —
+  /// 제약 하나가 두 규칙을 정확히 표현한다 (D-236)
   @@unique([routineItemId, exerciseId])
   @@index([routineItemId, displayOrder])
   @@index([exerciseId])

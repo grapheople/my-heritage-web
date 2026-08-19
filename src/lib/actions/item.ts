@@ -28,7 +28,7 @@ import {
 } from "@/lib/subtype";
 import { prisma } from "@/lib/prisma";
 import { WORKOUT_CATEGORY } from "@/lib/categories";
-import { parseRoutineSettings, type RoutineSettingsInput } from "@/lib/routine-settings";
+import { parseRoutineEntry, type RoutineEntryInput } from "@/lib/routine-entry";
 
 /**
  * 아이템 등록 (S-04, item-catalog F-05).
@@ -64,6 +64,17 @@ export type CreateItemInput = {
    * ⚠️ 서버가 카테고리 소속을 다시 검증한다 — 폼 값을 믿지 않는다
    */
   subtype?: string;
+  /**
+   * D-236 — **루틴 구성** (운동 카테고리 전용). 등록과 **한 트랜잭션**에 저장한다.
+   *
+   * ## ⚠️ 왜 등록에 함께 넣는가
+   * 이름만 저장하고 구성 화면으로 보내면 유저가 버튼을 두 번 누르고, 중간에
+   * 이탈하면 **구성 0건 루틴**이 남는다. PM 이 "생성할 때 추가"를 요청한 이유다.
+   *
+   * ⚠️ **운동 카테고리가 아니면 무시한다** — 폼 값을 믿지 않는다. 다른 카테고리에
+   * 항목이 딸려 오면 그것은 폼 버그이고, 조용히 저장하면 진열에 이상한 값이 남는다.
+   */
+  routineEntries?: RoutineEntryInput[];
 };
 
 export type CreateItemResult =
@@ -131,7 +142,8 @@ export async function createItemAs(
   const category = await prisma.category.findUnique({
     where: { key: input.category },
     // `userCodexCreation` — 유저 등록이 도감을 만드는가 (D-231)
-    select: { id: true, active: true, requiresPhoto: true, userCodexCreation: true },
+    // `key` 는 루틴 구성 판정에 쓴다 (D-236) — 운동 카테고리에서만 항목을 받는다
+    select: { id: true, key: true, active: true, requiresPhoto: true, userCodexCreation: true },
   });
   if (!category) {
     return { ok: false, fieldErrors: {}, formError: "존재하지 않는 카테고리입니다" };
@@ -312,6 +324,35 @@ export async function createItemAs(
     }
   }
 
+  /*
+    ── 루틴 구성 파싱 (D-236) ──
+    ⚠️ **아이템을 만들기 전에 검증한다.** 만든 뒤에 실패하면 **구성 없는 루틴이
+    남고** 유저는 오류만 본다 — 무엇이 저장됐는지 알 수 없는 상태가 최악이다.
+  */
+  const entryData: ReturnType<typeof parseRoutineEntry>[] = [];
+  if (category.key === WORKOUT_CATEGORY && input.routineEntries?.length) {
+    for (const e of input.routineEntries) {
+      const parsed = parseRoutineEntry(e);
+      if (!parsed.ok) return { ok: false, fieldErrors: {}, formError: parsed.message };
+      entryData.push(parsed);
+    }
+    /*
+      ⚠️ **같은 운동을 두 번 담을 수 없다** (`FR-10-B-03`). DB 제약이 막지만
+      **한 트랜잭션 안에서 터지면 아이템까지 롤백**되고 유저는 이유를 모른다 —
+      여기서 먼저 걸러 이름으로 말해준다
+    */
+    const ids = entryData
+      .map((e) => (e.ok ? e.data.exerciseId : null))
+      .filter((v): v is string => !!v);
+    if (new Set(ids).size !== ids.length) {
+      return {
+        ok: false,
+        fieldErrors: {},
+        formError: "같은 운동을 두 번 담을 수 없습니다",
+      };
+    }
+  }
+
   /* ── 생성 ── */
   const attrByKey = new Map(attrs.map((a) => [a.attributeDefinition.key, a]));
   const item = await prisma.item.create({
@@ -345,6 +386,15 @@ export async function createItemAs(
                   : v.trim();
             return { categoryAttributeId: a.id, value };
           }),
+      },
+      /*
+        D-236 — 루틴 구성을 **같은 트랜잭션에** 만든다. `create` 중첩이므로
+        아이템·사진·속성값·항목이 **전부 함께** 저장되거나 전부 안 된다
+      */
+      routineEntries: {
+        create: entryData.flatMap((e, i) =>
+          e.ok ? [{ ...e.data, displayOrder: i }] : [],
+        ),
       },
     },
     select: { id: true },
@@ -648,162 +698,163 @@ export async function detachPart(partId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/* ─────────────── 루틴 구성 — 담기·빼기·순서·내 설정 (D-227) ─────────────── */
+/* ────── 루틴 구성 — 항목 담기·빼기·순서·수정 (D-227 · D-236) ────── */
 
 /**
- * 루틴에 **운동을 담는다** (`FR-10-B-01·03·04`).
+ * 루틴에 **항목을 담는다** — 운동이거나 휴식이다 (`FR-10-B-01·03·04`, D-236).
  *
- * ## ⚠️ D-221 과 규칙이 달라졌다 — 담는 대상이 아이템이 아니다
- * | | D-221 (폐기) | 지금 (D-227) |
+ * ## ⚠️ D-227 과 달라진 점 — 담는 것이 두 종류다
+ * | | D-227 | 지금 (D-236) |
  * |---|---|---|
- * | 담는 대상 | 내 종목 **아이템** | **`Exercise` 마스터** (전역) |
- * | 소유 검증 | 루틴·종목 **둘 다** 내 것 | **루틴만** 내 것 |
- * | 루틴에 루틴 | 명시적으로 차단 | **타입이 막는다** |
- * | 같은 카테고리 | 명시적으로 검증 | 마스터가 운동뿐이라 **성립 불필요** |
- * | 내 설정 | 종목 아이템의 속성값 | **이 관계 행에** 실린다 |
+ * | 담는 대상 | 운동 마스터만 | **운동 또는 휴식** |
+ * | 횟수 | `sets` + `repsPerSet` 문자열 | **세트별 배열** |
+ * | 지목 | `(routineId, exerciseId)` | **항목 id** (휴식은 마스터가 없다) |
  *
- * 검증이 줄어든 것이 이 개편의 이득이다 — 막을 것이 없어졌다.
+ * ⚠️ **휴식은 여러 개 담긴다.** `@@unique([routineItemId, exerciseId])` 가
+ * `NULL` 을 서로 다른 값으로 취급하므로(Postgres) 휴식은 제약에 걸리지 않고
+ * 운동만 중복이 막힌다 — 제약 하나가 두 규칙을 표현한다 (D-236).
  */
-export async function attachExercise(input: {
+export async function addRoutineEntry(input: {
   routineId: string;
-  exerciseId: string;
-  settings?: RoutineSettingsInput;
-}): Promise<ActionResult> {
+  entry: RoutineEntryInput;
+}): Promise<ActionResult<{ entryId: string }>> {
   const viewer = await getViewer();
   if (!viewer) return fail({}, "로그인이 필요합니다");
-  const res = await attachExerciseAs(viewer, input);
+  const res = await addRoutineEntryAs(viewer, input);
   if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
   return res;
 }
 
 /**
  * 본체 — **뷰어를 주입받는다.** 요청 스코프가 필요 없어 스크립트로 검증할 수
- * 있다 (`10-frontend-spec` §6-2 가 정한 분리). `auth()` 와 `revalidatePath()` 는
- * 요청 스코프를 요구하므로 진입점에만 둔다.
+ * 있다 (`10-frontend-spec` §6-2 가 정한 분리, D-225 의 교훈).
  */
-export async function attachExerciseAs(
+export async function addRoutineEntryAs(
   viewer: Viewer,
-  input: { routineId: string; exerciseId: string; settings?: RoutineSettingsInput },
-): Promise<ActionResult> {
+  input: { routineId: string; entry: RoutineEntryInput },
+): Promise<ActionResult<{ entryId: string }>> {
   const routine = await ownItem(viewer, input.routineId);
   if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
   /*
-    ⚠️ **운동 카테고리인지 본다.** 제품군(`routine`)으로 가르던 판정이 사라졌다
+    ⚠️ **운동 카테고리인지 본다.** 제품군(`routine`)으로 가르던 판정은 폐기됐다
     (`FR-10-A-08`) — 운동 카테고리의 아이템은 루틴뿐이므로 카테고리가 곧 답이다
   */
   if (routine.categoryKey !== WORKOUT_CATEGORY) return fail({}, "루틴이 아닙니다");
 
-  /*
-    ⚠️ **비활성 운동은 새로 담지 못한다** (`FR-11-C-07`). 이미 담긴 루틴에서는
-    유지되지만(`FR-10-B-08`) 새 후보로는 내지 않는다 — 목록에서 빠져 있어도
-    직접 호출은 막아야 한다
-  */
-  const exercise = await prisma.exercise.findFirst({
-    where: { id: input.exerciseId, active: true },
-    select: { id: true },
-  });
-  if (!exercise) return fail({}, "운동을 찾을 수 없습니다");
+  const parsed = parseRoutineEntry(input.entry);
+  if (!parsed.ok) return fail({}, parsed.message);
+
+  if (parsed.data.kind === "EXERCISE") {
+    /*
+      ⚠️ **비활성 운동은 새로 담지 못한다** (`FR-11-C-07`). 이미 담긴 루틴에서는
+      유지되지만(`FR-10-B-08`) 새 후보로는 내지 않는다 — 목록에서 빠져 있어도
+      직접 호출은 막아야 한다
+    */
+    const exists = await prisma.exercise.count({
+      where: { id: parsed.data.exerciseId!, active: true },
+    });
+    if (exists === 0) return fail({}, "운동을 찾을 수 없습니다");
+  }
 
   /*
     ⚠️ **순서는 맨 뒤에 붙인다.** 0 으로 넣으면 기존 항목과 겹쳐 정렬이
     불안정해진다 — 같은 루틴이 새로고침마다 다르게 보인다
   */
-  const last = await prisma.routineExercise.findFirst({
+  const last = await prisma.routineEntry.findFirst({
     where: { routineItemId: routine.id },
     orderBy: { displayOrder: "desc" },
     select: { displayOrder: true },
   });
 
-  const parsed = parseRoutineSettings(input.settings);
-  if (!parsed.ok) return fail({}, parsed.message);
-
   try {
-    await prisma.routineExercise.create({
+    const made = await prisma.routineEntry.create({
       data: {
         routineItemId: routine.id,
-        exerciseId: exercise.id,
         displayOrder: (last?.displayOrder ?? -1) + 1,
         ...parsed.data,
       },
+      select: { id: true },
     });
+    return { ok: true, entryId: made.id };
   } catch {
-    // `@@unique` 위반 = 이미 담겨 있다 (`FR-10-B-03`). 경합도 여기로 온다
+    // `@@unique` 위반 = 이미 담긴 운동이다 (`FR-10-B-03`). 경합도 여기로 온다
     return fail({}, "이미 이 루틴에 담긴 운동입니다");
   }
-
-  return { ok: true };
 }
 
 /**
- * 루틴에서 **운동을 뺀다** (`FR-10-B-07`).
+ * 루틴에서 **항목을 뺀다** (`FR-10-B-07`).
  *
- * ⚠️ **마스터는 건드리지 않는다.** 관계와 내 설정만 사라진다 — 운동은 어드민
- * 데이터이고 다른 유저의 루틴에 그대로 남아 있다. D-221 의 "종목이 방 진열로
- * 돌아온다"는 **성립하지 않는다** (종목이 아이템이 아니다).
+ * ⚠️ **마스터는 건드리지 않는다.** 항목과 내 설정만 사라진다 — 운동은 어드민
+ * 데이터이고 다른 유저의 루틴에 그대로 남아 있다.
  */
-export async function detachExercise(input: {
+export async function removeRoutineEntry(input: {
   routineId: string;
-  exerciseId: string;
+  entryId: string;
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer) return fail({}, "로그인이 필요합니다");
-  const res = await detachExerciseAs(viewer, input);
+  const res = await removeRoutineEntryAs(viewer, input);
   if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
   return res;
 }
 
 /** 본체 — 뷰어 주입 (위 분리 이유 참조) */
-export async function detachExerciseAs(
+export async function removeRoutineEntryAs(
   viewer: Viewer,
-  input: { routineId: string; exerciseId: string },
+  input: { routineId: string; entryId: string },
 ): Promise<ActionResult> {
-  // 루틴이 내 것인지만 보면 된다 — 관계는 루틴에 매달려 있다
+  // 루틴이 내 것인지만 보면 된다 — 항목은 루틴에 매달려 있다
   const routine = await ownItem(viewer, input.routineId);
   if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
 
-  await prisma.routineExercise.deleteMany({
-    where: { routineItemId: routine.id, exerciseId: input.exerciseId },
+  /*
+    ⚠️ **`routineItemId` 를 조건에 함께 건다.** 항목 id 만으로 지우면 **남의
+    루틴의 항목**을 지울 수 있다 — 소유 검증이 루틴에만 걸려 있기 때문이다
+  */
+  await prisma.routineEntry.deleteMany({
+    where: { id: input.entryId, routineItemId: routine.id },
   });
 
   return { ok: true };
 }
 
 /**
- * 루틴 안 운동 **순서를 바꾼다** (`FR-10-B-02`).
+ * 루틴 안 **항목 순서를 바꾼다** (`FR-10-B-02`).
  *
- * ⚠️ **없는 관계는 건너뛴다** (E-10-05). 다른 기기에서 운동을 빼는 사이에
- * 순서를 저장하면 그 id 가 사라져 있다 — 전체를 실패시키면 유저는 이유를
- * 알 수 없고 순서도 잃는다. **있는 것만 적용한다.**
+ * ⚠️ **없는 항목은 건너뛴다** (E-10-05). 다른 기기에서 항목을 빼는 사이에 순서를
+ * 저장하면 그 id 가 사라져 있다 — 전체를 실패시키면 유저는 이유를 알 수 없고
+ * 순서도 잃는다. **있는 것만 적용한다.**
  */
-export async function reorderExercises(input: {
+export async function reorderRoutineEntries(input: {
   routineId: string;
-  /** 원하는 순서대로 나열된 **운동 마스터 id** */
-  exerciseIds: string[];
+  /** 원하는 순서대로 나열된 **항목 id** */
+  entryIds: string[];
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer) return fail({}, "로그인이 필요합니다");
-  const res = await reorderExercisesAs(viewer, input);
+  const res = await reorderRoutineEntriesAs(viewer, input);
   if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
   return res;
 }
 
 /** 본체 — 뷰어 주입 (위 분리 이유 참조) */
-export async function reorderExercisesAs(
+export async function reorderRoutineEntriesAs(
   viewer: Viewer,
-  input: { routineId: string; exerciseIds: string[] },
+  input: { routineId: string; entryIds: string[] },
 ): Promise<ActionResult> {
   const routine = await ownItem(viewer, input.routineId);
   if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
 
-  const rows = await prisma.routineExercise.findMany({
+  const rows = await prisma.routineEntry.findMany({
     where: { routineItemId: routine.id },
-    select: { id: true, exerciseId: true },
+    select: { id: true },
   });
-  const byExercise = new Map(rows.map((r) => [r.exerciseId, r.id]));
+  const mine = new Set(rows.map((r) => r.id));
 
-  const updates = input.exerciseIds
-    .map((exerciseId, i) => ({ id: byExercise.get(exerciseId), displayOrder: i }))
-    .filter((u): u is { id: string; displayOrder: number } => Boolean(u.id));
+  const updates = input.entryIds
+    .filter((id) => mine.has(id))
+    .map((id, i) => ({ id, displayOrder: i }));
 
   /*
     ⚠️ **한 트랜잭션에서 바꾼다.** 도중에 실패하면 순서가 절반만 적용된 상태가
@@ -811,10 +862,7 @@ export async function reorderExercisesAs(
   */
   await prisma.$transaction(
     updates.map((u) =>
-      prisma.routineExercise.update({
-        where: { id: u.id },
-        data: { displayOrder: u.displayOrder },
-      }),
+      prisma.routineEntry.update({ where: { id: u.id }, data: { displayOrder: u.displayOrder } }),
     ),
   );
 
@@ -822,44 +870,62 @@ export async function reorderExercisesAs(
 }
 
 /**
- * 루틴 안 한 운동의 **내 설정을 저장한다** (`FR-10-B-04·05·06`).
- *
- * ## ⚠️ 이것이 D-227 이 새로 만든 자리다
- * 전에는 세트·중량이 **종목 아이템의 속성값**이라 아이템 수정 폼이 다뤘고, 그
- * 값은 종목 하나에 하나뿐이었다. 지금은 **루틴별로 독립**하므로(`FR-10-B-05`)
- * 저장 대상이 `(루틴, 운동)` 쌍이다.
+ * 항목을 **수정한다** — 운동의 내 설정, 또는 휴식 시간 (`FR-10-B-04·05·06`).
  *
  * ⚠️ **빈 문자열은 "지움"이다.** 7종 전부 선택이므로(`FR-10-B-06`) 유저가 칸을
  * 비우면 `null` 로 저장한다 — 무시하면 한번 넣은 값을 못 지운다.
+ *
+ * ⚠️ **항목 종류를 바꾸지 못한다.** 운동을 휴식으로 바꾸는 것은 수정이 아니라
+ * **빼고 다시 담는 것**이다 — 허용하면 `exerciseId` 와 `kind` 가 어긋난 행을
+ * 만드는 경로가 하나 더 생긴다 (D-236 의 정합성 규칙).
  */
-export async function updateRoutineExercise(input: {
+export async function updateRoutineEntry(input: {
   routineId: string;
-  exerciseId: string;
-  settings: RoutineSettingsInput;
+  entryId: string;
+  entry: RoutineEntryInput;
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer) return fail({}, "로그인이 필요합니다");
-  const res = await updateRoutineExerciseAs(viewer, input);
+  const res = await updateRoutineEntryAs(viewer, input);
   if (res.ok) revalidate("/[locale]/items/[itemId]", "/[locale]/me");
   return res;
 }
 
 /** 본체 — 뷰어 주입 (위 분리 이유 참조) */
-export async function updateRoutineExerciseAs(
+export async function updateRoutineEntryAs(
   viewer: Viewer,
-  input: { routineId: string; exerciseId: string; settings: RoutineSettingsInput },
+  input: { routineId: string; entryId: string; entry: RoutineEntryInput },
 ): Promise<ActionResult> {
   const routine = await ownItem(viewer, input.routineId);
   if (!routine) return fail({}, "루틴을 찾을 수 없습니다");
 
-  const parsed = parseRoutineSettings(input.settings);
+  const current = await prisma.routineEntry.findFirst({
+    where: { id: input.entryId, routineItemId: routine.id },
+    select: { kind: true, exerciseId: true },
+  });
+  if (!current) return fail({}, "이 루틴의 항목이 아닙니다");
+  if (current.kind !== input.entry.kind) {
+    return fail({}, "항목 종류는 바꿀 수 없습니다 — 빼고 다시 담아주세요");
+  }
+
+  const parsed = parseRoutineEntry(
+    // ⚠️ 운동은 **대상을 바꾸지 않는다** — 현재 값을 그대로 쓴다. 다른 운동으로
+    // 바꾸는 것은 빼고 담는 것이다 (위 주석과 같은 이유)
+    input.entry.kind === "EXERCISE"
+      ? { ...input.entry, exerciseId: current.exerciseId ?? "" }
+      : input.entry,
+  );
   if (!parsed.ok) return fail({}, parsed.message);
 
-  const res = await prisma.routineExercise.updateMany({
-    where: { routineItemId: routine.id, exerciseId: input.exerciseId },
-    data: parsed.data,
-  });
-  if (res.count === 0) return fail({}, "이 루틴에 담긴 운동이 아닙니다");
+  /*
+    ⚠️ **`kind` 와 `exerciseId` 는 쓰지 않는다.** 위에서 종류가 같은지 확인했고,
+    운동 대상은 바꾸지 않는다 — 그 둘을 `data` 에 넣으면 **항목 종류를 바꾸는
+    경로**가 하나 생긴다 (D-236 의 정합성 규칙이 그것을 막는다)
+  */
+  const { kind, exerciseId, ...rest } = parsed.data;
+  void kind;
+  void exerciseId;
+  await prisma.routineEntry.update({ where: { id: input.entryId }, data: rest });
 
   return { ok: true };
 }

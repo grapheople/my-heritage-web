@@ -1,5 +1,5 @@
 import "./env";
-import { attachExerciseAs } from "../src/lib/actions/item";
+import { addRoutineEntryAs } from "../src/lib/actions/item";
 import { prisma } from "../src/lib/prisma";
 import { describeDatabase, runtimeDatabaseUrl } from "../src/lib/db-url";
 import type { Viewer } from "../src/lib/auth/viewer";
@@ -31,13 +31,32 @@ const ROUTINE_NAME = "가슴·삼두 / 등·이두 분할 A";
 const DAYS = ["mon", "thu"];
 
 /** 담을 운동과 **내 설정** — 실제로 쓰는 값처럼 채운다 (빈 설정은 시연이 안 된다) */
-const PLAN: { name: string; sets: string; reps: string; rest: string; weight?: string; rpe?: string }[] = [
-  { name: "바벨 벤치프레스", sets: "4", reps: "6-8", rest: "180", weight: "80", rpe: "8" },
-  { name: "시티드 덤벨 숄더 프레스", sets: "3", reps: "10-12", rest: "120", weight: "20" },
-  { name: "케이블 로프 트라이셉 푸시다운", sets: "3", reps: "12-15", rest: "90", weight: "25" },
-  { name: "랫풀다운 (와이드 그립)", sets: "4", reps: "8-10", rest: "120", weight: "55" },
-  { name: "바벨 하이바 백스쿼트", sets: "4", reps: "5", rest: "240", weight: "100", rpe: "8.5" },
-  { name: "컨벤셔널 데드리프트", sets: "3", reps: "5", rest: "240", weight: "120", rpe: "8.5" },
+type PlanStep =
+  | {
+      kind: "EXERCISE";
+      name: string;
+      /** **세트별** 횟수 (D-236) — 피라미드를 그대로 넣는다 */
+      reps: string[];
+      /** 세트 사이 휴식 (초) */
+      rest: string;
+      weight?: string;
+      rpe?: string;
+    }
+  | { kind: "REST"; minutes: string };
+
+/**
+ * ⚠️ **휴식 항목을 섞는다** (D-236). 새 구조의 시연이므로 **운동 사이 휴식**이
+ * 실제로 보여야 한다 — 운동만 나열하면 그 기능이 있는지 알 수 없다.
+ */
+const PLAN: PlanStep[] = [
+  { kind: "EXERCISE", name: "바벨 벤치프레스", reps: ["8", "6", "6"], rest: "180", weight: "80", rpe: "8" },
+  { kind: "EXERCISE", name: "시티드 덤벨 숄더 프레스", reps: ["12", "10", "10"], rest: "120", weight: "20" },
+  { kind: "EXERCISE", name: "케이블 로프 트라이셉 푸시다운", reps: ["15", "12", "12"], rest: "90", weight: "25" },
+  // 상체 → 하체로 넘어가는 자리. 3분 쉰다
+  { kind: "REST", minutes: "3" },
+  { kind: "EXERCISE", name: "랫풀다운 (와이드 그립)", reps: ["10", "10", "8"], rest: "120", weight: "55" },
+  { kind: "EXERCISE", name: "바벨 하이바 백스쿼트", reps: ["5", "5", "5"], rest: "240", weight: "100", rpe: "8.5" },
+  { kind: "EXERCISE", name: "컨벤셔널 데드리프트", reps: ["5", "5"], rest: "240", weight: "120", rpe: "8.5" },
 ];
 
 async function main() {
@@ -104,6 +123,21 @@ async function main() {
   const viewer = { userId: bot.user.id, roomId: room.id } as Viewer;
   let added = 0;
   for (const p of PLAN) {
+    if (p.kind === "REST") {
+      // ⚠️ **유저와 같은 액션을 쓴다** — 규칙이 갈리면 시연이 거짓말한다
+      const res = await addRoutineEntryAs(viewer, {
+        routineId: routine.id,
+        entry: { kind: "REST", minutes: p.minutes, seconds: "0" },
+      });
+      if (res.ok) {
+        added++;
+        console.log(`  + ⏸ 휴식 ${p.minutes}분`);
+      } else {
+        console.log(`  ! 휴식 — ${res.formError ?? "실패"}`);
+      }
+      continue;
+    }
+
     const ex = await prisma.exercise.findFirst({
       where: { codexItem: { displayName: p.name } },
       select: { id: true },
@@ -112,12 +146,11 @@ async function main() {
       console.log(`  ! ${p.name} — 마스터에 없습니다 (건너뜀)`);
       continue;
     }
-    // ⚠️ **유저와 같은 액션을 쓴다** — 규칙이 갈리면 시연이 거짓말한다
-    const res = await attachExerciseAs(viewer, {
+    const res = await addRoutineEntryAs(viewer, {
       routineId: routine.id,
-      exerciseId: ex.id,
-      settings: {
-        sets: p.sets,
+      entry: {
+        kind: "EXERCISE",
+        exerciseId: ex.id,
         reps: p.reps,
         restSeconds: p.rest,
         weight: p.weight,
@@ -126,13 +159,15 @@ async function main() {
     });
     if (res.ok) {
       added++;
-      console.log(`  + ${p.name} — ${p.sets}세트 ${p.reps}회${p.weight ? ` ${p.weight}kg` : ""}`);
+      console.log(
+        `  + ${p.name} — ${p.reps.length}세트 ${p.reps.join("-")}${p.weight ? ` ${p.weight}kg` : ""}`,
+      );
     } else {
       console.log(`  ! ${p.name} — ${res.formError ?? "실패"}`);
     }
   }
 
-  console.log(`\n완료 — 루틴 1개 · 담긴 운동 ${added}건. 방 진열에는 **루틴 1칸**만 보인다 (전시 단위는 루틴이다).`);
+  console.log(`\n완료 — 루틴 1개 · 담긴 항목 ${added}건. 방 진열에는 **루틴 1칸**만 보인다 (전시 단위는 루틴이다).`);
 }
 
 main()

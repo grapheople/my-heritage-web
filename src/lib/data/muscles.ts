@@ -53,16 +53,22 @@ export function sortMuscleKeys(keys: readonly string[], order: Map<string, numbe
   });
 }
 
-/** 루틴 조회에 펼쳐 쓰는 최소 `select` — 담긴 운동의 자극부위만 읽는다 */
+/**
+ * 루틴 조회에 펼쳐 쓰는 최소 `select` — 담긴 운동의 자극부위만 읽는다.
+ *
+ * ⚠️ **휴식 항목은 `exercise` 가 `null` 이다** (D-236). 쿼리로 거르지 않고
+ * 계산에서 건너뛴다 — `kind` 로 필터하면 조회부마다 그 조건을 적어야 하고,
+ * 한 곳이라도 빠지면 **그 화면에서만 근육맵이 달라진다**.
+ */
 export const ROUTINE_MUSCLE_SELECT = {
-  routineItems: {
+  routineEntries: {
     orderBy: { displayOrder: "asc" },
     select: { exercise: { select: { targetMuscles: true } } },
   },
 } satisfies Prisma.ItemSelect;
 
 /** 이 함수가 요구하는 최소 모양 — 어느 쿼리의 결과든 그대로 넣을 수 있다 */
-type RoutineMuscleRow = { exercise: { targetMuscles: string[] } };
+type RoutineMuscleRow = { exercise: { targetMuscles: string[] } | null };
 
 /**
  * 루틴의 자극부위 = 담긴 운동 `targetMuscles` 의 **합집합** (`FR-10-D-01`).
@@ -78,7 +84,8 @@ export function musclesOfRoutine(
   order: Map<string, number>,
 ): string[] {
   return sortMuscleKeys(
-    rows.flatMap((r) => r.exercise.targetMuscles),
+    // ⚠️ 휴식 항목(`exercise === null`)은 건너뛴다 — 자극부위가 없다 (D-236)
+    rows.flatMap((r) => r.exercise?.targetMuscles ?? []),
     order,
   );
 }

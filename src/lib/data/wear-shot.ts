@@ -108,7 +108,7 @@ export async function getCodexWearShots(
         */
         OR: [
           { codexItemId: codexId },
-          { routineItems: { some: { exercise: { codexItemId: codexId } } } },
+          { routineEntries: { some: { exercise: { codexItemId: codexId } } } },
         ],
       },
     },

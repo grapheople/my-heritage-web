@@ -10,6 +10,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail, getRoutineFieldLabels, isItemIndexable } from "@/lib/data/item";
+import { formatRest, summarizeReps } from "@/lib/routine-entry";
 import { getItemWearShots } from "@/lib/data/wear-shot";
 import { todaysWearShot } from "@/lib/actions/wear-shot";
 import { WearShotForm } from "@/components/domain/wear-shot-form";
@@ -271,36 +272,47 @@ export default async function ItemDetailPage({
             {isOwner ? (
               <RoutineComposer
                 routineId={item.id}
-                exercises={item.exercises}
+                entries={item.entries}
                 locale={locale as Locale}
                 labels={fieldLabels}
               />
-            ) : item.exercises.length === 0 ? (
+            ) : item.entries.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("item.routineEmpty")}</p>
             ) : (
               /*
                 타인에게는 읽기 전용 — 순서가 곧 내용이므로 번호를 낸다.
-                ⚠️ **링크가 도감으로 간다** (D-227) — 운동은 아이템이 아니므로
-                `/items/{id}` 가 없다. 그 링크를 두면 404 로 간다
+
+                ⚠️ **운동 링크가 도감으로 간다** (D-227) — 운동은 아이템이 아니므로
+                `/items/{id}` 가 없다. 그 링크를 두면 404 로 간다.
+                ⚠️ **휴식도 그대로 보여준다** (D-236) — 빼면 순서가 거짓말한다
+                ("벤치 다음 바로 스쿼트"로 읽힌다).
+                ⚠️ 남의 루틴에서도 세트·중량이 보인다 — 참고가 이 서비스의 가치다
               */
               <ol className="flex flex-col gap-1">
-                {item.exercises.map((e, i) => (
+                {item.entries.map((e, i) => (
                   <li key={e.id} className="flex items-baseline gap-2 text-sm">
                     <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
-                    <Link href={`/codex/${e.codexId}`} className="min-w-0 truncate underline">
-                      {e.name}
-                    </Link>
-                    {/* 남의 루틴에서도 세트·중량은 보인다 — 참고가 이 서비스의 가치다 */}
-                    {(e.settings.sets || e.settings.reps || e.settings.weight) && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {[
-                          e.settings.sets && t("item.routineSetsShort", { n: e.settings.sets }),
-                          e.settings.reps,
-                          e.settings.weight && `${e.settings.weight}kg`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
+                    {e.kind === "REST" ? (
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        ⏸ {t("item.routineRest")}{" "}
+                        <b className="text-foreground">{formatRest(e.seconds)}</b>
                       </span>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/codex/${e.codexId}`}
+                          className="min-w-0 flex-1 truncate underline"
+                        >
+                          {e.name}
+                        </Link>
+                        {(summarizeReps(e.settings.reps) || e.settings.weight) && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {[summarizeReps(e.settings.reps), e.settings.weight && `${e.settings.weight}kg`]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                      </>
                     )}
                   </li>
                 ))}

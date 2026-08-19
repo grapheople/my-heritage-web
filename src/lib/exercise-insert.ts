@@ -343,7 +343,7 @@ export async function promoteCodexToExercise(input: {
  *   실패하면 절반만 옮겨진 루틴이 남고, 그 상태는 화면에서 정상처럼 보인다
  */
 export async function migrateRoutinesToSurvivor(
-  tx: Pick<typeof prisma, "exercise" | "routineExercise">,
+  tx: Pick<typeof prisma, "exercise" | "routineEntry">,
   input: { survivorCodexId: string; absorbedCodexIds: string[] },
 ): Promise<{ moved: number; deduped: number }> {
   const survivor = await tx.exercise.findUnique({
@@ -360,15 +360,15 @@ export async function migrateRoutinesToSurvivor(
   const loserIds = losers.map((l) => l.id);
   if (loserIds.length === 0) return { moved: 0, deduped: 0 };
 
-  const rows = await tx.routineExercise.findMany({
-    where: { exerciseId: { in: [...loserIds, survivor.id] } },
+  const rows = await tx.routineEntry.findMany({
+    // ⚠️ **운동 항목만** — 휴식은 마스터를 가리키지 않으므로 이관 대상이 아니다 (D-236)
+    where: { kind: "EXERCISE", exerciseId: { in: [...loserIds, survivor.id] } },
     select: {
       id: true,
       routineItemId: true,
       exerciseId: true,
       displayOrder: true,
-      sets: true,
-      repsPerSet: true,
+      reps: true,
       restSeconds: true,
       workingWeight: true,
       rpe: true,
@@ -377,10 +377,10 @@ export async function migrateRoutinesToSurvivor(
     },
   });
 
+  /** 내 설정이 얼마나 채워졌는가 — 남길 쪽을 고르는 기준 (D-236: `reps` 는 배열이다) */
   const filled = (r: (typeof rows)[number]) =>
-    [r.sets, r.repsPerSet, r.restSeconds, r.workingWeight, r.rpe, r.tempo, r.machineSetting].filter(
-      (v) => v !== null,
-    ).length;
+    [r.restSeconds, r.workingWeight, r.rpe, r.tempo, r.machineSetting].filter((v) => v !== null)
+      .length + (r.reps.length > 0 ? 1 : 0);
 
   const byRoutine = new Map<string, typeof rows>();
   for (const r of rows) {
@@ -395,11 +395,11 @@ export async function migrateRoutinesToSurvivor(
     )[0];
     for (const r of group) {
       if (r.id === keep.id) continue;
-      await tx.routineExercise.delete({ where: { id: r.id } });
+      await tx.routineEntry.delete({ where: { id: r.id } });
       deduped++;
     }
     if (keep.exerciseId !== survivor.id) {
-      await tx.routineExercise.update({
+      await tx.routineEntry.update({
         where: { id: keep.id },
         data: { exerciseId: survivor.id },
       });

@@ -67,7 +67,7 @@
     "privateOnSaleWarn": "This item is on sale. Making it private removes it from the market. Continue?",
     "routine": "Routine",
     "routineEmpty": "Add exercises to this routine",
-    "routineHint": "The order is the routine. An exercise can belong to several routines, and sets and weight are saved per routine.",
+    "routineHint": "The order is the routine. Add exercises and rests, and set reps per set.",
     "routineRemove": "Remove",
     "routineUp": "Up",
     "routineDown": "Down",
@@ -83,7 +83,17 @@
     "routineSettingsSave": "Save settings",
     "routineSetsShort": "{n} sets",
     "routineInactive": "This exercise was retired by the team. It stays in your routine.",
-    "routineFailed": "Something went wrong"
+    "routineFailed": "Something went wrong",
+    "routineAddExercise": "Add exercise",
+    "routineAddRest": "Add rest",
+    "routineRest": "Rest",
+    "routineRestEdit": "Duration",
+    "routineMinutes": "min",
+    "routineSeconds": "sec",
+    "routineRepsPerSet": "Reps per set",
+    "routineSetNo": "Set {n}",
+    "routineAddSet": "set",
+    "routineRemoveSet": "set"
   },
   "diary": {
     "visibility": {

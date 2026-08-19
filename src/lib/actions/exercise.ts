@@ -24,7 +24,8 @@ import type { Locale } from "@/i18n/routing";
 
 /** 루틴에 담을 운동을 찾는다 (`FR-10-B-09`) */
 export async function searchExercises(input: {
-  routineId: string;
+  /** ⚠️ 등록 폼에는 아직 루틴이 없다 — 그때는 비운다 (D-236) */
+  routineId?: string;
   q: string;
   locale: Locale;
 }): Promise<{ id: string; name: string; muscles: string[]; codexId: string }[]> {

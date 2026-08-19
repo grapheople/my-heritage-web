@@ -125,7 +125,7 @@ export async function getRoom(
       아이템은 담긴 것이 없으므로 빈 배열이 된다 — 그 카드는 사진을 쓴다.
       사진이 있으면 카드가 사진을 우선하므로 이 값은 쓰이지 않는다 (`FR-10-D-04`)
     */
-    muscles: musclesOfRoutine(i.routineItems, muscleOrderMap),
+    muscles: musclesOfRoutine(i.routineEntries, muscleOrderMap),
     categoryKey: i.category.key,
     onSale: i.saleStatus === "ON_SALE",
     // 비공개 표식은 본인 방에서만 뜬다 — 타인 뷰에는 애초에 없다

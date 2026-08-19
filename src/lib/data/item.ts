@@ -1,5 +1,10 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { CodexAttr, ItemDetail, RoutineSettings } from "@/lib/data/types";
+import type {
+  CodexAttr,
+  ItemDetail,
+  RoutineEntryView,
+  RoutineSettings,
+} from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import type { CurrencyCode } from "@/lib/format";
 import { blockedUserIds } from "@/lib/data/scope";
@@ -40,17 +45,15 @@ const OWNER_ONLY_KEYS = new Set(["purchasedFrom", "purchaseDate", "purchasePrice
  * 표시는 어차피 문자열이다. `toString()` 이 `100` / `2.5` 를 그대로 낸다
  */
 function routineSettingsOf(r: {
-  sets: number | null;
-  repsPerSet: string | null;
+  reps: string[];
   restSeconds: number | null;
   workingWeight: Prisma.Decimal | null;
   rpe: Prisma.Decimal | null;
   tempo: string | null;
   machineSetting: string | null;
 }): RoutineSettings {
-  const out: RoutineSettings = {};
-  if (r.sets !== null) out.sets = String(r.sets);
-  if (r.repsPerSet) out.reps = r.repsPerSet;
+  // ⚠️ `reps` 는 **항상 배열**이다 (빈 배열 포함) — 세트 수가 배열 길이다 (D-236)
+  const out: RoutineSettings = { reps: r.reps };
   if (r.restSeconds !== null) out.restSeconds = String(r.restSeconds);
   if (r.workingWeight !== null) out.weight = r.workingWeight.toString();
   if (r.rpe !== null) out.rpe = r.rpe.toString();
@@ -191,16 +194,18 @@ export async function getItemDetail(
         ⚠️ 운동명은 **마스터의 도감**에서 온다 (`CodexItem.displayName`) —
         아이템 명칭 파생(D-073)을 쓰지 않는다. 운동은 아이템이 아니다
       */
-      routineItems: {
+      routineEntries: {
         orderBy: { displayOrder: "asc" },
         select: {
-          sets: true,
-          repsPerSet: true,
+          id: true,
+          kind: true,
+          reps: true,
           restSeconds: true,
           workingWeight: true,
           rpe: true,
           tempo: true,
           machineSetting: true,
+          restDurationSeconds: true,
           exercise: {
             select: {
               id: true,
@@ -321,16 +326,37 @@ export async function getItemDetail(
       (`FR-10-A-08`)
     */
     isRoutine: item.category.key === WORKOUT_CATEGORY,
-    exercises: item.routineItems.map((r) => ({
-      id: r.exercise.id,
-      name: r.exercise.codexItem.displayName,
-      muscles: sortMuscleKeys(r.exercise.targetMuscles, muscleOrderMap),
-      codexId: r.exercise.codexItem.id,
-      inactive: !r.exercise.active,
-      settings: routineSettingsOf(r),
-    })),
+    /*
+      D-236 — 운동과 휴식이 섞인 **항목 목록**이다. 순서가 곧 내용이므로
+      `displayOrder` 정렬을 그대로 낸다.
+
+      ⚠️ **휴식은 `exercise` 가 `null`** 이다. `kind` 로 가르되 `exercise` 유무도
+      함께 본다 — `kind` 가 `EXERCISE` 인데 마스터가 지워진 행이 남으면(FK 는
+      Cascade 라 이론상 없다) 그 행을 조용히 운동으로 렌더하지 않는다
+    */
+    entries: item.routineEntries.flatMap((r): RoutineEntryView[] => {
+      if (r.kind === "REST") {
+        // 0 이하는 파서가 막지만, 옛 데이터·직접 수정을 만나면 렌더하지 않는다
+        return r.restDurationSeconds && r.restDurationSeconds > 0
+          ? [{ kind: "REST", id: r.id, seconds: r.restDurationSeconds }]
+          : [];
+      }
+      if (!r.exercise) return [];
+      return [
+        {
+          kind: "EXERCISE",
+          id: r.id,
+          exerciseId: r.exercise.id,
+          name: r.exercise.codexItem.displayName,
+          muscles: sortMuscleKeys(r.exercise.targetMuscles, muscleOrderMap),
+          codexId: r.exercise.codexItem.id,
+          inactive: !r.exercise.active,
+          settings: routineSettingsOf(r),
+        },
+      ];
+    }),
     /** 근육맵 입력 — 담긴 운동 `targetMuscles` 의 합집합 (FR-10-D-01) */
-    muscles: musclesOfRoutine(item.routineItems, muscleOrderMap),
+    muscles: musclesOfRoutine(item.routineEntries, muscleOrderMap),
     categoryKey: `category.${item.category.key}`,
     roomId: item.room.id,
     roomName: item.room.name,
@@ -561,27 +587,40 @@ export async function getRoutineFieldLabels(
  * 걸려야 한다 — alias 가 없으면 유저는 정식 명칭을 알아야만 찾을 수 있다.
  */
 export async function searchExercisesForRoutine(input: {
-  routineId: string;
+  /**
+   * ⚠️ **선택이다** (D-236). 등록 폼에는 아직 루틴이 **없다** — 그때는 제외할
+   * 대상도 없으므로 전체를 낸다. 중복은 화면이 들고 있는 목록으로 막는다.
+   */
+  routineId?: string;
   viewer: Viewer | null;
   /** 검색어. 비어 있으면 최근 등록된 운동을 낸다 (첫 화면이 비지 않게) */
   q?: string;
   locale: Locale;
 }): Promise<{ id: string; name: string; muscles: string[]; codexId: string }[]> {
+  /*
+    ⚠️ **로그인은 요구한다.** 마스터 목록 자체는 도감에 공개되지만(`FR-11-C-01`),
+    이 경로는 검색어를 받는 액션이라 비로그인에 열어두면 **긁어가는 엔드포인트**가
+    된다. 목록을 보려면 도감 화면을 쓰면 된다
+  */
   if (!input.viewer?.roomId) return [];
 
-  // 루틴이 내 것인지만 확인한다 — 목록 자체는 전역이라 정보 노출이 아니다
-  const routine = await prisma.item.findFirst({
-    where: { id: input.routineId, roomId: input.viewer.roomId },
-    select: { id: true },
-  });
-  if (!routine) return [];
+  // 루틴이 주어졌으면 **내 것인지** 확인한다 — 목록 자체는 전역이라 정보 노출이 아니다
+  if (input.routineId) {
+    const routine = await prisma.item.findFirst({
+      where: { id: input.routineId, roomId: input.viewer.roomId },
+      select: { id: true },
+    });
+    if (!routine) return [];
+  }
 
   const [rows, order] = await Promise.all([
     prisma.exercise.findMany({
       where: {
         active: true,
-        // 이 루틴에 이미 담긴 것만 제외 (FR-10-B-03)
-        routines: { none: { routineItemId: input.routineId } },
+        // 이 루틴에 이미 담긴 것만 제외 (FR-10-B-03). 루틴이 없으면 제외도 없다
+        ...(input.routineId
+          ? { entries: { none: { routineItemId: input.routineId } } }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take: MASTER_SCAN_LIMIT,

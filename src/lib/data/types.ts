@@ -68,22 +68,53 @@ export type MarketListing = {
 };
 
 /**
- * 루틴 안의 한 운동에 대한 **내 설정** (D-227 `FR-10-B-04`).
+ * 루틴 안의 한 운동에 대한 **내 설정** (D-227 `FR-10-B-04`, D-236).
  *
- * ⚠️ **마스터가 아니라 관계 행의 값**이다. 세트·중량은 사람마다·루틴마다 다르다.
- * ⚠️ `reps` 가 문자열인 것은 실무 표기가 범위이기 때문이다 ("6-8", "AMRAP", D-166).
+ * ⚠️ **마스터가 아니라 항목 행의 값**이다. 세트·중량은 사람마다·루틴마다 다르다.
+ * ⚠️ **`reps` 는 세트별 배열**이다 (D-236). 배열 길이가 세트 수이므로 `sets` 는
+ * 없다 — 파생값을 저장하지 않는다 (D-073).
+ * ⚠️ 각 칸이 문자열인 것은 실무 표기가 범위이기 때문이다 ("6-8", "AMRAP", D-166).
  * ⚠️ 숫자는 **문자열로 내려보낸다** — `Decimal` 을 클라이언트 컴포넌트 경계로
  * 넘길 수 없고, 표시는 어차피 문자열이다. 입력 폼도 문자열을 그대로 쓴다.
  */
 export type RoutineSettings = {
-  sets?: string;
-  reps?: string;
+  /** 세트별 횟수. `["10","8","6"]` = 3세트 */
+  reps: string[];
+  /** **세트 사이** 휴식 (초) — 운동 사이 휴식은 별도 항목이다 (D-236) */
   restSeconds?: string;
   weight?: string;
   rpe?: string;
   tempo?: string;
   machineSetting?: string;
 };
+
+/**
+ * 루틴의 한 **항목** — 운동이거나 휴식이다 (D-236).
+ *
+ * ⚠️ **`id` 는 항목 id** 다. D-227 에서는 운동 마스터 id 였는데, 휴식은 마스터가
+ * 없으므로 **그 방식으로는 대상을 지목할 수 없다.** 액션이 항목 id 를 받는다.
+ */
+export type RoutineEntryView =
+  | {
+      kind: "EXERCISE";
+      /** 항목 id — 액션이 이것으로 대상을 찾는다 */
+      id: string;
+      /** 운동 마스터 id */
+      exerciseId: string;
+      name: string;
+      muscles: string[];
+      /** 도감(운동) 상세로 가는 길 — 운동은 언제나 도감을 갖는다 (D-228) */
+      codexId: string;
+      /** 어드민이 내린 운동. **루틴에서 빼지 않고 흐리게 표시한다** (`FR-10-B-08`) */
+      inactive: boolean;
+      settings: RoutineSettings;
+    }
+  | {
+      kind: "REST";
+      id: string;
+      /** 초. 표시할 때 분/초로 나눈다 (`formatRest`) */
+      seconds: number;
+    };
 
 export type ItemDetail = {
   id: string;
@@ -117,24 +148,13 @@ export type ItemDetail = {
    */
   isRoutine: boolean;
   /**
-   * 루틴이 담은 **운동 + 내 설정**. **순서가 곧 내용**이다 (`FR-10-B-02`).
+   * 루틴이 담은 **항목들** — 운동과 휴식이 섞인다 (D-236). **순서가 곧 내용**이다
+   * (`FR-10-B-02`).
    *
-   * ⚠️ `id` 는 **관계 행(`RoutineExercise`)의 id** 가 아니라 **운동 마스터의
-   * id** 다 — 액션이 `(routineId, exerciseId)` 로 대상을 지목하기 때문이다.
    * ⚠️ `settings` 는 **이 루틴에서의** 값이다. 같은 운동이 다른 루틴에서 다른
    * 값을 갖는다 (`FR-10-B-05`)
    */
-  exercises: {
-    id: string;
-    name: string;
-    muscles: string[];
-    /** 도감(운동) 상세로 가는 길 — 운동은 언제나 도감을 갖는다 (D-228) */
-    codexId: string;
-    /** 어드민이 내린 운동. **루틴에서 빼지 않고 흐리게 표시한다** (`FR-10-B-08`) */
-    inactive: boolean;
-    /** 내 설정 7종. 전부 선택이라 비어 있을 수 있다 (`FR-10-B-06`) */
-    settings: RoutineSettings;
-  }[];
+  entries: RoutineEntryView[];
   /**
    * 자극부위 — 루틴이면 담긴 운동의 **합집합** (`FR-10-D-01`).
    * 저장하지 않는 파생값이다 (`FR-10-D-02`)

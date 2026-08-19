@@ -67,7 +67,7 @@
     "privateOnSaleWarn": "販売中のアイテムです。非公開にするとマーケットから外れます。続けますか？",
     "routine": "ルーティン構成",
     "routineEmpty": "種目を追加しましょう",
-    "routineHint": "順番がそのままルーティンです。同じ運動を複数のルーティンに入れられ、セット・重量はルーティンごとに保存されます。",
+    "routineHint": "順番がそのままルーティンです。運動と休憩を入れ、セットごとの回数を別々に記録できます。",
     "routineRemove": "外す",
     "routineUp": "上へ",
     "routineDown": "下へ",
@@ -83,7 +83,17 @@
     "routineSettingsSave": "設定を保存",
     "routineSetsShort": "{n}セット",
     "routineInactive": "運営が非表示にした運動です。ルーティンにはそのまま残ります。",
-    "routineFailed": "失敗しました"
+    "routineFailed": "失敗しました",
+    "routineAddExercise": "運動を追加",
+    "routineAddRest": "休憩を追加",
+    "routineRest": "休憩",
+    "routineRestEdit": "時間",
+    "routineMinutes": "分",
+    "routineSeconds": "秒",
+    "routineRepsPerSet": "セットごとの回数",
+    "routineSetNo": "{n}セット",
+    "routineAddSet": "セット",
+    "routineRemoveSet": "セット"
   },
   "diary": {
     "visibility": {

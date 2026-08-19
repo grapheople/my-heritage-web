@@ -81,8 +81,14 @@ async function ownerCounts(
       없다** — 카테고리를 미리 조회해 분기하면 쿼리가 하나 더 늘고, 그 조회가
       빠지는 경로가 또 생긴다
     */
-    prisma.routineExercise.findMany({
+    /*
+      ⚠️ **운동 항목만 센다** (D-236). 휴식 항목은 `exercise` 가 `null` 이라
+      `exercise: { … }` 조건이 이미 걸러내지만, 의도를 드러내기 위해 `kind` 도
+      함께 건다 — 휴식이 방을 중복 계산하게 두면 보유자 수가 부풀려진다
+    */
+    prisma.routineEntry.findMany({
       where: {
+        kind: "EXERCISE",
         exercise: { codexItemId: { in: codexIds } },
         routine: ownerItemWhere(blockedIds),
       },
@@ -101,7 +107,7 @@ async function ownerCounts(
   };
 
   for (const r of items) add(r.codexItemId, r.roomId);
-  for (const r of routines) add(r.exercise.codexItemId, r.routine.roomId);
+  for (const r of routines) add(r.exercise?.codexItemId, r.routine.roomId);
 
   return new Map([...byCodex].map(([id, set]) => [id, set.size]));
 }

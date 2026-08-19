@@ -53,7 +53,7 @@ async function main() {
     where: {
       categoryId: category.id,
       codexItemId: { not: null },
-      routineItems: { none: {} },
+      routineEntries: { none: {} },
     },
     select: {
       id: true,

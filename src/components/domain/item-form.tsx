@@ -8,6 +8,14 @@ import type { SubtypeOption } from "@/lib/subtype";
 import { cn } from "@/lib/utils";
 import { Link } from "@/i18n/navigation";
 import { createItem, updateItem } from "@/lib/actions/item";
+import {
+  RoutineEntryEditor,
+  toEntryInput,
+  type DraftEntry,
+  type FieldLabels,
+} from "@/components/domain/routine-entry-editor";
+import { WORKOUT_CATEGORY } from "@/lib/categories";
+import type { Locale } from "@/i18n/routing";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
 import { PhotoUploader } from "./photo-uploader";
@@ -56,11 +64,17 @@ export function ItemForm({
   itemId,
   /** 수정 모드의 기존 사진 — 안 넘기면 수정 저장에서 "사진 없음"으로 막힌다 */
   initialPhotos,
+  routineFieldLabels,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
   itemId?: string;
   initialPhotos?: string[];
+  /**
+   * D-236 — 루틴 구성 편집기의 라벨·단위. **운동 카테고리에서만 쓴다.**
+   * 서버가 DB 에서 읽어 넘긴다 (D-135) — 없으면 편집기가 키 이름으로 뜬다
+   */
+  routineFieldLabels?: FieldLabels;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -73,6 +87,15 @@ export function ItemForm({
   const [codexVerified, setCodexVerified] = useState(false);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
+  /*
+    D-236 — **등록 시점의 루틴 구성.** 저장 전까지 메모리에 모아 `createItem` 에
+    함께 보낸다(한 트랜잭션).
+
+    ⚠️ **수정 모드에서는 쓰지 않는다.** 저장된 루틴의 구성은 아이템 상세의
+    `RoutineComposer` 가 항목 단위 액션으로 고친다 — 여기서 목록 전체를 덮어쓰면
+    다른 기기의 변경이 조용히 사라진다
+  */
+  const [routineEntries, setRoutineEntries] = useState<DraftEntry[]>([]);
   /** 유저 별칭(선택) — 명칭을 대체하지 않는다 (D-112) */
   const [nickname, setNickname] = useState(initialValues?.__nickname ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -233,6 +256,14 @@ export function ItemForm({
         nickname,
         // D-207 — 빈 문자열이면 보내지 않는다. 서버가 카테고리 소속을 재검증한다
         subtype: subtype || undefined,
+        /*
+          D-236 — 루틴 구성을 **함께** 보낸다. 서버가 카테고리를 다시 보고 운동이
+          아니면 무시한다 — 폼 값을 믿지 않는다
+        */
+        routineEntries:
+          category === WORKOUT_CATEGORY && routineEntries.length > 0
+            ? routineEntries.map(toEntryInput)
+            : undefined,
       });
       if (res.ok) {
         setSaved({
@@ -438,6 +469,29 @@ export function ItemForm({
         {/* 명칭을 대체하지 않는다 — 명칭은 도감·브랜드에서 파생된다 (D-073) */}
         <p className="mt-1 text-xs text-muted-foreground">{t("reg.nicknameHint")}</p>
       </div>
+
+      {/*
+        D-236 — **루틴 구성.** 등록 시점에 운동·휴식을 담는다 (PM 요청).
+
+        ⚠️ **사진보다 위에 둔다.** 운동 카테고리는 사진이 필수가 아니고(D-224)
+        루틴의 본론은 구성이다 — 아래로 밀면 유저가 구성을 못 보고 저장한다.
+        ⚠️ **수정 모드에서는 그리지 않는다** — 저장된 루틴은 상세에서 고친다
+        (`RoutineComposer`). 여기서 목록을 덮어쓰면 다른 기기의 변경이 사라진다
+      */}
+      {!itemId && category === WORKOUT_CATEGORY && (
+        <div>
+          <span className="text-sm font-semibold">{t("item.routine")}</span>
+          <div className="mt-2">
+            <RoutineEntryEditor
+              entries={routineEntries}
+              onChange={setRoutineEntries}
+              labels={routineFieldLabels ?? {}}
+              locale={locale as Locale}
+              disabled={pending}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 사진 — 2단계 하단 (FR-05-A-10). 1장 필수 (D-037) */}
       <div>

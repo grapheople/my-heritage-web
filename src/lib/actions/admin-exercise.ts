@@ -167,13 +167,13 @@ export async function deleteExercise(exerciseId: string): Promise<ActionResult> 
 
   const ex = await prisma.exercise.findUnique({
     where: { id: exerciseId },
-    select: { codexItemId: true, _count: { select: { routines: true } } },
+    select: { codexItemId: true, _count: { select: { entries: true } } },
   });
   if (!ex) return fail({}, "운동을 찾을 수 없습니다");
-  if (ex._count.routines > 0) {
+  if (ex._count.entries > 0) {
     return fail(
       {},
-      `${ex._count.routines}개 루틴에서 쓰는 중입니다 — 비활성화를 쓰세요 (FR-11-A-07)`,
+      `${ex._count.entries}개 루틴에서 쓰는 중입니다 — 비활성화를 쓰세요 (FR-11-A-07)`,
     );
   }
 
