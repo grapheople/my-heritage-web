@@ -1,6 +1,7 @@
 import type { Viewer } from "@/lib/auth/viewer";
 import { blockedUserIds, visibleItemWhere } from "@/lib/data/scope";
 import { realPhotoUrl } from "@/lib/data/photo";
+import { WORKOUT_CATEGORY } from "@/lib/categories";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { prisma } from "@/lib/prisma";
 
@@ -36,6 +37,13 @@ export type WearShotDetail = {
   wornOn: string;
   itemId: string;
   itemName: string;
+  /**
+   * 이 샷이 붙은 아이템이 **루틴인가** (D-244).
+   *
+   * ⚠️ 화면이 `인증샷`/`착용샷` 을 고르는 데 쓴다. 조회에서 내지 않으면 샷 상세만
+   * 옛 명칭으로 남는데 **화면은 멀쩡하고 말만 갈린다**.
+   */
+  isRoutine: boolean;
   roomId: string;
   roomName: string;
   /** 뷰어가 이 착용샷의 소유자인가 */
@@ -62,7 +70,13 @@ export async function getWearShotDetail(
       note: true,
       wornOn: true,
       item: {
-        select: { id: true, roomId: true, room: { select: { name: true } }, ...NAME_SELECT },
+        select: {
+          id: true,
+          roomId: true,
+          room: { select: { name: true } },
+          category: { select: { key: true } },
+          ...NAME_SELECT,
+        },
       },
       comments: {
         // ⚠️ 차단 관계인 사람의 댓글은 **조회에서** 빠진다 (D-051·D-083)
@@ -89,6 +103,7 @@ export async function getWearShotDetail(
     wornOn: shot.wornOn,
     itemId: shot.item.id,
     itemName: deriveItemName(shot.item),
+    isRoutine: shot.item.category.key === WORKOUT_CATEGORY,
     roomId: shot.item.roomId,
     roomName: shot.item.room.name,
     owner,

@@ -44,6 +44,12 @@ export function CodexWearShots({
 }) {
   const t = useTranslations();
   const [state, setState] = useState<State>({ status: "loading" });
+  /*
+    ⚠️ **운동 도감은 `인증샷`이다** (D-244). `categoryKey` 는 `category.workout`
+    형태이므로 접두를 포함해 비교한다 — `getItemDetail` 과 `getItemForEdit` 이
+    서로 다른 형태를 내므로(전자는 접두 있음) 형태를 추측하면 조용히 안 맞는다
+  */
+  const routine = categoryKey === "category.workout";
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +73,7 @@ export function CodexWearShots({
   return (
     <section className="border-t px-4 py-5 lg:px-0">
       <h2 className="text-base font-bold tracking-tight">
-        {t("codex.wearTitle")}
+        {t(routine ? "codex.wearTitleRoutine" : "codex.wearTitle")}
         {state.status === "ready" && (
           <span className="ml-2 text-sm font-semibold text-muted-foreground">
             {formatNumber(state.count)}
@@ -85,7 +91,7 @@ export function CodexWearShots({
       {state.status === "unauthorized" && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-4">
           <p className="text-sm text-muted-foreground">
-            {t("codex.wearLoginRequired", { category: t(categoryKey) })}
+            {t(routine ? "codex.wearLoginRequiredRoutine" : "codex.wearLoginRequired", { category: t(categoryKey) })}
           </p>
           <Link
             href="/login"
@@ -104,7 +110,7 @@ export function CodexWearShots({
 
       {state.status === "ready" && state.shots.length === 0 && (
         <p className="mt-3 text-sm text-muted-foreground">
-          {t("codex.noWear")}
+          {t(routine ? "codex.noWearRoutine" : "codex.noWear")}
         </p>
       )}
 

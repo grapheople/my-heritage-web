@@ -35,6 +35,9 @@ export default async function WearShotPage({
   const shot = await getWearShotDetail(wearShotId, viewer);
   if (!shot) notFound();
 
+  // ⚠️ 루틴의 샷은 `인증샷`이다 (D-244). 조회가 낸 `isRoutine` 을 그대로 쓴다
+  const shotNoun = t(shot.isRoutine ? "wear.shotNounRoutine" : "wear.shotNoun");
+
   return (
     <div>
       {/* 저장본이 정방형이다 (D-129) — 컨테이너도 정방형이라 잘리지 않는다 (D-131) */}
@@ -86,7 +89,7 @@ export default async function WearShotPage({
             href={`/items/${shot.itemId}`}
             className="text-sm text-muted-foreground underline"
           >
-            {t("wear.goToItem")}
+            {t(shot.isRoutine ? "wear.goToItemRoutine" : "wear.goToItem")}
           </Link>
           {/*
             ⚠️ **삭제 진입점이 없었다** (D-180). `deleteWearShot` 은 처음부터
@@ -95,8 +98,8 @@ export default async function WearShotPage({
           */}
           <DeleteButton
             action={deleteWearShot.bind(null, shot.id)}
-            confirmText={t("wear.deleteWearShotConfirm")}
-            label={t("wear.deleteWearShot")}
+            confirmText={t("wear.deleteWearShotConfirm", { shot: shotNoun })}
+            label={t("wear.deleteWearShot", { shot: shotNoun })}
             redirectTo="/me/wear"
           />
         </section>

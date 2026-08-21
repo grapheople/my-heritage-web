@@ -15,8 +15,17 @@ import type { WearShotCard } from "@/lib/data/wear-shot";
 export function WearShotGrid({
   shots,
   showItemName = true,
+  shot,
 }: {
   shots: WearShotCard[];
+  /**
+   * 빈 상태에 쓰는 **샷 명칭** (D-244). 넘기지 않으면 `착용샷`.
+   *
+   * ⚠️ **선택인 이유** — 방 탭(`/me/wear`·`/rooms/[id]/wear`)은 여러 카테고리의
+   * 샷이 섞이므로 한 명칭을 고를 수 없다. 루틴 상세처럼 카테고리가 하나인
+   * 화면만 넘긴다.
+   */
+  shot?: string;
   /** 아이템 상세에서는 이름이 이미 위에 있다 */
   showItemName?: boolean;
 }) {
@@ -55,7 +64,7 @@ export function WearShotGrid({
       ))}
       {shots.length === 0 && (
         <li className="col-span-full py-10 text-center text-sm text-muted-foreground">
-          {t("wear.empty")}
+          {t("wear.empty", { shot: shot ?? t("wear.shotNoun") })}
         </li>
       )}
     </ul>

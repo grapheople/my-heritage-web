@@ -63,7 +63,7 @@ export default async function RoomWearShotsPage({
       <RoomTabs active="wear" basePath={`/rooms/${roomId}`} />
       <div className="lg:min-w-0 lg:py-6">
         {shots.length === 0 ? (
-          <EmptyState title={t("wear.empty")} />
+          <EmptyState title={t("wear.empty", { shot: t("wear.shotNoun") })} />
         ) : (
           <div className="px-4 py-6 lg:px-0 lg:py-0">
             <WearShotGrid shots={shots} />

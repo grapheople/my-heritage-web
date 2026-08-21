@@ -79,7 +79,7 @@
     "routineNoResult": "Can’t find the exercise?",
     "routineRequest": "Request this exercise",
     "routineRequested": "Requested “{name}”. We’ll let you know once it’s approved.",
-    "routineSettings": "My settings",
+    "routineSettings": "Set settings",
     "routineSettingsSave": "Save settings",
     "routineSetsShort": "{n} sets",
     "routineInactive": "This exercise was retired by the team. It stays in your routine.",
@@ -213,8 +213,11 @@
     "recent": "Recently added",
     "more": "Showing {shown} of {total}. Use search to find more",
     "wearTitle": "Worn & used",
+    "wearTitleRoutine": "Shots",
     "noWear": "No shots yet",
+    "noWearRoutine": "No shots yet",
     "wearLoginRequired": "Log in to see the shots",
+    "wearLoginRequiredRoutine": "Log in to see the shots",
     "exerciseReference": "Watch form video"
   },
   "feed": {
@@ -369,6 +372,7 @@
   "reg": {
     "newTitle": "Add an item",
     "editTitle": "Edit item",
+    "editTitleRoutine": "Edit routine",
     "step1": "What kind of item is it?",
     "choose": "Select",
     "yes": "Yes",
@@ -422,6 +426,8 @@
   },
   "wear": {
     "title": "Today's shot",
+    "shotNoun": "shot",
+    "shotNounRoutine": "shot",
     "new": "New shot",
     "edit": "Edit today's shot",
     "save": "Save",
@@ -432,6 +438,7 @@
     "count": "Shots {count}",
     "emptyDesc": "Leave today's shot from an item page",
     "goToItem": "Edit from the item page",
+    "goToItemRoutine": "Edit from the routine page",
     "deleteWearShot": "Delete shot",
     "deleteWearShotConfirm": "Delete this shot? This cannot be undone."
   },

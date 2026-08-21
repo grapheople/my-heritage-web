@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
+import { WORKOUT_CATEGORY } from "@/lib/categories";
 import { getItemForEdit } from "@/lib/data/item";
 
 /**
@@ -35,7 +36,14 @@ export default async function EditItemPage({
 
   return (
     <div className="px-4 py-5 lg:px-0">
-      <h1 className="text-lg font-bold tracking-tight">{t("reg.editTitle")}</h1>
+      <h1 className="text-lg font-bold tracking-tight">
+        {/*
+          ⚠️ `getItemForEdit` 의 `categoryKey` 는 **접두 없는 원본**이다
+          (`getItemDetail` 은 `category.` 접두를 붙인다) — 형태가 다르므로
+          상수와 비교한다 (D-244)
+        */}
+        {t(item.categoryKey === WORKOUT_CATEGORY ? "reg.editTitleRoutine" : "reg.editTitle")}
+      </h1>
       <div className="mt-4">
         {/* itemId 를 넘겨야 수정이 된다 — 안 넘기면 아이템이 하나 더 생긴다 */}
         <ItemForm

@@ -35,7 +35,7 @@ import { WORKOUT_CATEGORY } from "@/lib/categories";
 const OWNER_ONLY_KEYS = new Set(["purchasedFrom", "purchaseDate", "purchasePrice"]);
 
 /**
- * 관계 행 → **내 설정** (D-227 `FR-10-B-04`).
+ * 관계 행 → **세트 설정** (D-227 `FR-10-B-04`).
  *
  * ⚠️ **빈 값은 키 자체를 넣지 않는다.** `null` 을 넘기면 화면이 "중량: -" 처럼
  * 빈 항목을 렌더할 여지가 생긴다 — 7종 전부 선택이라(`FR-10-B-06`) 대부분 비어
@@ -187,7 +187,7 @@ export async function getItemDetail(
       /** 이 아이템 자체가 부품일 때 부모로 돌아가는 길 */
       parent: { select: { id: true, ...NAME_SELECT } },
       /*
-        D-227 — **루틴이 담은 운동 + 내 설정.** 순서가 곧 내용이므로
+        D-227 — **루틴이 담은 운동 + 세트 설정.** 순서가 곧 내용이므로
         `displayOrder` 로 정렬한다. 자극부위는 이 목록에서 **계산**한다
         (FR-10-D-01·02).
 
@@ -513,7 +513,7 @@ export async function indexableItemIds(): Promise<string[]> {
 }
 
 /**
- * 내 설정 7종의 **라벨과 단위** (D-227, D-135 의 원칙 유지).
+ * 세트 설정 7종의 **라벨과 단위** (D-227, D-135 의 원칙 유지).
  *
  * ## ⚠️ 왜 메시지 파일에 넣지 않는가
  * 이 7개는 D-166 이 만든 **공통 속성 라이브러리 항목**이고 `labelKo/Ja/En` 과

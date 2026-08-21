@@ -335,7 +335,7 @@ export async function promoteCodexToExercise(input: {
  * 가장 틀리기 쉬운 부분이 여기라 떼어내 직접 부를 수 있게 둔다.
  *
  * ## ⚠️ 같은 루틴에 승자가 이미 있으면 `@@unique` 가 막는다
- * 그때는 **내 설정이 많이 채워진 쪽을 남기고** 나머지 관계를 지운다 — 유저가
+ * 그때는 **세트 설정이 많이 채워진 쪽을 남기고** 나머지 관계를 지운다 — 유저가
  * 적어둔 세트·중량을 버리지 않는 쪽을 고른다. 동점이면 순서가 앞선 것이다
  * (정렬이 안정적이어야 같은 입력에 같은 결과가 나온다).
  *
@@ -377,7 +377,7 @@ export async function migrateRoutinesToSurvivor(
     },
   });
 
-  /** 내 설정이 얼마나 채워졌는가 — 남길 쪽을 고르는 기준 (D-236: `reps` 는 배열이다) */
+  /** 세트 설정이 얼마나 채워졌는가 — 남길 쪽을 고르는 기준 (D-236: `reps` 는 배열이다) */
   const filled = (r: (typeof rows)[number]) =>
     [r.restSeconds, r.workingWeight, r.rpe, r.tempo, r.machineSetting].filter((v) => v !== null)
       .length + (r.reps.length > 0 ? 1 : 0);

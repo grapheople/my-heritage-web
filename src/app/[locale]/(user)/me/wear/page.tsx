@@ -60,7 +60,7 @@ export default async function MyWearShotsPage({
       <div className="lg:min-w-0 lg:py-6">
         {shots.length === 0 ? (
           <EmptyState
-            title={t("wear.empty")}
+            title={t("wear.empty", { shot: t("wear.shotNoun") })}
             description={t("wear.emptyDesc")}
           />
         ) : (

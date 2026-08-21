@@ -79,7 +79,7 @@
     "routineNoResult": "探している運動がありませんか？",
     "routineRequest": "この名前で追加をリクエスト",
     "routineRequested": "「{name}」のリクエストを受け付けました。承認されたらお知らせします。",
-    "routineSettings": "自分の設定",
+    "routineSettings": "セット設定",
     "routineSettingsSave": "設定を保存",
     "routineSetsShort": "{n}セット",
     "routineInactive": "運営が非表示にした運動です。ルーティンにはそのまま残ります。",
@@ -213,8 +213,11 @@
     "recent": "最近追加された図鑑",
     "more": "{shown}件表示 · 全{total}件。検索で探してください",
     "wearTitle": "着用・使用ショット",
+    "wearTitleRoutine": "記録ショット",
     "noWear": "まだ着用ショットがありません",
+    "noWearRoutine": "まだ記録ショットがありません",
     "wearLoginRequired": "ログインするとこの{category}の着用・使用ショットを見られます",
+    "wearLoginRequiredRoutine": "ログインするとこの{category}の記録ショットを見られます",
     "exerciseReference": "フォーム動画を見る"
   },
   "feed": {
@@ -369,6 +372,7 @@
   "reg": {
     "newTitle": "アイテム登録",
     "editTitle": "アイテム編集",
+    "editTitleRoutine": "ルーティン編集",
     "step1": "どんなアイテムですか？",
     "choose": "選択",
     "yes": "あり",
@@ -421,19 +425,22 @@
     "year": "年"
   },
   "wear": {
-    "title": "今日の着用ショット",
-    "new": "新しい着用ショット",
-    "edit": "今日の着用ショットを編集",
+    "title": "今日の{shot}",
+    "shotNoun": "着用ショット",
+    "shotNounRoutine": "記録ショット",
+    "new": "新しい{shot}",
+    "edit": "今日の{shot}を編集",
     "save": "残す",
     "cancel": "キャンセル",
     "notePlaceholder": "今日のひとこと（任意）",
-    "empty": "まだ着用ショットがありません",
-    "listTitle": "着用ショット",
-    "count": "着用ショット {count}",
+    "empty": "まだ{shot}がありません",
+    "listTitle": "{shot}",
+    "count": "{shot} {count}",
     "emptyDesc": "アイテム詳細から今日の着用ショットを残せます",
     "goToItem": "アイテム詳細で編集する",
-    "deleteWearShot": "着用ショットを削除",
-    "deleteWearShotConfirm": "この着用ショットを削除しますか？元に戻せません。"
+    "goToItemRoutine": "ルーティン詳細で編集する",
+    "deleteWearShot": "{shot}を削除",
+    "deleteWearShotConfirm": "この{shot}を削除しますか？元に戻せません。"
   },
   "follow": {
     "follow": "フォロー",

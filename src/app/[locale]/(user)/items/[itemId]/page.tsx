@@ -72,6 +72,14 @@ export default async function ItemDetailPage({
   const item = await getItemDetail(itemId, viewer, locale as Locale);
   if (!item) notFound();
 
+  /*
+    ⚠️ **샷 명칭은 카테고리가 정한다** (D-244). 루틴은 `인증샷`, 나머지는 `착용샷`.
+    한 곳에서 정해 아래로 넘긴다 — 화면마다 따로 고르면 **한 자리가 빠져도
+    화면은 멀쩡하고 말만 갈린다** (D-243 이 겪은 유형).
+  */
+  const shot = t(item.isRoutine ? "wear.shotNounRoutine" : "wear.shotNoun");
+
+
   const isOwner = viewer?.roomId === item.roomId;
 
   const owned = item.owner.purchaseDate
@@ -88,7 +96,7 @@ export default async function ItemDetailPage({
   const [wearShots, today, fieldLabels] = await Promise.all([
     getItemWearShots(itemId, viewer),
     isOwner ? todaysWearShot(itemId) : Promise.resolve(null),
-    // 내 설정 라벨·단위는 **DB 에서** 온다 (D-135). 소유자만 폼을 본다
+    // 세트 설정 라벨·단위는 **DB 에서** 온다 (D-135). 소유자만 폼을 본다
     isOwner && item.isRoutine
       ? getRoutineFieldLabels(locale as Locale)
       : Promise.resolve({}),
@@ -336,7 +344,7 @@ export default async function ItemDetailPage({
             href={`/items/${item.id}/edit`}
             className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
           >
-            {t("reg.editTitle")}
+            {t(item.isRoutine ? "reg.editTitleRoutine" : "reg.editTitle")}
           </Link>
           {/*
             떠난 아이템은 다시 팔 수 없다 (D-023) — 되돌리기만 제공한다.
@@ -378,8 +386,8 @@ export default async function ItemDetailPage({
             itemId={item.id}
             existing={today ? { id: today.id, note: today.note } : undefined}
             labels={{
-              title: t("wear.title"),
-              edit: t("wear.edit"),
+              title: t("wear.title", { shot }),
+              edit: t("wear.edit", { shot }),
               save: t("wear.save"),
               cancel: t("wear.cancel"),
               notePlaceholder: t("wear.notePlaceholder"),
@@ -392,9 +400,9 @@ export default async function ItemDetailPage({
       {wearShots.length > 0 && (
         <section className="border-t px-4 py-6 lg:px-0">
           <h2 className="mb-4 text-sm font-bold">
-            {t("wear.count", { count: wearShots.length })}
+            {t("wear.count", { count: wearShots.length, shot })}
           </h2>
-          <WearShotGrid shots={wearShots} showItemName={false} />
+          <WearShotGrid shots={wearShots} showItemName={false} shot={shot} />
         </section>
       )}
 

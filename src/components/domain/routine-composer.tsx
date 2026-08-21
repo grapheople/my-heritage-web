@@ -71,7 +71,7 @@ export function RoutineComposer({
   /** 현재 구성. **순서가 곧 내용**이다 */
   entries: RoutineEntryView[];
   locale: Locale;
-  /** 내 설정 라벨·단위 — 서버가 DB 에서 읽어 넘긴다 (D-135) */
+  /** 세트 설정 라벨·단위 — 서버가 DB 에서 읽어 넘긴다 (D-135) */
   labels: FieldLabels;
 }) {
   const t = useTranslations();

@@ -88,7 +88,7 @@ export function emptyRestDraft(): DraftEntry {
   return { kind: "REST", minutes: "3", seconds: "0" };
 }
 
-/** 내 설정 라벨·단위 — **서버가 DB 에서 읽어 넘긴다** (D-135) */
+/** 세트 설정 라벨·단위 — **서버가 DB 에서 읽어 넘긴다** (D-135) */
 export type FieldLabels = Record<string, { label: string; unit?: string }>;
 
 export function RoutineEntryEditor({
@@ -310,7 +310,7 @@ function RestForm({
 }
 
 /**
- * 운동 항목의 내 설정 — **세트별 횟수 칸**이 핵심이다 (D-236).
+ * 운동 항목의 세트 설정 — **세트별 횟수 칸**이 핵심이다 (D-236).
  *
  * ⚠️ **세트 칸을 늘리고 줄인다.** `sets` 숫자를 받으면 그 값과 칸 수가 어긋날 수
  * 있다 — 배열 길이가 세트 수라는 규칙(D-236)이 화면에서도 그대로여야 한다.
