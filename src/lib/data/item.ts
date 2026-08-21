@@ -529,6 +529,32 @@ export async function indexableItemIds(): Promise<string[]> {
  * 컬럼이 됐다). 그래서 카테고리 override(D-168)가 아니라 `AttributeDefinition`
  * 을 직접 읽는다.
  */
+/**
+ * 카테고리별 **사진 1장 필수 여부** — 등록·수정 폼이 쓴다 (D-245).
+ *
+ * ## ⚠️ 왜 폼에 넘기는가 — 폼이 정책을 안 따르고 있었다
+ * `Category.requiresPhoto` 는 D-224 가 만든 플래그이고 `createItem`·`updateItem`
+ * 은 **이미 그것을 본다**. 그런데 **폼의 클라이언트 검증은 무조건 1장을 요구**해서
+ * 루틴을 사진 없이 등록할 수 없었다 — 정책은 있고 **도달할 수 없었다**
+ * (D-133·D-157 과 같은 유형).
+ *
+ * ## ⚠️ 카테고리를 코드에 적지 않는다
+ * `category === WORKOUT_CATEGORY` 로 비교하면 두 줄로 끝나지만 **DB 플래그를
+ * 코드에 복제하는 것**이다. `createItem` 의 주석이 그것을 경고한다 — 예외 목록을
+ * 코드에 두면 카테고리가 늘 때 고칠 자리가 하나 더 생기고, **빠뜨리면 사진이
+ * 필요한 카테고리가 조용히 사진 없이 등록된다.** 규칙은 데이터가 든다 (D-231).
+ *
+ * ⚠️ **폼의 기본값은 `true` 여야 한다** (호출부 참조) — 이 맵에 없는 키는
+ * 필수로 본다. `updateItem` 도 `?? true` 다. 반대로 두면 조회가 실패한 순간
+ * 전 카테고리가 사진 없이 등록된다.
+ */
+export async function photoRequiredByCategory(): Promise<Record<string, boolean>> {
+  const rows = await prisma.category.findMany({
+    select: { key: true, requiresPhoto: true },
+  });
+  return Object.fromEntries(rows.map((r) => [r.key, r.requiresPhoto]));
+}
+
 export async function getRoutineFieldLabels(
   locale: Locale,
 ): Promise<Record<string, { label: string; unit?: string }>> {

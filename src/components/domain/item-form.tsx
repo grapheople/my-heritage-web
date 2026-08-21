@@ -65,6 +65,7 @@ export function ItemForm({
   /** 수정 모드의 기존 사진 — 안 넘기면 수정 저장에서 "사진 없음"으로 막힌다 */
   initialPhotos,
   routineFieldLabels,
+  photoRequired,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
@@ -75,6 +76,14 @@ export function ItemForm({
    * 서버가 DB 에서 읽어 넘긴다 (D-135) — 없으면 편집기가 키 이름으로 뜬다
    */
   routineFieldLabels?: FieldLabels;
+  /**
+   * 카테고리별 사진 필수 여부 (D-245). 서버가 DB 에서 읽어 넘긴다.
+   *
+   * ⚠️ **없는 키는 필수로 본다** (`?? true`) — `updateItem` 과 같은 방향이다.
+   * 반대로 두면 조회가 실패한 순간 **사진이 필요한 카테고리가 조용히 사진 없이
+   * 등록된다.**
+   */
+  photoRequired?: Record<string, boolean>;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -87,6 +96,13 @@ export function ItemForm({
   const [codexVerified, setCodexVerified] = useState(false);
   /** 업로드된 사진 URL. 순서가 표시 순서이고 첫 장이 대표다 (FR-07-A-04) */
   const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
+  /*
+    사진 1장 필수인가 — **카테고리가 정한다** (D-224·D-245).
+    ⚠️ **기본은 `true`** 다. 맵에 없거나 카테고리를 아직 안 골랐으면 필수로 본다 —
+    `updateItem` 의 `?? true` 와 같은 방향. 반대로 두면 조회 실패가 곧
+    "전 카테고리 사진 없이 등록"이 된다
+  */
+  const needsPhoto = category ? (photoRequired?.[category] ?? true) : true;
   /*
     D-236 — **등록 시점의 루틴 구성.** 저장 전까지 메모리에 모아 `createItem` 에
     함께 보낸다(한 트랜잭션).
@@ -220,8 +236,12 @@ export function ItemForm({
       */
       if (a.required && !values[a.key]?.trim()) next[a.key] = t("reg.required");
     }
-    // 사진 1장 필수 (FR-07-A-03)
-    if (photos.length === 0) next.__photos = t("reg.photoRequired");
+    /*
+      사진 1장 필수 — **카테고리가 정한다** (`FR-07-A-02·03`, D-224 · D-245).
+      ⚠️ 여기가 무조건이어서 **루틴을 사진 없이 등록할 수 없었다** — 서버도
+      리스트도 이미 사진 없음을 다루는데 폼만 막고 있었다
+    */
+    if (needsPhoto && photos.length === 0) next.__photos = t("reg.photoRequired");
     setErrors(next);
     setFormError("");
     if (Object.keys(next).length > 0) return;
@@ -496,7 +516,14 @@ export function ItemForm({
       {/* 사진 — 2단계 하단 (FR-05-A-10). 1장 필수 (D-037) */}
       <div>
         <span className="text-sm font-semibold">
-          {t("reg.photos")} <span className="text-destructive">*</span>
+          {t("reg.photos")}{" "}
+          {needsPhoto ? (
+            <span className="text-destructive">*</span>
+          ) : (
+            /* 루틴처럼 사진이 필수가 아닌 카테고리 (D-224·D-245).
+               표기는 이 파일이 이미 쓰는 것을 그대로 쓴다 */
+            <span className="font-normal text-muted-foreground">{t("diary.optional")}</span>
+          )}
         </span>
         <PhotoUploader
           urls={photos}

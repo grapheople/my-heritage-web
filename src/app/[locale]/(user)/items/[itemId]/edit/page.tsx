@@ -4,7 +4,7 @@ import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { WORKOUT_CATEGORY } from "@/lib/categories";
-import { getItemForEdit } from "@/lib/data/item";
+import { getItemForEdit, photoRequiredByCategory } from "@/lib/data/item";
 
 /**
  * S-04 아이템 수정.
@@ -34,6 +34,13 @@ export default async function EditItemPage({
   const item = await getItemForEdit(itemId, viewer);
   if (!item) notFound();
 
+  /*
+    D-245 — 사진 필수 여부. 수정 모드는 카테고리가 고정이지만(`FR-05-B-02`)
+    폼이 쓰는 인터페이스를 등록과 **같은 모양**으로 둔다 — 두 벌이면 한쪽만
+    고쳐진다
+  */
+  const photoRequired = await photoRequiredByCategory();
+
   return (
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">
@@ -51,6 +58,7 @@ export default async function EditItemPage({
           fixedCategory={item.categoryKey}
           initialValues={item.values}
           initialPhotos={item.photos}
+          photoRequired={photoRequired}
         />
       </div>
     </div>
