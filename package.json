@@ -46,6 +46,7 @@
     "attrs:workout-master": "tsx prisma/setup-workout-master.ts",
     "db:cleanup-workout": "tsx prisma/cleanup-workout-items.ts",
     "db:seed-bot-routine": "tsx prisma/seed-workout-bot-routine.ts",
+    "db:seed-exercises": "tsx prisma/seed-exercise-master.ts",
     "muscle-preview": "tsx scripts/muscle-preview.ts"
   },
   "dependencies": {
