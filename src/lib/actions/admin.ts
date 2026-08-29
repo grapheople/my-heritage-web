@@ -1478,6 +1478,44 @@ export async function setBrandDisplayNames(
   return { ok: true };
 }
 
+/**
+ * 도감 **표시명** 편집 (A-04, D-276).
+ *
+ * ## ⚠️ `displayName`(원문)은 여기서 안 고친다
+ * 원문은 `updateCodexItem` 이 담당한다. 이쪽은 **어느 언어권에 어떻게 보일지**
+ * 만 정한다 — 원문은 표시명이 하나도 없을 때 떨어지는 자리이고, 유일성·매칭과
+ * 얽혀 있지 않아도 **검색·병합 판단의 기준값**이라 성격이 다르다.
+ *
+ * ## ⚠️ 채우지 않는 것이 정상이다
+ * 도감 1,113건 중 1,002건이 비어 있다. 라틴 원문(`Rolex Submariner 126610LN`)
+ * 은 **채울 이유가 없다** — 컬렉터는 원문 표기로 부른다 (D-009). 실제로
+ * 필요한 곳은 캠핑 일본어 33건처럼 **다른 언어권이 읽을 수 없는 것**뿐이다.
+ *
+ * ⚠️ 빈 값은 `null` 로 저장한다. 빈 문자열이면 `pickDisplayName` 이 "값이
+ * 있다" 로 보고 **이름 없는 칸**을 띄운다.
+ *
+ * ⚠️ **검증 상태를 건드리지 않는다** (D-269) — 검증은 사람이 따로 누른다.
+ */
+export async function setCodexDisplayNames(
+  codexId: string,
+  names: { ko?: string; ja?: string; en?: string },
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  const one = (v?: string) => v?.trim() || null;
+
+  await prisma.codexItem.update({
+    where: { id: codexId },
+    data: {
+      nameKo: one(names.ko),
+      nameJa: one(names.ja),
+      nameEn: one(names.en),
+    },
+  });
+  revalidate("/admin/codex", "/admin/codex/[codexId]", "/admin/categories/[key]/codex");
+  return { ok: true };
+}
+
 /** 브랜드 비활성화 — **삭제하지 않는다.** 이미 붙은 아이템이 있다 */
 export async function setBrandActive(
   brandId: string,

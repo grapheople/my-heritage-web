@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminActionButton } from "@/components/admin/action-button";
 import { CodexAliasEditor } from "@/components/admin/codex-alias-editor";
+import { CodexDisplayNameEditor } from "@/components/admin/codex-display-name";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { CodexKeyAliasEditor } from "@/components/admin/codex-key-alias-editor";
 import { CodexResearchAgain } from "@/components/admin/codex-research-again";
@@ -194,6 +195,19 @@ export default async function AdminCodexDetailPage({
           uniqueId={c.uniqueId}
           verified={c.verified}
         />
+        {/*
+          ⚠️ 표시명은 **명칭 바로 아래**에 둔다 (D-276). alias(§아래)와 멀리
+          떼어놓으면 둘이 같은 것으로 읽히고, 원문에서 멀면 무엇을 대체하는
+          값인지 알 수 없다
+        */}
+        <div className="mt-4">
+          <CodexDisplayNameEditor
+            codexId={c.id}
+            displayName={c.displayName}
+            initial={c.displayNames}
+          />
+        </div>
+
         {!c.verified && c.userDescription && (
           <div className="mt-3 rounded-lg border border-dashed p-3">
             <p className="text-xs font-semibold">유저가 쓴 설명 (읽기 전용)</p>

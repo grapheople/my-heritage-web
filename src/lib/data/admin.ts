@@ -317,6 +317,10 @@ export async function getAdminCodexDetail(codexId: string) {
     select: {
       id: true,
       displayName: true,
+      // D-276 — 표시용 명칭. alias(검색 토큰)와 다른 값이다
+      nameKo: true,
+      nameJa: true,
+      nameEn: true,
       uniqueId: true,
       normalizedKey: true,
       aliases: true,
@@ -373,6 +377,8 @@ export async function getAdminCodexDetail(codexId: string) {
     userDescription: c.description ?? "",
     descriptions: { ko: desc("ko"), ja: desc("ja"), en: desc("en") },
     aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
+    /** 표시용 명칭 (D-276). 빈 문자열 = 미설정 → 화면에서 원문으로 떨어진다 */
+    displayNames: { ko: c.nameKo ?? "", ja: c.nameJa ?? "", en: c.nameEn ?? "" },
     matchKeys: c.matchKeys.map((k) => ({
       id: k.id,
       value: k.value,

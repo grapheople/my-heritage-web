@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { createBrand, setBrandAliases, setBrandDisplayNames } from "@/lib/actions/admin";
 import { TriLingualList } from "./tri-lingual-list";
+import {
+  DisplayNameFields,
+  EMPTY_DISPLAY_NAMES,
+  type DisplayNames,
+} from "./display-name-fields";
 
 /**
  * A-11 브랜드 마스터 추가·alias 편집 (D-043 · D-047).
@@ -23,70 +28,13 @@ const CATEGORIES = [
 ];
 
 const EMPTY = { ko: [] as string[], ja: [] as string[], en: [] as string[] };
-const EMPTY_NAMES = { ko: "", ja: "", en: "" };
-
-type DisplayNames = { ko: string; ja: string; en: string };
-
-/**
- * 표시용 언어별 명칭 3칸 (D-276).
- *
- * ## ⚠️ alias 칸과 헷갈리게 두면 안 된다
- * | | 값의 모양 | 화면에 |
- * |---|---|---|
- * | alias | 정규화된 검색 토큰 (`gshock`) | **안 보인다** |
- * | 표시명 | 사람이 읽는 그대로 (`G-SHOCK`·`지샥`) | **보인다** |
- *
- * alias 를 표시명 칸에 넣으면 목록에 `gshock` 이 뜬다. 그래서 라벨과 안내
- * 문구로 **역할을 못 헷갈리게** 갈라놓는다.
- *
- * ⚠️ **비우는 것이 정상이다.** 비면 원문으로 떨어지므로 이름이 사라지지 않는다.
- */
-function DisplayNameFields({
-  value,
-  onChange,
-  placeholderEn,
-}: {
-  value: DisplayNames;
-  onChange: (v: DisplayNames) => void;
-  placeholderEn?: string;
-}) {
-  const rows = [
-    { k: "en" as const, label: "영어", ph: placeholderEn ?? "Snow Peak" },
-    { k: "ko" as const, label: "한국어", ph: "스노우피크" },
-    { k: "ja" as const, label: "일본어", ph: "スノーピーク" },
-  ];
-  return (
-    <div>
-      <span className="text-sm font-semibold">표시 명칭 (화면에 뜨는 이름)</span>
-      <p className="mt-1 text-xs text-muted-foreground">
-        위 alias 와 <b>다른 칸</b>입니다 — alias 는 검색용 정규화 토큰이라 그대로
-        띄우면 이름이 깨집니다. 비우면 <b>원문</b>으로 표시됩니다. 표시 우선순위는{" "}
-        <b>영어 &gt; 한국어 &gt; 일본어</b>이며 유저의 관심 언어권에 든 것만
-        후보입니다 (D-274·D-276).
-      </p>
-      <div className="mt-1.5 flex flex-col gap-1.5">
-        {rows.map((r) => (
-          <label key={r.k} className="flex items-center gap-2 text-sm">
-            <span className="w-14 shrink-0 text-xs text-muted-foreground">{r.label}</span>
-            <input
-              value={value[r.k]}
-              onChange={(e) => onChange({ ...value, [r.k]: e.target.value })}
-              placeholder={r.ph}
-              className="w-72 rounded-md border px-3 py-1.5 text-sm"
-            />
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function BrandCreateForm() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [cats, setCats] = useState<string[]>([]);
   const [aliases, setAliases] = useState(EMPTY);
-  const [displayNames, setDisplayNames] = useState(EMPTY_NAMES);
+  const [displayNames, setDisplayNames] = useState(EMPTY_DISPLAY_NAMES);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [pending, startTransition] = useTransition();
@@ -116,7 +64,7 @@ export function BrandCreateForm() {
             setName("");
             setCats([]);
             setAliases(EMPTY);
-            setDisplayNames(EMPTY_NAMES);
+            setDisplayNames(EMPTY_DISPLAY_NAMES);
           } else {
             setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
           }
@@ -191,7 +139,7 @@ export function BrandCreateForm() {
       <DisplayNameFields
         value={displayNames}
         onChange={setDisplayNames}
-        placeholderEn={name || "Snow Peak"}
+        original={name || "Snow Peak"}
       />
 
       <div>
@@ -249,7 +197,7 @@ export function BrandDisplayNameEditor({
         <span className="ml-2 font-normal text-muted-foreground">원문 — 고칠 수 없습니다</span>
       </p>
       <div className="mt-2">
-        <DisplayNameFields value={names} onChange={setNames} placeholderEn={brandName} />
+        <DisplayNameFields value={names} onChange={setNames} original={brandName} />
       </div>
       <div className="mt-2 flex gap-2">
         <button
