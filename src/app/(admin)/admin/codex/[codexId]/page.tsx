@@ -64,6 +64,11 @@ export default async function AdminCodexDetailPage({
     자료 조사는 **로컬 전용**이다 (D-146·D-185) — 프로덕션 런타임에 `claude`
     바이너리가 없다. 숨기지 않고 이유를 붙여 비활성으로 둔다
   */
+  /** 검증본의 3개 언어 설명이 하나라도 있나 — 빈 상태 문구를 가르는 값이다 (D-281) */
+  const hasDescription = (["ko", "ja", "en"] as const).some((l) =>
+    c.descriptions[l]?.trim(),
+  );
+
   const researchEnabled = botEnabled() && claudeConfigured() && keyFields.length > 0;
   const researchReason = !botEnabled()
     ? "자료 조사는 로컬 개발 모드에서만 동작합니다"
@@ -189,6 +194,7 @@ export default async function AdminCodexDetailPage({
           도감 명칭은 <b>원문 1개 고정</b>이며 번역하지 않습니다 (D-009). 설명은{" "}
           <b>검증본만 3개 언어</b>이고, 미검증본의 설명 자리는 <b>유저가 쓴 원문</b>
           입니다 (FR-07-A-05) — 어드민 문장을 넣으면 유저가 쓴 것으로 읽힙니다.
+          지금 값은 <b>아래 읽기 블록</b>에서 확인하고, 고칠 때만 <b>편집</b>을 엽니다.
         </p>
         <CodexEditForm
           codexId={c.id}
@@ -211,12 +217,55 @@ export default async function AdminCodexDetailPage({
           />
         </div>
 
-        {!c.verified && c.userDescription && (
-          <div className="mt-3 rounded-lg border border-dashed p-3">
-            <p className="text-xs font-semibold">유저가 쓴 설명 (읽기 전용)</p>
+        {/*
+          ⚠️ **설명을 읽기 상태에서 볼 수 있어야 한다** (D-281).
+
+          예전에는 **미검증본의 유저 원문만** 조건부로 보여줬다. 정작 유저
+          화면에 노출되는 **검증본의 3개 언어 설명은 편집을 눌러야만** 보였다 —
+          A-05 가 "이 도감이 맞는가" 를 판단하려면 그 값을 읽어야 하는데,
+          읽으려고 편집 폼을 여는 것은 **실수로 저장할 위험**을 만든다. 그 자리는
+          D-280 이전까지 **저장하면 설명을 지우던** 곳이다.
+
+          ⚠️ **빈 상태도 말한다.** 없는 것과 못 읽는 것은 다르다 — 아무 말도
+          없으면 운영자는 화면이 고장난 것으로 읽는다 (실제로 그렇게 읽혔다).
+        */}
+        <div className="mt-3 rounded-lg border border-dashed p-3">
+          <p className="text-xs font-semibold">
+            설명 (읽기 전용)
+            <span className="ml-2 font-normal text-muted-foreground">
+              {c.verified ? "검증본 — 3개 언어" : "미검증본 — 유저가 쓴 원문"}
+            </span>
+          </p>
+
+          {c.verified ? (
+            hasDescription ? (
+              <dl className="mt-2 grid gap-2 sm:grid-cols-3">
+                {(["ko", "ja", "en"] as const).map((l) => (
+                  <div key={l}>
+                    <dt className="text-xs uppercase text-muted-foreground">{l}</dt>
+                    <dd className="mt-0.5 text-sm whitespace-pre-wrap">
+                      {c.descriptions[l] || (
+                        <span className="text-muted-foreground">— 비어 있음</span>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">
+                아직 설명이 없습니다. 검증본은 <b>3개 언어</b>를 채웁니다
+                (FR-07-A-05) — 위 <b>편집</b>에서 넣으세요.
+              </p>
+            )
+          ) : c.userDescription ? (
             <p className="mt-1 text-sm whitespace-pre-wrap">{c.userDescription}</p>
-          </div>
-        )}
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">
+              유저가 쓴 설명이 없습니다. <b>미검증본에는 어드민 문장을 넣지
+              않습니다</b> — 유저가 쓴 것으로 읽힙니다 (FR-07-A-05).
+            </p>
+          )}
+        </div>
       </section>
 
       {/* ── alias ── */}
