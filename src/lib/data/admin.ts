@@ -57,6 +57,63 @@ export async function getAdminCategories() {
 }
 
 /**
+ * 카테고리 상세 개요 (D-246).
+ *
+ * ## ⚠️ 존재 검증의 유일한 출처다
+ * `adminCategoryOptions()` 는 `CATEGORY_KEYS` 코드 배열을 읽으므로(OI-82)
+ * 카테고리 추가 스크립트를 돌린 직후에는 **DB 에 있는 카테고리가 거기 없다.**
+ * 그걸로 판정하면 있는 카테고리가 404 가 된다.
+ *
+ * ⚠️ `CodexItem` 에 `verified` 불리언은 없다 — `verification` enum 이다.
+ */
+export async function getAdminCategoryDetail(key: string) {
+  const c = await prisma.category.findUnique({
+    where: { key },
+    select: {
+      id: true,
+      key: true,
+      displayOrder: true,
+      active: true,
+      sellable: true,
+      // D-224·D-231 — 토글하지 않는다. 표시만 한다
+      requiresPhoto: true,
+      userCodexCreation: true,
+      matchingKey: { select: { attributeKeys: true } },
+      // N:M 이라 상세에서는 읽기 전용이다 (편집은 A-11)
+      brands: {
+        where: { active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      },
+      _count: {
+        select: { items: true, codexItems: true, subtypes: true, attributes: true },
+      },
+    },
+  });
+  if (!c) return null;
+
+  const unverifiedCodexCount = await prisma.codexItem.count({
+    where: { categoryId: c.id, verification: "UNVERIFIED" },
+  });
+
+  return {
+    slug: c.key,
+    order: c.displayOrder + 1,
+    active: c.active,
+    sellable: c.sellable,
+    requiresPhoto: c.requiresPhoto,
+    userCodexCreation: c.userCodexCreation,
+    matchingKeys: c.matchingKey?.attributeKeys ?? [],
+    brands: c.brands,
+    itemCount: c._count.items,
+    codexCount: c._count.codexItems,
+    unverifiedCodexCount,
+    subtypeCount: c._count.subtypes,
+    attributeCount: c._count.attributes,
+  };
+}
+
+/**
  * A-01·A-02·A-03 하위 제품군 (D-207).
  *
  * ⚠️ **비활성 제품군도 낸다.** 어드민은 전체를 봐야 조치할 수 있고, 이미 그
@@ -286,8 +343,10 @@ export async function getAdminMatchingKeys() {
 }
 
 /** A-02 카테고리별 속성 조합 — **여기가 비면 아이템 등록이 막힌다** (D-097) */
-export async function getAdminCategoryAttributes() {
+export async function getAdminCategoryAttributes(key?: string) {
   const cats = await prisma.category.findMany({
+    // D-246 — 인자가 있으면 그 카테고리만. 없으면 종전대로 전부
+    where: key ? { key } : undefined,
     orderBy: { displayOrder: "asc" },
     select: {
       key: true,
@@ -317,6 +376,29 @@ export async function getAdminCategoryAttributes() {
       })),
     };
   });
+}
+
+/**
+ * 이 카테고리에 **아직 붙지 않은** 속성 정의 (D-250).
+ *
+ * ## ⚠️ 왜 필요한가
+ * `createAttributeDefinition` 은 `AttributeDefinition` 만 만들고
+ * `CategoryAttribute` 행은 만들지 않는다. 그래서 시계 화면에서 속성을 만들어도
+ * **시계 목록에 나타나지 않았다** — 붙이는 경로가 UI 에 없었다.
+ *
+ * 제품군에는 있다(`SubtypeAttributes` 의 `candidates`). **카테고리 본체에만**
+ * 빠져 있었다.
+ *
+ * ⚠️ **비활성 행도 "붙어 있음"으로 친다.** 비활성은 D-036 의 상태이지 없는
+ * 것이 아니다 — 후보에 다시 띄우면 어드민이 같은 속성을 두 번 붙이려 한다.
+ */
+export async function getUnattachedAttributes(key: string) {
+  const defs = await prisma.attributeDefinition.findMany({
+    where: { categoryAttributes: { none: { category: { key } } } },
+    orderBy: { key: "asc" },
+    select: { key: true, type: true, labelKo: true },
+  });
+  return defs.map((d) => ({ key: d.key, label: d.labelKo, type: d.type }));
 }
 
 /**
