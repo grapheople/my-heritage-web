@@ -2117,6 +2117,96 @@ export async function createBrand(input: {
  * 신고(D-035)가 여기로 들어오고, 어드민이 이 폼으로 고친다.
  */
 /**
+ * 도감 값을 **다시 조사한다 — 제안만 낸다** (D-268).
+ *
+ * ## ⚠️ DB 에 쓰지 않는다
+ * 반환값은 **제안**이고 적용은 사람이 `updateCodexItem` 으로 한다. 조사 결과를
+ * 바로 반영하면 D-185 가 막아둔 것 — AI 가 지어낸 값이 조용히 자리를 차지하는
+ * 것 — 이 그대로 일어난다. 오늘만 해도 버너가 침낭으로(D-262), 부츠가
+ * 캠핑으로(D-216) 왔다.
+ *
+ * ## ⚠️ 검증 상태를 건드리지 않는다
+ * "수집 후 자동 검증" 은 만들지 않는다. D-185 가 `verification` 을 Server
+ * Action 인자로 두지 않은 이유가 **클라이언트가 `VERIFIED` 로 직접 호출해
+ * 배지를 무의미하게 만드는 것**을 막기 위해서였다.
+ *
+ * ## ⚠️ "정밀하게" 의 실체 — 수집 스킬이 정리한 규칙을 힌트에 넣는다
+ * 한 건짜리 재조사는 **브랜드·종류·현재 명칭이 이미 정해져 있어** 대량 수집보다
+ * 힌트를 좁게 줄 수 있다:
+ * - 종류를 힌트에 박는다 (D-262 — 안 그러면 버너가 침낭으로 온다)
+ * - 혼동하기 쉬운 이웃을 배제한다 (D-266 — "완성차 모델명은 내지 마세요")
+ * - **0건이 정답일 수 있다** — 못 찾으면 지어내지 않는다
+ *
+ * ## ⚠️ 로컬 전용이다 (D-146·D-185)
+ * 프로덕션 런타임에 `claude` 바이너리가 없다. 호출부가 버튼을 숨기지 않고
+ * 이유를 붙여 비활성으로 둔다.
+ */
+export async function researchCodexAgain(input: {
+  codexId: string;
+}): Promise<
+  ActionResult<{
+    candidates: { displayName: string; keyValues: Record<string, string> }[];
+    dropped: string[];
+  }>
+> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  if (!botEnabled() || !claudeConfigured()) {
+    return fail({}, "자료 조사는 로컬 개발 모드에서만 동작합니다 (D-146)");
+  }
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: input.codexId },
+    select: {
+      displayName: true,
+      categoryId: true,
+      subtypeId: true,
+      category: { select: { key: true } },
+      subtype: { select: { key: true, labelKo: true } },
+    },
+  });
+  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+
+  const fields = await categoryFields(codex.category.key, codex.subtype?.key);
+  const keyFields = matchingKeyFields(fields);
+  if (keyFields.length === 0) {
+    // 운동처럼 매칭 키가 빈 배열인 카테고리 (D-227) — 조사할 축이 없다
+    return fail({}, "이 카테고리는 매칭 키가 없어 재조사할 수 없습니다 (A-03)");
+  }
+
+  const categoryLabel = await categoryLabelKo(codex.category.key);
+  const st = codex.subtype?.labelKo;
+
+  /*
+    ⚠️ **브랜드를 명칭에서 추정하지 않는다.** 첫 토큰이 브랜드인 경우가 많지만
+    `Sea to Summit`·`Hyperlite Mountain Gear` 처럼 여러 단어인 브랜드가 있다.
+    조사 함수에 **명칭 전체**를 브랜드 자리로 넘기고, 힌트가 "이 제품" 임을
+    분명히 한다 — 브랜드 목록을 훑는 대량 수집과 다른 용법이다.
+  */
+  const hint =
+    `**${codex.displayName}** 라는 ${st ? `${st} ` : ""}제품 **하나**의 정확한 식별 값을 찾으세요. ` +
+    (st
+      ? `${st} 가 아닌 것은 내지 마세요 — 같은 브랜드의 다른 장비도 제외합니다. `
+      : "") +
+    `이름이 비슷한 다른 제품이나 상위/하위 모델을 내지 마세요. ` +
+    `확실하지 않으면 **빈 배열**을 내세요 — 0건이 정답일 수 있습니다`;
+
+  try {
+    const r = await researchCodexEntries({
+      fields,
+      categoryKey: codex.category.key,
+      categoryLabel,
+      brand: codex.displayName,
+      hint,
+      count: 1,
+    });
+    return { ok: true, candidates: r.candidates, dropped: r.dropped };
+  } catch (e) {
+    return fail({}, `조사 실패 — ${(e as Error).message}`);
+  }
+}
+
+/**
  * 도감을 **다른 종류로 옮긴다** (D-253·D-257).
  *
  * ## ⚠️ 이 경로가 아예 없었다

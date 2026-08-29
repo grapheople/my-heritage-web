@@ -296,6 +296,93 @@ export async function getAdminBrandsPage(q: AdminListQuery = {}) {
 }
 
 /**
+ * 도감 상세 (D-267).
+ *
+ * ## ⚠️ 한자리에 모으는 것이 목적이다
+ * 명칭·종류·언어 alias·키 alias·검증·병합 이력이 **화면 네 곳에 흩어져** 있었다.
+ * A-05 에서 "이게 맞나" 를 판단하려면 그것들을 함께 봐야 한다.
+ *
+ * ⚠️ **병합된 도감도 낸다.** 흡수된 쪽을 열어 survivor 를 확인할 수 있어야
+ * 되돌리기 판단이 된다 (D-181).
+ */
+export async function getAdminCodexDetail(codexId: string) {
+  const c = await prisma.codexItem.findUnique({
+    where: { id: codexId },
+    select: {
+      id: true,
+      displayName: true,
+      uniqueId: true,
+      normalizedKey: true,
+      aliases: true,
+      description: true,
+      descriptions: true,
+      verification: true,
+      verifiedBy: true,
+      verifiedAt: true,
+      createdAt: true,
+      categoryId: true,
+      subtypeId: true,
+      category: { select: { key: true } },
+      subtype: { select: { key: true, labelKo: true } },
+      mergedInto: { select: { id: true, displayName: true } },
+      mergedFrom: { select: { id: true, displayName: true } },
+      matchKeys: {
+        orderBy: [{ kind: "asc" }, { value: "asc" }],
+        select: { id: true, value: true, kind: true, source: true, approvedBy: true },
+      },
+      _count: { select: { items: true } },
+    },
+  });
+  if (!c) return null;
+
+  const a = (c.aliases ?? {}) as Record<string, unknown>;
+  const list = (k: string) =>
+    Array.isArray(a[k]) ? (a[k] as unknown[]).filter((v): v is string => typeof v === "string") : [];
+
+  const d = (c.descriptions ?? {}) as Record<string, unknown>;
+  const desc = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : "");
+
+  /*
+    ⚠️ 재수집은 **브랜드가 매칭 키일 때만** 의미가 있다. 운동은 매칭 키가 빈
+    배열이고(D-227) 브랜드를 안 쓰므로 조사할 축이 없다 — 화면이 버튼을 끈다.
+  */
+  const brandKey = c.matchKeys.find((k) => k.kind === "PRIMARY")?.value ?? c.normalizedKey;
+
+  return {
+    id: c.id,
+    displayName: c.displayName,
+    uniqueId: c.uniqueId ?? "",
+    normalizedKey: c.normalizedKey,
+    categoryKey: c.category.key,
+    categoryId: c.categoryId,
+    subtypeKey: c.subtype?.key ?? null,
+    subtypeLabel: c.subtype?.labelKo ?? null,
+    subtypeId: c.subtypeId,
+    verified: c.verification === "VERIFIED",
+    verifiedBy: c.verifiedBy,
+    verifiedAt: c.verifiedAt,
+    createdAt: c.createdAt,
+    ownerCount: c._count.items,
+    /** 미검증본의 설명은 유저 원문이다 (FR-07-A-05) */
+    userDescription: c.description ?? "",
+    descriptions: { ko: desc("ko"), ja: desc("ja"), en: desc("en") },
+    aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
+    matchKeys: c.matchKeys.map((k) => ({
+      id: k.id,
+      value: k.value,
+      kind: k.kind,
+      source: k.source,
+      /** AI 제안은 승인돼야 매칭에 쓰인다 (FR-06-C-05) */
+      approved: k.source !== "AI_APPROVED" || k.approvedBy !== null,
+    })),
+    mergedInto: c.mergedInto,
+    mergedFrom: c.mergedFrom,
+    /** 정규화 키의 첫 토큰 — 조사 프롬프트에 넘길 브랜드 추정치 */
+    primaryKey: brandKey,
+  };
+}
+
+/**
  * 이 카테고리에서 **종류가 지정되지 않은** 도감 수 (D-257).
  *
  * ⚠️ **전체 기준이다 — 페이지 기준이 아니다.** 페이지 기준으로 세면 2페이지에서

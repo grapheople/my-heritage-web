@@ -27,7 +27,17 @@ export default async function AdminCodexVerificationPage() {
         {queue.map((c) => (
           <tr key={c.id}>
             <Td className="font-semibold">
-              {c.displayName} <Pill tone="warn">미검증</Pill>
+              {/*
+                D-267 — 상세로 간다. 검증 판단에는 alias·키·종류가 함께 필요한데
+                목록에는 없다 — 이 큐가 그것 때문에 판단하기 어려웠다
+              */}
+              <Link
+                href={`/admin/codex/${c.id}`}
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                {c.displayName}
+              </Link>{" "}
+              <Pill tone="warn">미검증</Pill>
             </Td>
             <Td className="font-mono text-xs">{c.uniqueId}</Td>
             <Td>{c.ownerCount}</Td>

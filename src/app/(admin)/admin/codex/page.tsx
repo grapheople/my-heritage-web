@@ -52,7 +52,15 @@ export default async function AdminCodexPage({
       <Table head={["명칭 (원문)", "카테고리", "고유값", "검증", "보유자", "조치"]}>
         {codex.map((c) => (
           <tr key={c.id}>
-            <Td className="font-semibold">{c.displayName}</Td>
+            <Td className="font-semibold">
+              {/* D-267 — 도감 상세 진입점. alias·키·종류·병합이 한자리에 있다 */}
+              <Link
+                href={`/admin/codex/${c.id}`}
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                {c.displayName}
+              </Link>
+            </Td>
             <Td>{c.categoryLabel}</Td>
             <Td className="font-mono text-xs">{c.uniqueId}</Td>
             <Td>{c.verified ? <Pill tone="sale">검증됨</Pill> : <Pill tone="warn">미검증</Pill>}</Td>

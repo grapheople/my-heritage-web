@@ -124,7 +124,14 @@ export default async function CategoryCodexPage({
       >
         {list.rows.map((c) => (
           <tr key={c.id}>
-            <Td className="font-semibold">{c.displayName}</Td>
+            <Td className="font-semibold">
+              <Link
+                href={`/admin/codex/${c.id}`}
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                {c.displayName}
+              </Link>
+            </Td>
             {subtypes.length > 0 && (
               <Td>
                 <CodexSubtypePicker

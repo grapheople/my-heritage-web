@@ -3,6 +3,7 @@ import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
 import { syncPrimaryMatchKey } from "@/lib/codex-match-key";
 import { prisma } from "@/lib/prisma";
 import { scopeIdOf } from "@/lib/scope";
+import { resolveMatchingKeyOrder } from "@/lib/subtype";
 
 /**
  * 도감 1건을 만든다 — **어드민 직접 등록과 자료 조사 등록이 같은 함수를 쓴다.**
@@ -70,7 +71,22 @@ export async function insertCodex(input: {
       )?.key
     : undefined;
 
-  const keyOrder = category.matchingKey?.attributeKeys ?? [];
+  /*
+    ⚠️ **`resolveMatchingKeyOrder` 를 쓴다 — `category.matchingKey` 를 직접 읽지
+    않는다** (D-270).
+
+    유저 등록(`actions/item.ts`)은 종류 키를 우선하는데 여기만 카테고리 키를
+    읽고 있었다. 자전거 부품은 종류 키가 `{brand, model}` 인데 카테고리 키가
+    `{brand, model, year}` 라, 도감은 `sram|redetapaxs|`(빈 세 번째 칸)로,
+    유저 등록은 `sram|redetapaxs` 로 만들어져 **영원히 만나지 않았다.**
+
+    `lib/subtype.ts` 가 "규칙은 한 곳에만 둔다" 고 적어둔 그 실패다
+    (D-190·D-197 과 같은 유형) — 등록·수정·어드민·봇·API 가 그 파일만 부른다.
+  */
+  const keyOrder = await resolveMatchingKeyOrder({
+    categoryId: category.id,
+    subtypeId: input.subtypeId ?? null,
+  });
   if (keyOrder.length === 0) {
     // A-03 미구성. 여기서 임의로 `uniqueId` 를 가정하면 나중에 운영이 실제
     // 매칭 키를 정하는 순간 이 도감만 다른 규칙으로 남는다
