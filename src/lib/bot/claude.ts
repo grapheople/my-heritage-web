@@ -285,6 +285,55 @@ export async function classifyCodexItems(input: {
  * ("가슴")로 답하면 코드가 버린다 (`sanitizeExerciseFields`). 그래서 프롬프트에
  * **선택지 목록을 키로** 주입한다.
  */
+/** 현지화된 표시명 1건 (D-279) */
+export type CodexLocalization = { id: string; ko: string; ja: string };
+
+/**
+ * 기존 도감의 **표시명을 한국어·일본어로 채운다** (D-279).
+ *
+ * ## ⚠️ `researchCodexEntries` 와 **정반대 규칙**이다
+ * 저기(D-278)는 *"번역·음차 금지, 비우는 것이 기본"* 이다. **새 도감을 만들 때는**
+ * 그것이 맞다 — 확신 없는 표기를 붙이면 그 물건을 가진 모든 유저가 잘못된
+ * 이름을 본다.
+ *
+ * 여기는 **이미 있는 도감 전체를 읽을 수 있게 만들라는 PM 지시**다. 목적이
+ * "안 틀리기" 에서 "읽을 수 있게" 로 바뀌었으므로 규칙도 바뀐다.
+ *
+ * ⚠️ **두 프롬프트를 합치지 말 것** — 한쪽 규칙이 다른 쪽을 망친다.
+ *
+ * ## ⚠️ 고유번호는 원문 그대로 둔다
+ * `126610LN` 을 `126610엘엔` 으로 옮기면 **유저가 자기 시계를 못 알아본다.**
+ * 프롬프트가 금지하고, 호출부가 한 번 더 검산한다.
+ *
+ * ## ⚠️ 배치로 부른다
+ * 1,000건을 한 건씩 물으면 CLI 호출이 건당 수십 초라 **수십 시간**이 든다.
+ * `classifyCodexItems` 와 같은 형태로 묶는다.
+ *
+ * ⚠️ **모델이 지어낸 `id` 는 버린다** — 엉뚱한 도감의 이름을 바꾸는 것보다
+ * 빠뜨리는 게 낫다 (`classifyCodexItems` 와 같은 태도).
+ */
+export async function localizeCodexNames(input: {
+  categoryLabel: string;
+  items: { id: string; displayName: string }[];
+}): Promise<CodexLocalization[]> {
+  const prompt = await loadPrompt("codex-localize", {
+    categoryLabel: input.categoryLabel,
+    items: input.items.map((i) => `- ${i.id} · ${i.displayName}`).join("\n"),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  const rows = parseJsonArray(text);
+  const asked = new Set(input.items.map((i) => i.id));
+
+  return rows.flatMap((r): CodexLocalization[] => {
+    const row = r as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id : "";
+    if (!asked.has(id)) return [];
+    const one = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+    return [{ id, ko: one(row.ko), ja: one(row.ja) }];
+  });
+}
+
 export type ExerciseCandidate = {
   displayName: string;
   targetMuscles: string[];
