@@ -25,6 +25,8 @@ export const CATEGORY_KEYS = [
   "bicycle",
   "apparel",
   "camping",
+  // 배낭·등반장비 — 캠핑과 갈랐다 (D-259). 배낭을 양쪽에 두면 도감이 갈린다
+  "hiking",
   "deskterior",
   // 실내 무산소(웨이트 트레이닝) 중심 (D-166)
   "workout",
