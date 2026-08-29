@@ -203,16 +203,28 @@ export function codexKeyList(fields: BotField[]): string {
     .join("\n");
 }
 
-/** 도감 후보 1건의 JSON 골격. 설명은 받지 않는다 (FR-07-A-05, 프롬프트 메모 참조) */
+/**
+ * 도감 후보 1건의 JSON 골격. 설명은 받지 않는다 (FR-07-A-05, 프롬프트 메모 참조).
+ *
+ * ⚠️ `names` 는 **표시용 언어별 명칭**이다 (D-276·D-278). `displayName`(원문)과
+ * 다르고, **비어 오는 것이 정상**이라 식별 값과 달리 없다고 행을 버리지 않는다
+ */
 export function codexJsonSkeleton(fields: BotField[]): string {
   const entries = matchingKeyFields(fields).map((f) => `"${f.key}":""`);
-  return `{"displayName":"",${entries.join(",")}}`;
+  return `{"displayName":"","names":{"en":"","ko":"","ja":""},${entries.join(",")}}`;
 }
 
 /** 조사된 도감 후보 — 어드민이 화면에서 고치고 등록한다 */
 export type CodexCandidate = {
   displayName: string;
   keyValues: Record<string, string>;
+  /**
+   * 표시용 언어별 명칭 (D-278). **없는 것이 정상이다** — 라틴 원문은 채울
+   * 이유가 없고(D-009·D-277), 모델이 확신 없으면 비워야 한다.
+   *
+   * ⚠️ **식별 값이 아니다.** 비어도 행을 버리지 않는다
+   */
+  names: { ko?: string; ja?: string; en?: string };
 };
 
 /**
@@ -245,6 +257,20 @@ export function sanitizeCodexCandidates(
     if (!name) {
       dropped.push("명칭 없음");
       continue;
+    }
+
+    /*
+      ⚠️ 표시명은 **있으면 받고 없으면 만다** (D-278). 식별 값과 달리 비어도
+      행을 버리지 않는다 — 도감 1,113건 중 1,002건이 비어 있는 것이 정상이고,
+      "채우라고 압박하면 지어낸다" 가 D-185 가 겪은 실패다
+    */
+    const rawNames = (r.names ?? {}) as Record<string, unknown>;
+    const names: CodexCandidate["names"] = {};
+    for (const lang of ["ko", "ja", "en"] as const) {
+      const v = rawNames[lang];
+      const text = typeof v === "string" ? v.trim() : "";
+      // 원문과 같은 값을 표시명으로 받아봐야 의미가 없다 — 어차피 원문으로 떨어진다
+      if (text && text !== name) names[lang] = text;
     }
 
     const keyValues: Record<string, string> = {};
@@ -300,7 +326,7 @@ export function sanitizeCodexCandidates(
       continue;
     }
     seen.add(dedupe);
-    candidates.push({ displayName: name, keyValues });
+    candidates.push({ displayName: name, keyValues, names });
   }
 
   return { candidates, dropped };

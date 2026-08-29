@@ -173,6 +173,7 @@ export default async function AdminCodexDetailPage({
         <div className="mt-3 rounded-lg border p-4">
           <CodexResearchAgain
             codexId={c.id}
+            categoryKey={c.categoryKey}
             currentName={c.displayName}
             currentKeys={currentKeys}
             enabled={researchEnabled}

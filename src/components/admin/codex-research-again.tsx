@@ -1,9 +1,22 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import { useState, useTransition } from "react";
-import { researchCodexAgain, updateCodexItem } from "@/lib/actions/admin";
+import {
+  researchCodexAgain,
+  setCodexDisplayNames,
+  updateCodexItem,
+} from "@/lib/actions/admin";
 
-type Candidate = { displayName: string; keyValues: Record<string, string> };
+type Names = { ko?: string; ja?: string; en?: string };
+type Candidate = {
+  displayName: string;
+  keyValues: Record<string, string>;
+  names: Names;
+};
+
+const LANG_LABEL: Record<string, string> = { en: "영어", ko: "한국어", ja: "일본어" };
 
 /**
  * 도감 한 건을 **다시 조사한다 — 제안만 보여준다** (D-268).
@@ -16,18 +29,29 @@ type Candidate = { displayName: string; keyValues: Record<string, string> };
  * "수집 후 자동 검증완료" 는 만들지 않는다. 검증은 이 화면의 별도 버튼으로
  * **사람이** 누른다 (D-269).
  *
- * ⚠️ **명칭만 적용한다.** 식별 값(`normalizedKey`)은 편집 대상이 아니다 —
- * 바뀌면 유일성 범위와 매칭 키, 이미 연결된 유저 아이템의 매칭 의미가 함께
- * 움직인다. 값이 틀렸으면 병합(A-06)이 올바른 도구다 (D-267).
+ * ## ⚠️ 적용할 수 있는 것은 **명칭과 표시명뿐**이다
+ * | 값 | 적용 | 왜 |
+ * |---|---|---|
+ * | `displayName`(원문) | ✅ | 이름일 뿐 매칭에 안 쓰인다 |
+ * | 표시명 `ko`/`ja`/`en` | ✅ (D-278) | 화면 표기일 뿐이다 |
+ * | **식별 값** | ❌ | 바뀌면 **다른 제품**이 된다 |
+ *
+ * 식별 값(`normalizedKey`)이 바뀌면 유일성 범위와 매칭 키, **이미 연결된 유저
+ * 아이템의 매칭 의미**가 함께 움직인다. 시계는 매칭 키가 `uniqueId` 하나라
+ * 레퍼런스를 고치는 순간 그 도감은 다른 물건이 된다. 값이 틀렸으면
+ * **병합(A-06)이 올바른 도구**다 (D-267).
  */
 export function CodexResearchAgain({
   codexId,
+  categoryKey,
   currentName,
   currentKeys,
   enabled,
   disabledReason,
 }: {
   codexId: string;
+  /** 새 도감을 만들 화면으로 보내기 위해 필요하다 (식별 값이 틀렸을 때) */
+  categoryKey: string;
   currentName: string;
   /** 현재 식별 값 — 제안과 나란히 놓고 비교한다 */
   currentKeys: { key: string; label: string; value: string }[];
@@ -49,6 +73,20 @@ export function CodexResearchAgain({
       const res = await researchCodexAgain({ codexId });
       if (res.ok) setResult({ candidates: res.candidates, dropped: res.dropped });
       else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
+    });
+
+  const applyNames = (names: Names) =>
+    startTransition(async () => {
+      setError("");
+      const res = await setCodexDisplayNames(codexId, names);
+      if (res.ok) {
+        const shown = (["en", "ko", "ja"] as const)
+          .filter((l) => names[l])
+          .map((l) => `${LANG_LABEL[l]} "${names[l]}"`)
+          .join(" · ");
+        setDone(`표시명을 적용했습니다 — ${shown}`);
+        setResult(null);
+      } else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
     });
 
   const applyName = (name: string) =>
@@ -111,6 +149,51 @@ export function CodexResearchAgain({
                   )}
                 </div>
 
+                {/* ── 표시명 제안 (D-278) ── */}
+                {(["en", "ko", "ja"] as const).some((l) => c.names[l]) ? (
+                  <div className="mt-1 rounded-md border border-dashed p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold">표시명 제안</span>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => applyNames(c.names)}
+                        className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                      >
+                        표시명 적용
+                      </button>
+                    </div>
+                    <table className="mt-1 text-xs">
+                      <tbody>
+                        {(["en", "ko", "ja"] as const)
+                          .filter((l) => c.names[l])
+                          .map((l) => (
+                            <tr key={l}>
+                              <td className="py-0.5 pr-3 text-muted-foreground">
+                                {LANG_LABEL[l]}
+                              </td>
+                              <td className="py-0.5">{c.names[l]}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                    {/* ⚠️ 적용하면 **덮어쓴다.** 기존 값이 있으면 사라진다 */}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      적용하면 기존 표시명을 <b>덮어씁니다.</b> 빈 언어는 비워집니다.
+                    </p>
+                  </div>
+                ) : (
+                  /*
+                    ⚠️ **비어 온 것을 결함으로 읽지 않게 한다.** 라틴 원문은
+                    채울 이유가 없고(D-009·D-277) 모델이 확신 없으면 비우는 것이
+                    지시사항이다 — 안 그러면 운영자가 다시 눌러 본다
+                  */
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    표시명 제안 없음 — 원문 그대로 쓰면 되는 경우이거나 모델이
+                    확신하지 못한 경우입니다. <b>비어 있는 것이 정상</b>입니다.
+                  </p>
+                )}
+
                 {/*
                   ⚠️ 식별 값은 **비교만** 한다. 다르면 그 자체가 판단 재료다 —
                   값을 고치는 것이 아니라 **이 도감이 맞는지**를 의심할 신호다
@@ -135,11 +218,34 @@ export function CodexResearchAgain({
                   </tbody>
                 </table>
                 {currentKeys.some((k) => (c.keyValues[k.key] ?? "") !== k.value) && (
-                  <p className="text-xs text-warn">
-                    ⚠️ 식별 값이 다릅니다. <b>여기서 고치지 않습니다</b> — 값이 틀렸다면
-                    이 도감이 잘못 만들어졌다는 뜻이고, 올바른 도감으로 <b>병합(A-06)</b>
-                    하는 것이 맞습니다.
-                  </p>
+                  /*
+                    ⚠️ **막다른 길을 만들지 않는다** (D-278). 예전에는 "병합하세요"
+                    로 끝났는데, **병합할 상대가 없으면 운영자가 멈춘다** — 올바른
+                    도감이 아직 없는 것이 흔한 경우다. 2단계를 명시한다
+                  */
+                  <div className="rounded-md border border-warn bg-warn-bg p-2 text-xs text-warn">
+                    <p>
+                      ⚠️ 식별 값이 다릅니다. <b>여기서 고칠 수 없습니다</b> — 바꾸면
+                      이미 이 도감에 연결된 아이템이 <b>다른 제품에 붙은 채로</b> 남습니다.
+                    </p>
+                    <p className="mt-1">
+                      값이 틀렸다면 이 도감이 잘못 만들어졌다는 뜻입니다.{" "}
+                      <b>① 올바른 값으로 도감을 새로 만들고</b>{" "}
+                      <Link
+                        /* ⚠️ `typedRoutes` 는 리터럴만 받는다 — 런타임 조립
+                           경로라 캐스팅을 이 한 줄에 가둔다 (`admin-nav.tsx` 와 같은 패턴) */
+                        href={`/admin/categories/${categoryKey}/codex` as Route}
+                        className="underline"
+                      >
+                        (카테고리 상세 → 도감 탭)
+                      </Link>{" "}
+                      <b>② 이 도감을 그쪽으로 병합</b>하세요{" "}
+                      <Link href="/admin/codex/merge" className="underline">
+                        (A-06)
+                      </Link>
+                      . 병합하면 연결된 아이템도 함께 옮겨갑니다 (D-181).
+                    </p>
+                  </div>
                 )}
               </div>
             ))

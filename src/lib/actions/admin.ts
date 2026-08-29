@@ -2233,7 +2233,12 @@ export async function researchCodexAgain(input: {
   codexId: string;
 }): Promise<
   ActionResult<{
-    candidates: { displayName: string; keyValues: Record<string, string> }[];
+    candidates: {
+      displayName: string;
+      keyValues: Record<string, string>;
+      /** 표시용 언어별 명칭 (D-278). **비어 오는 것이 정상**이다 */
+      names: { ko?: string; ja?: string; en?: string };
+    }[];
     dropped: string[];
   }>
 > {
