@@ -7,9 +7,14 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * 어드민 화면 17개 + 로컬 전용 1개 (myroom-service §6). ko 단일 — i18n 대상
+ * 어드민 화면 15개 + 로컬 전용 1개 (myroom-service §6). ko 단일 — i18n 대상
  * 아님 (D-030). 하드코딩 문자열은 의도된 것이다. 어드민 UI 문구를
  * `messages/*.json` 에 넣지 않는다.
+ *
+ * ## ⚠️ A-02·A-03 은 메뉴에 없다 — A-01 상세로 흡수됐다 (D-246)
+ * 동적 속성은 `/admin/categories/[key]/attributes`, 매칭 키는
+ * `.../matching-key` 다. 옛 경로는 지우지 않고 목록으로 redirect 한다 (D-249).
+ * **두 번호는 회수하되 재사용하지 않는다** (D-220).
  *
  * ⚠️ **A-15 는 로컬 전용 봇 시딩이 이미 쓰고 있다.** 새 화면은 A-16 부터다 —
  * 번호를 재사용하면 문서·화면·로그가 서로 다른 것을 가리킨다 (D-220).
@@ -29,7 +34,6 @@ const SECTIONS = [
     title: "아이템",
     items: [
       { href: "/admin/categories", label: "카테고리 관리", id: "A-01" },
-      { href: "/admin/attributes", label: "동적 속성 관리", id: "A-02" },
       { href: "/admin/brands", label: "브랜드 마스터", id: "A-11" },
       { href: "/admin/brands/requests", label: "브랜드 요청 큐", id: "A-12" },
       /*
@@ -44,8 +48,7 @@ const SECTIONS = [
   {
     title: "도감",
     items: [
-      { href: "/admin/matching-keys", label: "매칭 키 정의", id: "A-03" },
-      { href: "/admin/codex", label: "도감 목록", id: "A-04" },
+      { href: "/admin/codex", label: "도감 전체 검색", id: "A-04" },
       { href: "/admin/codex/verification", label: "검증 큐", id: "A-05" },
       { href: "/admin/codex/merge", label: "병합 큐", id: "A-06" },
       { href: "/admin/codex/aliases", label: "alias 관리", id: "A-07" },

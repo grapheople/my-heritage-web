@@ -1,18 +1,23 @@
 import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
-import { CodexCreateForm } from "@/components/admin/codex-create-form";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
-import { CodexResearchPanel } from "@/components/admin/codex-research-panel";
-import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
 import { setCodexVerification } from "@/lib/actions/admin";
 import { AdminListControls } from "@/components/admin/list-controls";
 import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
-import { getAdminCodexPage, getCodexKeyForms } from "@/lib/data/admin";
+import { getAdminCodexPage } from "@/lib/data/admin";
 
 /**
- * A-04 도감 목록 · 직접 등록 · 편집 (codex F-04).
+ * A-04 도감 **전체 검색** (codex F-04).
+ *
+ * ## ⚠️ 등록·자료 조사는 여기 없다 (D-248)
+ * 카테고리 상세 `도감` 탭(`/admin/categories/[key]/codex`)으로 옮겼다 —
+ * 거기서는 **카테고리가 이미 정해져 있어** 등록 폼의 카테고리 선택 단계가
+ * 사라진다.
+ *
+ * 이 화면은 **전 카테고리를 횡단해 찾는** 자리로 남는다. 카테고리를 모르는
+ * 상태에서 명칭·고유값으로 찾는 경로가 없어지면 안 되기 때문이다.
  *
  * ⚠️ **운영자가 직접 등록한 도감은 바로 `검증됨` 상태다** (FR-04-A-02).
  * 유저 등록분은 `미검증`으로 시작한다 (D-033) — 검증 배지가 신뢰 신호이므로
@@ -25,39 +30,17 @@ export default async function AdminCodexPage({
   searchParams,
 }: PageProps<"/admin/codex">) {
   const params = parseListParams(await searchParams);
-  const [list, keyForms, categories] = await Promise.all([
+  const [list, categories] = await Promise.all([
     getAdminCodexPage(params),
-    getCodexKeyForms(),
     adminCategoryOptions(),
   ]);
   const codex = list.rows;
-  /*
-    자료 조사는 **로컬 전용**이다 (D-146·D-185) — 프로덕션 런타임에는 `claude`
-    바이너리가 없다. 버튼을 숨기지 않고 이유를 붙여 비활성으로 둔다: 숨기면
-    프로덕션 어드민이 "이 기능이 있는지"조차 알 수 없다
-  */
-  const researchEnabled = botEnabled() && claudeConfigured();
-  const researchReason = !botEnabled()
-    ? "자료 조사는 로컬 개발 모드에서만 동작합니다"
-    : "로컬 claude CLI 를 찾을 수 없습니다 (CLAUDE_CLI_PATH)";
 
   return (
     <AdminPage
-      id="A-04" title="도감 목록"
-      desc="운영자가 직접 등록한 도감은 바로 검증됨 상태입니다 (FR-04-A-02). 자료 조사로 등록한 도감은 미검증입니다."
-      action={<CodexCreateForm forms={keyForms} />}
+      id="A-04" title="도감 전체 검색"
+      desc="전 카테고리 도감을 검색합니다. 등록·자료 조사는 카테고리 상세의 도감 탭에서 합니다 (D-248)."
     >
-      {/*
-        ⚠️ 헤더 `action` 슬롯이 아니라 **본문 위**에 둔다. 조사 결과가 식별 값
-        칼럼만큼 넓은 표라서(자전거는 3칸) 헤더의 좁은 칸에서는 읽을 수 없다
-      */}
-      <div className="mb-4">
-        <CodexResearchPanel
-          forms={keyForms}
-          enabled={researchEnabled}
-          disabledReason={researchReason}
-        />
-      </div>
 
       <AdminListControls
         categories={categories}
