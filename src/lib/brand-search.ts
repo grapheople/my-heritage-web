@@ -20,8 +20,19 @@
 export type BrandAliases = { ko?: string[]; ja?: string[]; en?: string[] };
 
 export type SearchableBrand = {
+  /** 원문 — **식별자다.** 저장·매칭이 이 값을 쓴다 (D-276) */
   name: string;
   aliases: BrandAliases;
+  /**
+   * 표시용 언어별 명칭 (D-276). **검색 대상에도 넣는다** — 화면에 `지샥` 이
+   * 보이는데 `지샥` 으로 못 찾으면 유저는 목록이 고장난 것으로 읽는다.
+   *
+   * ⚠️ alias 를 **대체하지 않는다.** alias 에는 3필드로 담기지 않는 약어
+   * 89건(`gs`·`ap`·`jlc`)이 있어 지우면 그 검색어가 죽는다
+   */
+  nameKo?: string | null;
+  nameJa?: string | null;
+  nameEn?: string | null;
 };
 
 export type BrandHit<T extends SearchableBrand = SearchableBrand> = {
@@ -56,16 +67,34 @@ function aliasList(a: BrandAliases): string[] {
 }
 
 /**
+ * 검색에 쓰는 **보조 문자열 전부** — alias + 표시용 언어별 명칭 (D-276).
+ *
+ * ⚠️ 표시명을 여기 넣지 않으면 **화면에 보이는 이름으로 검색이 안 된다.**
+ * `지샥` 이 목록에 떠 있는데 `지샥` 을 치면 안 나오는 상태가 된다
+ */
+function searchableStrings(brand: SearchableBrand): string[] {
+  return [
+    ...aliasList(brand.aliases),
+    brand.nameKo,
+    brand.nameJa,
+    brand.nameEn,
+  ].filter((v): v is string => Boolean(v && v.trim()));
+}
+
+/**
  * 랭크가 **낮을수록 앞**이다. 매칭되지 않으면 `null`.
  *
  * | 랭크 | 조건 | 예 (`gs`) |
  * |---|---|---|
  * | 0 | 원문 정확 일치 | — |
- * | 1 | **alias 정확 일치** | `Grand Seiko` (alias `gs`) |
+ * | 1 | **alias·표시명 정확 일치** | `Grand Seiko` (alias `gs`) |
  * | 2 | 원문 접두 일치 | — |
- * | 3 | alias 접두 일치 | — |
+ * | 3 | alias·표시명 접두 일치 | — |
  * | 4 | 원문 부분 일치 | — |
- * | 5 | alias 부분 일치 | `G-SHOCK` (`gshock`) |
+ * | 5 | alias·표시명 부분 일치 | `G-SHOCK` (`gshock`) |
+ *
+ * ⚠️ 랭크 1·3·5 의 후보에 **표시용 언어별 명칭이 함께 들어간다** (D-276) —
+ * 화면에 보이는 이름으로 검색이 되어야 한다.
  *
  * `G-SHOCK` 을 결과에서 빼지 않는다 — 유저가 실제로 그걸 찾을 수도 있다.
  * **순서만 바로잡는다.**
@@ -74,7 +103,7 @@ function rank(brand: SearchableBrand, nq: string): { rank: number; alias?: strin
   const name = normalizeBrandToken(brand.name);
   if (name === nq) return { rank: 0 };
 
-  const aliases = aliasList(brand.aliases);
+  const aliases = searchableStrings(brand);
   const exactAlias = aliases.find((a) => normalizeBrandToken(a) === nq);
   if (exactAlias) return { rank: 1, alias: exactAlias };
 

@@ -15,6 +15,7 @@ import {
   type FieldLabels,
 } from "@/components/domain/routine-entry-editor";
 import { WORKOUT_CATEGORY } from "@/lib/categories";
+import { pickDisplayName } from "@/lib/display-name";
 import type { Locale } from "@/i18n/routing";
 import { AttrField } from "./attr-field";
 import { BrandSelect } from "./brand-select";
@@ -49,6 +50,11 @@ const ITEM_MAX_PHOTOS = 10;
  * | **이탈 시 임시 저장하지 않는다** | FR-05-A-07 |
  * | 수정 시 **카테고리 변경 불가** | FR-05-B-02 |
  * | 1단계 선택지 = **내 관심 카테고리** | **D-271** |
+ * | 브랜드·도감 명칭은 **관심 언어권 우선순위**로 표시 (en > ko > ja) | **D-276** |
+ *
+ * ## ⚠️ 보이는 이름과 저장되는 값은 다르다 (D-276)
+ * 브랜드는 화면에 표시명(`지샥`)을 띄우지만 저장되는 값은 **원문**(`G-SHOCK`)
+ * 이다. 도감 명칭도 표시만 바뀌고 매칭은 원문·키로 한다.
  */
 
 export function ItemForm({
@@ -74,6 +80,13 @@ export function ItemForm({
    * 1단계에 버튼이 하나도 없어 **등록 자체가 막힌다**
    */
   categoryKeys,
+  /**
+   * 표시명 우선순위 (D-276) — 서버가 뷰어의 관심 언어권으로 계산해 넘긴다.
+   *
+   * ⚠️ 비어 오면 원문만 보이게 된다. 서버가 `viewerLangOrder()` 로 항상
+   * 1개 이상을 넘긴다 (`myLanguages()` 가 빈 배열을 내지 않는다 — D-274)
+   */
+  langOrder,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
@@ -93,7 +106,10 @@ export function ItemForm({
    */
   photoRequired?: Record<string, boolean>;
   categoryKeys?: string[];
+  langOrder?: string[];
 }) {
+  // 서버가 안 넘긴 경로가 남아 있어도 이름이 비지 않게 한다
+  const langs = langOrder?.length ? langOrder : ["en", "ko", "ja"];
   const categories = categoryKeys?.length ? categoryKeys : CATEGORY_KEYS;
   const t = useTranslations();
   const locale = useLocale();
@@ -217,7 +233,19 @@ export function ItemForm({
     // 저장하니 안 된다"가 생긴다 (D-014)
     fetch(`/api/codex/lookup?category=${category}&key=${encodeURIComponent(v)}`)
       .then((r) => r.json())
-      .then((d: { codex: { displayName: string; verified: boolean; matchedByAlias?: boolean } | null; values?: Record<string, string> }) => {
+      .then((d: {
+        codex:
+          | {
+              displayName: string;
+              nameKo?: string | null;
+              nameJa?: string | null;
+              nameEn?: string | null;
+              verified: boolean;
+              matchedByAlias?: boolean;
+            }
+          | null;
+        values?: Record<string, string>;
+      }) => {
         if (!d.codex) {
           setAutoKeys([]);
           setCodexName(null);
@@ -228,7 +256,11 @@ export function ItemForm({
         // 자동 채운 값도 유저가 고칠 수 있다 — 잠그지 않는다 (FR-03-A-03)
         setValues((prev) => ({ ...prev, ...filled, [key]: v }));
         setAutoKeys(Object.keys(filled).filter((k) => k !== key));
-        setCodexName(d.codex.displayName);
+        /*
+          ⚠️ 표시명만 고른다 (D-276). 매칭은 이미 서버에서 원문·키로 끝났고,
+          여기서 바꾸는 것은 **보여주는 글자뿐**이다
+        */
+        setCodexName(pickDisplayName(d.codex, d.codex.displayName, langs));
         setCodexVerified(d.codex.verified);
         // ⚠️ **유저가 넣은 값을 고치지 않는다** (FR-03-E-02) — 무엇으로 찾았는지만 보여준다
         setCodexAliasHit(d.codex.matchedByAlias ? v : null);
@@ -496,6 +528,7 @@ export function ItemForm({
                 onChange={(v) => set(a.key, v)}
                 invalid={Boolean(errors[a.key])}
                 category={category}
+                langOrder={langs}
               />
             ) : undefined
           }

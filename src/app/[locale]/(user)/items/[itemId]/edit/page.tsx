@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
+import { viewerLangOrder } from "@/lib/language-scope";
 import { WORKOUT_CATEGORY } from "@/lib/categories";
 import { getItemForEdit, photoRequiredByCategory } from "@/lib/data/item";
+
 
 /**
  * S-04 아이템 수정.
@@ -59,6 +61,8 @@ export default async function EditItemPage({
           initialValues={item.values}
           initialPhotos={item.photos}
           photoRequired={photoRequired}
+          // 등록과 같은 규칙으로 이름을 띄운다 — 화면마다 다르면 혼란이다 (D-276)
+          langOrder={await viewerLangOrder()}
         />
       </div>
     </div>

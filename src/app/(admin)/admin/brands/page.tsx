@@ -1,7 +1,11 @@
 import { AdminActionButton } from "@/components/admin/action-button";
 import { setBrandActive } from "@/lib/actions/admin";
 import { AdminPage, Pill, Table, Td, TriLingualField } from "@/components/admin/ui";
-import { BrandAliasEditor, BrandCreateForm } from "@/components/admin/brand-forms";
+import {
+  BrandAliasEditor,
+  BrandCreateForm,
+  BrandDisplayNameEditor,
+} from "@/components/admin/brand-forms";
 import { AdminListControls } from "@/components/admin/list-controls";
 import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
@@ -110,6 +114,13 @@ export default async function AdminBrandsPage({
               {b.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}
             </Td>
             <Td className="flex flex-wrap gap-2">
+              {/* ⚠️ 표시명과 alias 는 **다른 것**이다 (D-276) — 버튼을 나눠 둔다:
+                  표시명은 화면에 뜨는 이름, alias 는 검색 토큰이다 */}
+              <BrandDisplayNameEditor
+                brandId={b.id}
+                brandName={b.name}
+                initial={b.displayNames}
+              />
               <BrandAliasEditor brandId={b.id} brandName={b.name} initial={b.aliasesByLang} />
               {/*
                 ⚠️ **삭제가 아니라 비활성화다** (D-036·D-043). 비활성화하면 신규

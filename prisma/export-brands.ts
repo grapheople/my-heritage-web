@@ -35,7 +35,14 @@ import {
  * pnpm db:export-brands            # prisma/brands.csv 로 저장
  * ```
  */
-const HEADER = ["brandName", "aliasKo", "aliasJa", "aliasEn", "categories"];
+/*
+  D-276 — 표시명 3열이 뒤에 붙었다. **뒤에 붙이는 것이 의도다**: 옛 5열 CSV 를
+  그대로 import 할 수 있어야 한다 (import 쪽이 부족한 열을 빈 값으로 읽는다)
+*/
+const HEADER = [
+  "brandName", "aliasKo", "aliasJa", "aliasEn", "categories",
+  "nameKo", "nameJa", "nameEn",
+];
 const OUT = join(process.cwd(), "prisma", "brands.csv");
 
 /**
@@ -73,6 +80,9 @@ async function main() {
     // 이름순 — diff 가 안정적이어야 커밋 이력이 읽힌다
     orderBy: { name: "asc" },
     select: {
+      nameKo: true,
+      nameJa: true,
+      nameEn: true,
       name: true,
       aliases: true,
       active: true,
@@ -108,6 +118,10 @@ async function main() {
         cell(ja.join(";")),
         cell(en.join(";")),
         cell(cats.map((c) => c.key).join(";")),
+        // ⚠️ 표시명은 **다중값이 아니다** — 세미콜론으로 나누지 않는다 (D-276)
+        cell(b.nameKo ?? ""),
+        cell(b.nameJa ?? ""),
+        cell(b.nameEn ?? ""),
       ].join(","),
     );
   }

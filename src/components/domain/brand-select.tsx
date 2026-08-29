@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { searchBrands, type SearchableBrand } from "@/lib/brand-search";
+import { pickDisplayName } from "@/lib/display-name";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +18,15 @@ import { cn } from "@/lib/utils";
  * ## alias 로도 찾힌다 (D-047)
  * 한국 유저가 "롤렉스"로 검색해도 `Rolex` 가 나와야 한다. 안 나오면 브랜드가
  * 없는 것으로 오인하고 추가 요청(S-17)을 보낸다.
+ *
+ * ## ⚠️ 보이는 이름과 저장되는 값이 다르다 (D-276)
+ * 화면에는 **관심 언어권에 맞는 표시명**(`지샥`)을 띄우지만, `onChange` 로
+ * 올려보내는 값은 **언제나 원문**(`G-SHOCK`)이다. 원문은 `Brand.name` 이고
+ * 저장·매칭·CSV upsert 가 전부 그 값을 쓴다 — 표시명을 올려보내면 브랜드가
+ * 안 붙거나 엉뚱한 곳에 붙는다.
+ *
+ * 원문과 표시명이 다르면 **원문을 옆에 함께 보여준다.** 컬렉터는 원문 표기로
+ * 물건을 부르므로(D-009) 원문이 사라지면 오히려 못 알아본다.
  *
  * ## OI-54 — 부분 일치 노이즈를 두 가지로 막는다
  * 1. **카테고리 필터** — 이 컴포넌트는 `category` 에 연결된 브랜드만 받는다.
@@ -31,11 +41,19 @@ export function BrandSelect({
   invalid,
   /** 선택된 카테고리 — 이게 없으면 브랜드를 고를 수 없다 (OI-54) */
   category,
+  /**
+   * 표시명 우선순위 — 서버가 뷰어의 관심 언어권으로 계산해 넘긴다 (D-276).
+   *
+   * ⚠️ 여기서 직접 읽지 않는다. `/api/brands` 는 공유 캐시에 들어가므로
+   * **응답은 뷰어와 무관해야 하고**, 고르는 일만 이쪽에서 한다
+   */
+  langOrder,
 }: {
   value: string;
   onChange: (v: string) => void;
   invalid?: boolean;
   category: string;
+  langOrder: string[];
 }) {
   const t = useTranslations();
   const [q, setQ] = useState("");
@@ -70,10 +88,22 @@ export function BrandSelect({
   );
 
   if (value) {
+    /*
+      선택된 브랜드의 표시명은 **로드된 목록에서** 찾는다. 목록이 아직 없거나
+      (카테고리 전환 직후) 목록 밖 값이면 원문을 그대로 쓴다 — 이름이 잠깐
+      비는 것보다 원문이 낫다
+    */
+    const picked = brands?.find((b) => b.name === value);
+    const shown = picked ? pickDisplayName(picked, picked.name, langOrder) : value;
     return (
       <div className="mt-1.5 flex items-center gap-2">
-        {/* 브랜드명은 원문 고정 — 번역하지 않는다 (D-009) */}
-        <span className="rounded-md border px-3 py-2 text-sm font-semibold">{value}</span>
+        <span className="rounded-md border px-3 py-2 text-sm font-semibold">
+          {shown}
+          {/* 원문을 지우지 않는다 — 컬렉터는 원문 표기로 부른다 (D-009) */}
+          {shown !== value && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">{value}</span>
+          )}
+        </span>
         <button
           type="button"
           onClick={() => onChange("")}
@@ -111,22 +141,33 @@ export function BrandSelect({
             {t("brand.none")}
           </li>
         )}
-        {hits.map(({ brand, matchedAlias }) => (
-          <li key={brand.name}>
-            <button
-              type="button"
-              onClick={() => onChange(brand.name)}
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-accent"
-            >
-              {brand.name}
-              {/* alias 로 매칭됐으면 어떤 별칭이었는지 보여준다 (D-047) —
-                  원문이 영문이라 왜 나왔는지 알 수 없기 때문이다 */}
-              {matchedAlias && (
-                <span className="ml-2 text-xs text-muted-foreground">{matchedAlias}</span>
-              )}
-            </button>
-          </li>
-        ))}
+        {hits.map(({ brand, matchedAlias }) => {
+          const shown = pickDisplayName(brand, brand.name, langOrder);
+          /*
+            ⚠️ 매칭된 문자열이 **이미 화면에 떠 있으면** 또 보여주지 않는다.
+            표시명도 검색 대상이 되면서(D-276) `지샥` 으로 찾으면 라벨과
+            보조 표기가 같은 말을 두 번 하게 된다
+          */
+          const hint = matchedAlias && matchedAlias !== shown ? matchedAlias : undefined;
+          return (
+            <li key={brand.name}>
+              <button
+                type="button"
+                // ⚠️ **원문을 올려보낸다.** 표시명을 보내면 저장이 깨진다 (D-276)
+                onClick={() => onChange(brand.name)}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-accent"
+              >
+                {shown}
+                {/* 원문이 다르면 함께 보여준다 — 컬렉터는 원문으로 부른다 (D-009) */}
+                {shown !== brand.name && (
+                  <span className="ml-2 text-xs text-muted-foreground">{brand.name}</span>
+                )}
+                {/* alias 로 매칭됐으면 어떤 별칭이었는지 보여준다 (D-047) */}
+                {hint && <span className="ml-2 text-xs text-muted-foreground">{hint}</span>}
+              </button>
+            </li>
+          );
+        })}
         {brands !== null && brands.length > 0 && hits.length === 0 && (
           <li className="px-3 py-4 text-center text-sm text-muted-foreground">
             {t("brand.none")}

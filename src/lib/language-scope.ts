@@ -1,6 +1,7 @@
 import { getViewer } from "@/lib/auth/viewer";
 import { prisma } from "@/lib/prisma";
 import { locales } from "@/i18n/routing";
+import { displayLangOrder } from "@/lib/display-name";
 
 /**
  * **관심 언어권** — 홈 피드가 쓰는 축 (D-274).
@@ -56,4 +57,18 @@ export async function myLanguages(): Promise<string[]> {
   */
   const usable = (row?.preferredLanguages ?? []).filter((l) => all.includes(l));
   return usable.length > 0 ? usable : all;
+}
+
+/**
+ * 뷰어의 **표시명 우선순위** — 서버에서 한 번 읽어 클라이언트로 넘긴다 (D-276).
+ *
+ * ## ⚠️ 여기에 있는 이유
+ * `display-name.ts` 는 클라이언트 컴포넌트가 직접 부르므로 **순수해야 한다.**
+ * 뷰어를 읽으려면 `prisma` 가 필요하고, 그것이 순수 모듈에 들어가면
+ * `pg` 가 브라우저 번들에 딸려 들어가 빌드가 깨진다.
+ *
+ * ⚠️ **행마다 부르지 않는다.** 요청당 한 번 읽어 목록 전체에 재사용한다
+ */
+export async function viewerLangOrder(): Promise<string[]> {
+  return displayLangOrder(await myLanguages());
 }

@@ -239,6 +239,10 @@ export async function getAdminBrands() {
       id: true,
       name: true,
       aliases: true,
+      // D-276 — 표시명. alias(검색 토큰)와 다른 값이다
+      nameKo: true,
+      nameJa: true,
+      nameEn: true,
       active: true,
       // ⚠️ **연결 카테고리를 실제로 낸다** (D-182). 화면이 전 브랜드에 "시계" 를
       // 하드코딩하고 있었다 — 브랜드 마스터는 카테고리별인데(D-044·D-045)
@@ -262,6 +266,8 @@ export async function getAdminBrands() {
       // ⚠️ alias 가 비면 유저에게 "브랜드가 없다"로 보인다 (D-047)
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
+      /** 표시용 명칭 (D-276). 빈 문자열 = 미설정 → 화면에서 원문으로 떨어진다 */
+      displayNames: { ko: b.nameKo ?? "", ja: b.nameJa ?? "", en: b.nameEn ?? "" },
     };
   });
 }

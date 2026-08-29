@@ -2,8 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
+import { viewerLangOrder } from "@/lib/language-scope";
 import { getRoutineFieldLabels, photoRequiredByCategory } from "@/lib/data/item";
 import { myCategoryKeys } from "@/lib/category-scope";
+
 import type { Locale } from "@/i18n/routing";
 
 /**
@@ -43,6 +45,12 @@ export default async function NewItemPage({
     생각이 없는 카테고리가 절반을 차지한다. 관심사가 없으면 전체가 온다
   */
   const categoryKeys = await myCategoryKeys();
+  /*
+    D-276 — 브랜드·도감 명칭을 어느 언어로 띄울지. **서버에서 한 번 계산해
+    넘긴다** — 클라이언트가 직접 읽으면 `/api/brands` 응답을 뷰어별로 만들어야
+    하고, 그 응답은 공유 캐시에 들어가므로 남의 언어가 섞인다
+  */
+  const langOrder = await viewerLangOrder();
 
   return (
     <div className="px-4 py-5 lg:px-0">
@@ -52,6 +60,7 @@ export default async function NewItemPage({
           routineFieldLabels={routineFieldLabels}
           photoRequired={photoRequired}
           categoryKeys={categoryKeys}
+          langOrder={langOrder}
         />
       </div>
     </div>

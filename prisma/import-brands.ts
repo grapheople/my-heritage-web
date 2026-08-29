@@ -21,10 +21,18 @@ import {
  * `@unique` 이므로 그 값 기준 upsert 한다.
  *
  * ## CSV 스키마
- * `brandName,aliasKo,aliasJa,aliasEn,categories`
+ * `brandName,aliasKo,aliasJa,aliasEn,categories,nameKo,nameJa,nameEn`
  * - 다중값 구분자는 세미콜론(`;`) — `aliasEn` 과 `categories` 에 쓰인다
  * - `aliases` 는 `{ ko: string[], ja: string[], en: string[] }` 로 저장된다
  *   (검색 인덱스 전용, 화면 미표시 — D-009)
+ * - `nameKo`/`nameJa`/`nameEn` 은 **표시용 명칭**이다 (D-276). alias 와 **다른
+ *   값**이고 다중값이 아니다 — `G-SHOCK` 의 alias 는 `gshock`(검색 토큰)이지만
+ *   표시명은 `G-SHOCK` 이다. 섞으면 목록에 `gshock` 이 뜬다
+ *
+ * ⚠️ **뒤 3열은 선택이다.** 옛 5열 CSV 도 그대로 읽힌다 — 그때는 표시명을
+ * **건드리지 않는다**(지우지 않는다). 빈 칸도 마찬가지다: 열이 있는데 값이
+ * 비면 "미설정으로 되돌린다" 가 아니라 **그대로 둔다.** CSV 를 부분적으로만
+ * 채운 운영자가 어드민에서 넣은 표시명을 날리면 안 된다
  *
  * ## 사용법
  * ```
@@ -88,6 +96,8 @@ function normalize(s: string): string {
 /* ────────────────────────── 검증 ────────────────────────── */
 
 const HEADER = ["brandName", "aliasKo", "aliasJa", "aliasEn", "categories"];
+/** D-276 — 뒤에 붙는 선택 열. 없으면 표시명을 건드리지 않는다 */
+const HEADER_OPTIONAL = ["nameKo", "nameJa", "nameEn"];
 /** 브랜드 마스터가 있는 카테고리 (D-007 고정 목록에서 운동 제외 — D-166) */
 const VALID_CATEGORIES = new Set<string>(BRANDED_CATEGORY_KEYS);
 
@@ -96,16 +106,35 @@ type Row = {
   name: string;
   aliases: { ko: string[]; ja: string[]; en: string[] };
   categories: string[];
+  /**
+   * 표시명 (D-276). **`undefined` = 건드리지 않는다**, 빈 문자열도 마찬가지다.
+   * 옛 5열 CSV 나 부분만 채운 CSV 가 어드민이 넣은 표시명을 지우면 안 된다
+   */
+  displayNames: { ko?: string; ja?: string; en?: string };
 };
 
 function validate(rows: string[][]): { rows: Row[]; errors: string[] } {
   const errors: string[] = [];
   const [head, ...body] = rows;
 
-  if (!head || head.map((h) => h.trim()).join(",") !== HEADER.join(",")) {
+  /*
+    ⚠️ **앞 5열만 강제한다** (D-276). 뒤 3열(표시명)은 선택이라 옛 CSV 도
+    그대로 읽힌다. 다만 **있다면 이름이 맞아야 한다** — 순서가 어긋난 채
+    통과하면 일본어 이름이 한국어 칸에 들어간다
+  */
+  const headCells = (head ?? []).map((h) => h.trim());
+  if (headCells.slice(0, HEADER.length).join(",") !== HEADER.join(",")) {
     errors.push(`헤더가 다릅니다. 기대: ${HEADER.join(",")} / 실제: ${head?.join(",")}`);
     return { rows: [], errors };
   }
+  const extra = headCells.slice(HEADER.length);
+  if (extra.length > 0 && extra.join(",") !== HEADER_OPTIONAL.slice(0, extra.length).join(",")) {
+    errors.push(
+      `선택 열 이름이 다릅니다. 기대: ${HEADER_OPTIONAL.join(",")} / 실제: ${extra.join(",")}`,
+    );
+    return { rows: [], errors };
+  }
+  const hasDisplayNames = extra.length > 0;
 
   const parsed: Row[] = [];
   const seenName = new Map<string, number>();
@@ -114,7 +143,11 @@ function validate(rows: string[][]): { rows: Row[]; errors: string[] } {
 
   body.forEach((cols, i) => {
     const line = i + 2; // 헤더가 1행
-    const [name, ko, ja, en, cats] = cols.map((c) => c.trim());
+    const trimmed = cols.map((c) => c.trim());
+    const [name, ko, ja, en, cats] = trimmed;
+    const [nameKo, nameJa, nameEn] = hasDisplayNames
+      ? trimmed.slice(HEADER.length)
+      : [];
 
     if (!name) { errors.push(`${line}행: brandName 이 비어 있습니다`); return; }
 
@@ -152,7 +185,19 @@ function validate(rows: string[][]): { rows: Row[]; errors: string[] } {
       seenToken.get(n)!.add(name);
     }
 
-    parsed.push({ line, name, aliases, categories });
+    /*
+      ⚠️ 표시명은 **교차 충돌 검사에 넣지 않는다.** 서로 다른 브랜드가 같은
+      표시명을 갖는 것은 이상하지만, alias 와 달리 **매칭에 쓰이지 않으므로
+      오매칭을 만들지 않는다.** 여기서 막으면 정당한 동명 브랜드가 import 를
+      통째로 실패시킨다
+    */
+    parsed.push({
+      line,
+      name,
+      aliases,
+      categories,
+      displayNames: { ko: nameKo || undefined, ja: nameJa || undefined, en: nameEn || undefined },
+    });
   });
 
   for (const [token, owners] of seenToken) {
@@ -242,12 +287,29 @@ async function main() {
       select: { id: true },
     });
 
+    /*
+      ⚠️ **빈 표시명은 "지워라" 가 아니라 "건드리지 마라" 다** (D-276). CSV 를
+      부분만 채운 운영자가 어드민에서 넣은 표시명을 날리면 안 된다.
+      `undefined` 를 넣으면 Prisma 가 그 필드를 무시한다
+    */
+    const displayNames = {
+      nameKo: r.displayNames.ko,
+      nameJa: r.displayNames.ja,
+      nameEn: r.displayNames.en,
+    };
+
     const brand = await prisma.brand.upsert({
       where: { name: r.name },
-      create: { name: r.name, aliases: r.aliases },
+      // 신규는 en 이 비면 원문으로 채운다 — 원문이 라틴 표기다
+      create: {
+        name: r.name,
+        aliases: r.aliases,
+        ...displayNames,
+        nameEn: r.displayNames.en ?? r.name,
+      },
       // ⚠️ 멱등 — 같은 CSV 를 두 번 넣어도 중복 생성되지 않는다 (D-045).
       // active 는 건드리지 않는다 — 운영에서 끈 브랜드를 되살리면 안 된다
-      update: { aliases: r.aliases },
+      update: { aliases: r.aliases, ...displayNames },
       select: { id: true },
     });
 

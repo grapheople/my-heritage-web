@@ -43,6 +43,11 @@ export async function GET(req: Request) {
     select: {
       id: true,
       displayName: true,
+      // 표시용 언어별 명칭 (D-276). ⚠️ 고르는 일은 **클라이언트**가 한다 —
+      // 뷰어의 관심 언어권이 정하는 값을 응답에 박으면 캐시·재사용이 깨진다
+      nameKo: true,
+      nameJa: true,
+      nameEn: true,
       uniqueId: true,
       verification: true,
       items: {
@@ -64,7 +69,11 @@ export async function GET(req: Request) {
   return NextResponse.json({
     codex: {
       id: codex.id,
+      /** 원문 — 표시용 명칭이 없을 때 떨어질 자리다 (D-276) */
       displayName: codex.displayName,
+      nameKo: codex.nameKo,
+      nameJa: codex.nameJa,
+      nameEn: codex.nameEn,
       verified: codex.verification === "VERIFIED",
       /*
         FR-03-E-03 — **키 alias 로 찾았으면 저장 전에 알린다.** 유저가 넣은 값과

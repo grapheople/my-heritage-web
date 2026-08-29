@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
   const brands = await prisma.brand.findMany({
     where: { active: true, scopes: brandScopesWhere({ categoryKey: category, subtypeKey: subtype }) },
-    select: { name: true, aliases: true },
+    select: { name: true, aliases: true, nameKo: true, nameJa: true, nameEn: true },
     orderBy: { name: "asc" },
   });
 
@@ -35,9 +35,20 @@ export async function GET(req: Request) {
       brands: brands.map((b) => ({
         name: b.name,
         aliases: b.aliases as BrandAliases,
+        nameKo: b.nameKo,
+        nameJa: b.nameJa,
+        nameEn: b.nameEn,
       })),
     },
-    // 브랜드 마스터는 유저별이 아니고 자주 바뀌지 않는다 — 짧게 캐시한다
+    /*
+      브랜드 마스터는 유저별이 아니고 자주 바뀌지 않는다 — 짧게 캐시한다.
+
+      ⚠️ **여기서 표시명을 하나로 골라 내려보내면 안 된다** (D-276). 어느
+      이름을 쓸지는 **뷰어의 관심 언어권**이 정하는데(D-274) 이 응답은
+      `s-maxage` 로 **공유 캐시에 들어간다** — 먼저 요청한 사람의 언어가
+      다음 사람에게 그대로 나간다. 3종을 다 내리고 **고르는 일은 클라이언트**가
+      한다. 그래야 응답이 뷰어와 무관해져 캐시가 성립한다
+    */
     { headers: { "Cache-Control": "public, max-age=60, s-maxage=300" } },
   );
 }

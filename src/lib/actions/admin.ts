@@ -1442,6 +1442,42 @@ export async function setBrandAliases(
   return { ok: true };
 }
 
+/**
+ * 브랜드 **표시명** 편집 (D-276).
+ *
+ * ## ⚠️ `setBrandAliases` 와 다른 것을 고친다
+ * | | 무엇 | 화면에 |
+ * |---|---|---|
+ * | `setBrandAliases` | 검색 토큰 | **안 보인다** |
+ * | 이 함수 | 표시 명칭 | **보인다** |
+ *
+ * ⚠️ **`Brand.name`(원문)은 건드리지 않는다.** 그 값은 CSV upsert 멱등키이자
+ * `resolveMasterBrand` 매칭 키다 — 표시명을 고치다가 함께 움직이면 import 가
+ * 브랜드를 중복 생성하고 기존 아이템의 매칭이 끊긴다.
+ *
+ * ⚠️ 빈 값은 `null` 로 저장한다. 빈 문자열로 두면 `pickDisplayName` 이
+ * "값이 있다" 로 보고 **이름 없는 칸**을 띄운다
+ */
+export async function setBrandDisplayNames(
+  brandId: string,
+  names: { ko?: string; ja?: string; en?: string },
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  const one = (v?: string) => v?.trim() || null;
+
+  await prisma.brand.update({
+    where: { id: brandId },
+    data: {
+      nameKo: one(names.ko),
+      nameJa: one(names.ja),
+      nameEn: one(names.en),
+    },
+  });
+  revalidate("/admin/brands", "/admin/categories/[key]", "/admin/categories/[key]/brands");
+  return { ok: true };
+}
+
 /** 브랜드 비활성화 — **삭제하지 않는다.** 이미 붙은 아이템이 있다 */
 export async function setBrandActive(
   brandId: string,
@@ -2056,6 +2092,14 @@ export async function createBrand(input: {
   name: string;
   categoryKeys: string[];
   aliases?: { ko?: string[]; ja?: string[]; en?: string[] };
+  /**
+   * 표시용 언어별 명칭 (D-276). **`aliases` 와 다른 것이다** — alias 는
+   * 정규화된 검색 토큰이고 이것은 화면에 띄우는 이름이다.
+   *
+   * ⚠️ 비면 원문(`name`)으로 떨어진다. 막지 않는 것이 의도다 — 여기서 막으면
+   * 브랜드 추가 자체가 3개 언어를 기다리게 된다
+   */
+  displayNames?: { ko?: string; ja?: string; en?: string };
 }): Promise<ActionResult> {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
@@ -2089,6 +2133,8 @@ export async function createBrand(input: {
   const clean = (list?: string[]) =>
     [...new Set((list ?? []).map((a) => a.trim()).filter(Boolean))];
 
+  const one = (v?: string) => v?.trim() || null;
+
   await prisma.brand.create({
     data: {
       name,
@@ -2097,6 +2143,10 @@ export async function createBrand(input: {
         ja: clean(input.aliases?.ja),
         en: clean(input.aliases?.en),
       },
+      // D-276 — 표시명. 안 넣으면 en 만 원문으로 채운다 (원문이 라틴 표기다)
+      nameKo: one(input.displayNames?.ko),
+      nameJa: one(input.displayNames?.ja),
+      nameEn: one(input.displayNames?.en) ?? name,
       // D-255 — 카테고리 공통 연결. 종류로 좁히는 것은 A-01 상세 브랜드 탭에서 한다
       scopes: { create: categories.map((c) => ({ categoryId: c.id })) },
     },

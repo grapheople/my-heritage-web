@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createBrand, setBrandAliases } from "@/lib/actions/admin";
+import { createBrand, setBrandAliases, setBrandDisplayNames } from "@/lib/actions/admin";
 import { TriLingualList } from "./tri-lingual-list";
 
 /**
@@ -23,12 +23,70 @@ const CATEGORIES = [
 ];
 
 const EMPTY = { ko: [] as string[], ja: [] as string[], en: [] as string[] };
+const EMPTY_NAMES = { ko: "", ja: "", en: "" };
+
+type DisplayNames = { ko: string; ja: string; en: string };
+
+/**
+ * 표시용 언어별 명칭 3칸 (D-276).
+ *
+ * ## ⚠️ alias 칸과 헷갈리게 두면 안 된다
+ * | | 값의 모양 | 화면에 |
+ * |---|---|---|
+ * | alias | 정규화된 검색 토큰 (`gshock`) | **안 보인다** |
+ * | 표시명 | 사람이 읽는 그대로 (`G-SHOCK`·`지샥`) | **보인다** |
+ *
+ * alias 를 표시명 칸에 넣으면 목록에 `gshock` 이 뜬다. 그래서 라벨과 안내
+ * 문구로 **역할을 못 헷갈리게** 갈라놓는다.
+ *
+ * ⚠️ **비우는 것이 정상이다.** 비면 원문으로 떨어지므로 이름이 사라지지 않는다.
+ */
+function DisplayNameFields({
+  value,
+  onChange,
+  placeholderEn,
+}: {
+  value: DisplayNames;
+  onChange: (v: DisplayNames) => void;
+  placeholderEn?: string;
+}) {
+  const rows = [
+    { k: "en" as const, label: "영어", ph: placeholderEn ?? "Snow Peak" },
+    { k: "ko" as const, label: "한국어", ph: "스노우피크" },
+    { k: "ja" as const, label: "일본어", ph: "スノーピーク" },
+  ];
+  return (
+    <div>
+      <span className="text-sm font-semibold">표시 명칭 (화면에 뜨는 이름)</span>
+      <p className="mt-1 text-xs text-muted-foreground">
+        위 alias 와 <b>다른 칸</b>입니다 — alias 는 검색용 정규화 토큰이라 그대로
+        띄우면 이름이 깨집니다. 비우면 <b>원문</b>으로 표시됩니다. 표시 우선순위는{" "}
+        <b>영어 &gt; 한국어 &gt; 일본어</b>이며 유저의 관심 언어권에 든 것만
+        후보입니다 (D-274·D-276).
+      </p>
+      <div className="mt-1.5 flex flex-col gap-1.5">
+        {rows.map((r) => (
+          <label key={r.k} className="flex items-center gap-2 text-sm">
+            <span className="w-14 shrink-0 text-xs text-muted-foreground">{r.label}</span>
+            <input
+              value={value[r.k]}
+              onChange={(e) => onChange({ ...value, [r.k]: e.target.value })}
+              placeholder={r.ph}
+              className="w-72 rounded-md border px-3 py-1.5 text-sm"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function BrandCreateForm() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [cats, setCats] = useState<string[]>([]);
   const [aliases, setAliases] = useState(EMPTY);
+  const [displayNames, setDisplayNames] = useState(EMPTY_NAMES);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [pending, startTransition] = useTransition();
@@ -52,12 +110,13 @@ export function BrandCreateForm() {
         setError("");
         setDone("");
         startTransition(async () => {
-          const res = await createBrand({ name, categoryKeys: cats, aliases });
+          const res = await createBrand({ name, categoryKeys: cats, aliases, displayNames });
           if (res.ok) {
             setDone(`"${name}" 을 추가했습니다.`);
             setName("");
             setCats([]);
             setAliases(EMPTY);
+            setDisplayNames(EMPTY_NAMES);
           } else {
             setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
           }
@@ -125,6 +184,16 @@ export function BrandCreateForm() {
         hint="⚠️ 비우면 그 언어 유저에게는 브랜드가 없는 것으로 보입니다 (D-047). 화면에는 표시되지 않고 검색에만 쓰입니다."
       />
 
+      {/*
+        ⚠️ **alias 와 다른 칸이다** (D-276). alias 는 `gshock` 같은 검색
+        토큰이고 이것은 화면에 그대로 뜨는 이름이다 — 섞으면 이름이 깨진다
+      */}
+      <DisplayNameFields
+        value={displayNames}
+        onChange={setDisplayNames}
+        placeholderEn={name || "Snow Peak"}
+      />
+
       <div>
         <button
           type="submit"
@@ -137,6 +206,80 @@ export function BrandCreateForm() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {done && <p className="text-sm text-sale">{done}</p>}
     </form>
+  );
+}
+
+/**
+ * 기존 브랜드의 **표시명** 편집 (D-276).
+ *
+ * ⚠️ 원문(`Brand.name`)은 여기서 못 고친다 — CSV upsert 멱등키이자 매칭
+ * 키라, 표시명을 고치다 함께 움직이면 import 가 브랜드를 중복 생성하고
+ * 기존 아이템의 매칭이 끊긴다
+ */
+export function BrandDisplayNameEditor({
+  brandId,
+  brandName,
+  initial,
+}: {
+  brandId: string;
+  brandName: string;
+  initial: DisplayNames;
+}) {
+  const [open, setOpen] = useState(false);
+  const [names, setNames] = useState(initial);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
+      >
+        {saved ? "저장됨" : "표시명"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-[520px] rounded-md border p-3 text-left">
+      <p className="text-xs font-semibold">
+        {brandName}
+        <span className="ml-2 font-normal text-muted-foreground">원문 — 고칠 수 없습니다</span>
+      </p>
+      <div className="mt-2">
+        <DisplayNameFields value={names} onChange={setNames} placeholderEn={brandName} />
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const res = await setBrandDisplayNames(brandId, names);
+              if (res.ok) {
+                setSaved(true);
+                setOpen(false);
+              }
+            })
+          }
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setNames(initial);
+            setOpen(false);
+          }}
+          className="rounded-md border px-3 py-1.5 text-xs"
+        >
+          취소
+        </button>
+      </div>
+    </div>
   );
 }
 

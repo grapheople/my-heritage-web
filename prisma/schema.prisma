@@ -623,9 +623,30 @@ model AttributeOption {
 model Brand {
   id      String  @id @default(cuid())
   /// 원문 1개. CSV import는 이 값 기준 upsert — 멱등해야 한다 (FR-04-B-10)
+  ///
+  /// ⚠️ **표시명이 아니라 식별자다** (D-276). 화면에 무엇을 띄울지는 아래
+  /// `nameKo`/`nameJa`/`nameEn` 이 정한다. 이 값을 바꾸면 CSV upsert 멱등성과
+  /// `resolveMasterBrand` 매칭이 함께 움직이므로 **표시명 수정으로 건드리지 않는다**
   name    String  @unique
-  /// { ko: string[], ja: string[], en: string[] } — 검색 인덱스 전용, 화면 미표시
+  /// { ko: string[], ja: string[], en: string[] } — **검색 인덱스 전용**, 화면 미표시
+  ///
+  /// ⚠️ **표시명 3필드가 생겨도 이것은 남는다** (D-276). alias 에는 3필드로
+  /// 담기지 않는 **약어·이표기**가 89건 들어 있다 — `gs`→Grand Seiko,
+  /// `ap`→Audemars Piguet, `jlc`→Jaeger-LeCoultre. 지우면 그 검색어가 죽는다
   aliases Json    @default("{}")
+
+  /// 표시용 언어별 명칭 (D-276). **검색이 아니라 화면에 띄우는 값**이다.
+  ///
+  /// ⚠️ `aliases` 와 역할이 다르다: alias 는 **정규화된 검색 토큰**이라
+  /// `G-SHOCK` 의 en alias 가 `gshock` 이다 — 그대로 띄우면 이름이 깨진다.
+  ///
+  /// ⚠️ **nullable 이다.** 비면 `name`(원문)으로 떨어진다 — D-046 브랜드 요청
+  /// 승인처럼 3개 언어를 당장 채울 수 없는 경로가 있고, 거기서 막히면
+  /// 브랜드가 아예 안 만들어진다. 빈 이름을 띄우는 것보다 원문이 낫다
+  nameKo  String?
+  nameJa  String?
+  nameEn  String?
+
   active  Boolean @default(true)
 
   /// D-255 — 카테고리 **또는 그 하위 종류**에 연결된다 (종전 Category N:M).
@@ -744,8 +765,21 @@ model CodexItem {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  /// D-009 — 전 언어 공통 표시 명칭. 번역하지 않는다
+  /// D-009 — 원문 명칭. **식별용 기준값이고 항상 채워져 있다.**
+  ///
+  /// ⚠️ D-276 이 아래 `nameKo`/`nameJa`/`nameEn` 을 더했지만 **이 필드가
+  /// 없어지는 것이 아니다.** 도감은 유저 등록으로 자동 생성되므로(D-005)
+  /// 3개 언어를 요구할 수 없다 — 그것이 D-009 선택지 B 가 탈락한 이유다.
+  /// 언어별 명칭이 비면 **이 값으로 떨어진다**
   displayName   String
+
+  /// 표시용 언어별 명칭 (D-276). **비어 있는 것이 정상이다** — 채워진 것만 쓴다.
+  ///
+  /// ⚠️ `aliases`(검색 전용)와 역할이 다르다. 운동 도감처럼 어드민이 만든
+  /// 것에는 표시 품질의 영문명이 있지만, 유저가 만든 도감에는 없다
+  nameKo        String?
+  nameJa        String?
+  nameEn        String?
   /// 매칭 키가 단일 키인 카테고리의 고유값 (레퍼런스넘버·스타일코드 등)
   uniqueId      String?
   /// D-014 — 매칭 키를 정규화해 만든 키. **스코프 단위** 유일 (D-254)
