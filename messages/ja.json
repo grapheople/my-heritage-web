@@ -223,7 +223,7 @@
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",
-    "showAllLangs": "すべての言語圏を見る",
+    "widenLangs": "関心のある言語圏を設定する",
     "tabAll": "すべて",
     "tabFollowing": "フォロー中",
     "emptyFollowing": "フォロー中の部屋に新しいアイテムがありません",

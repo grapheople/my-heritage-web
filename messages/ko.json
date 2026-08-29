@@ -223,7 +223,7 @@
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",
-    "showAllLangs": "전체 언어권 보기",
+    "widenLangs": "관심 언어권 설정하기",
     "tabAll": "전체",
     "tabFollowing": "팔로잉",
     "emptyFollowing": "팔로우한 방에 새 아이템이 없어요",

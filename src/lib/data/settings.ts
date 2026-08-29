@@ -19,6 +19,13 @@ export type ProfileSettings = {
   imageUrl?: string;
   /** 선호 카테고리 key (D-124) */
   preferredCategories: string[];
+  /**
+   * 관심 언어권 (D-274) — **홈 피드에서 볼 소유자의 설정 언어** 집합.
+   *
+   * ⚠️ 바로 아래 `language` 와 다른 것이다. 그쪽은 **내 화면이 보이는 말**
+   * (S-12)이고, 이것은 **남의 방을 볼지 말지**(S-11)의 기준이다
+   */
+  preferredLanguages: string[];
   language: "ko" | "ja" | "en";
   /** ⚠️ `undefined` = 아직 수집 안 됨 (D-122). "UTC 를 골랐다"와 다르다 */
   timezone?: string;
@@ -33,6 +40,7 @@ export async function getProfileSettings(
       language: true,
       timezone: true,
       preferredCategories: { where: { active: true }, select: { key: true } },
+      preferredLanguages: true,
       room: {
         select: {
           name: true,
@@ -51,6 +59,7 @@ export async function getProfileSettings(
     bio: user.room.bio ?? undefined,
     imageUrl: user.room.imageUrl ?? undefined,
     preferredCategories: user.preferredCategories.map((c) => c.key),
+    preferredLanguages: user.preferredLanguages,
     roomPublic: user.room.visibility === "PUBLIC",
     onSaleCount: user.room._count.items,
     language: user.language,

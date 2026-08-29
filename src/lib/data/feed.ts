@@ -5,6 +5,7 @@ import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 import { DISPLAYABLE_ITEM } from "@/lib/item-display";
+import { allLanguages } from "@/lib/language-scope";
 
 /**
  * S-01 NEW 피드.
@@ -29,8 +30,14 @@ export type FeedFilter = {
    * 유저가 화면에서 직접 고른 것이기 때문이다 (FR-09-B-06)
    */
   categories?: string[];
-  /** `all` | `ko` | `ja` | `en` — 소유자 설정 언어 기준 (D-027, FR-03-B-02) */
-  lang?: string;
+  /**
+   * **관심 언어권 집합** — 소유자 설정 언어 기준 (D-027·D-274, FR-03-B-02).
+   *
+   * ⚠️ **빈 배열은 "전체"** 다. `{ in: [] }` 는 아무것도 매칭하지 않아 피드가
+   * 통째로 비어버린다 — D-069·D-109 가 동시에 깨진다. `myLanguages()` 가
+   * 애초에 빈 배열을 내지 않지만 여기서도 `length > 0` 을 확인한다
+   */
+  languages?: string[];
   /**
    * **팔로우한 방만** (D-175, OI-86 해소).
    *
@@ -48,14 +55,23 @@ export async function getFeed(
   viewer: Viewer | null,
 ): Promise<FeedItem[]> {
   const blockedIds = await blockedUserIds(viewer);
-  const lang = filter.lang && filter.lang !== "all" ? filter.lang : undefined;
+  /*
+    ⚠️ **전 언어권이면 조건을 걸지 않는다.** `{ in: ["ko","ja","en"] }` 도
+    결과는 같지만 방(→유저) 조인을 강제해 쓸데없이 무겁다 — 아래 `roomWhere`
+    가 조건 유무로 조인을 가른다
+  */
+  const all = allLanguages();
+  const langs =
+    filter.languages?.length && filter.languages.length < all.length
+      ? filter.languages
+      : undefined;
 
   // 방 조건을 한 번만 만든다 — 언어권 필터는 **소유자의 설정 언어**라서
   // 아이템이 아니라 방(→유저)에 걸린다 (D-027, FR-03-B-02)
   const room = publicRoomWhere(blockedIds);
   const userWhere = {
     ...room.user,
-    ...(lang ? { language: lang as "ko" | "ja" | "en" } : {}),
+    ...(langs ? { language: { in: langs as ("ko" | "ja" | "en")[] } } : {}),
     /*
       팔로우한 방만 (D-175). `viewer` 가 없으면 **아무것도 매칭되지 않는 조건**을
       넣는다 — 조건을 빼면 전체가 나와서 탭이 무의미해진다.
@@ -65,7 +81,7 @@ export async function getFeed(
       : {}),
   };
   const roomWhere =
-    lang || filter.following ? { ...room, user: userWhere } : room;
+    langs || filter.following ? { ...room, user: userWhere } : room;
 
   const items = await prisma.item.findMany({
     where: {

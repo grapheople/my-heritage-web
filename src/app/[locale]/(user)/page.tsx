@@ -3,12 +3,12 @@ import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/domain/empty-state";
 import { FeedCard } from "@/components/domain/feed-card";
 import { FeedTabs } from "@/components/domain/feed-tabs";
-import { FilterBar } from "@/components/domain/filter-bar";
 import { Link } from "@/i18n/navigation";
 import { absolute, localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
 import { myCategoryKeys } from "@/lib/category-scope";
+import { allLanguages, myLanguages } from "@/lib/language-scope";
 
 /**
  * S-01 NEW 피드 — 최초 진입 화면. 온보딩은 없다 (D-069).
@@ -21,8 +21,8 @@ import { myCategoryKeys } from "@/lib/category-scope";
  * | 비공개 아이템·비공개 방은 제외 | D-019, FR-03-A-04 |
  * | 카드에 이미지·명칭·**카테고리**·소유자 방 이름 | FR-03-A-05 |
  * | 피드 범위 = **내 관심 카테고리 전체** (고르지 않는다) | **D-271·D-272** |
- * | 언어권 필터 한 줄 배치 | D-082, FR-03-B-06 |
- * | 언어권 기본값 `전체` | D-027, FR-03-B-03 |
+ * | 언어권 범위 = **내 관심 언어권** (고르지 않는다) | **D-274** |
+ * | 관심 언어권 미설정 시 `전체` | D-027, FR-03-B-03 |
  * | 일기는 섞지 않는다 | D-006 |
  *
  * ## ⚠️ 색인 대상이다 (D-109 — D-078 을 부분 폐기)
@@ -79,7 +79,13 @@ export default async function FeedPage({
   const sp = await searchParams;
   const t = await getTranslations();
 
-  const lang = typeof sp.lang === "string" ? sp.lang : "all";
+  /*
+    ⚠️ **`?lang=` 을 더 이상 읽지 않는다** (D-274). 언어권도 화면에서 고르는
+    필터가 아니라 **설정에 둔 축**이 됐다 — 옛 링크의 `?lang=ja` 는 무시된다.
+    카테고리(`?category=`)와 달리 공유·색인 경로가 없어 살려둘 이유가 없다
+  */
+  const languages = await myLanguages();
+  const langNarrowed = languages.length < allLanguages().length;
   const viewer = await getViewer();
   // 기본은 전체다 — URL 에서 `?tab=all` 을 생략한다 (D-175)
   const tab = sp.tab === "following" ? "following" : "all";
@@ -97,19 +103,21 @@ export default async function FeedPage({
   // 필터는 **조회 조건**이다 — 다 가져와서 걸러내면 비공개·차단이 응답에
   // 실린 뒤 화면에서만 사라진다 (D-083)
   const items = await getFeed(
-    { categories, lang, following: tab === "following" },
+    { categories, languages, following: tab === "following" },
     viewer,
   );
 
   return (
     <div>
       {/*
-        ⚠️ **셀렉트 → 탭 순서**이고 **둘이 한 덩어리로 고정된다** (D-176).
-        각자 `sticky` 를 걸면 탭만 스크롤에 밀려 올라간다 — 그래서 `FilterBar` 의
-        sticky 를 걷고 여기서 감싼다. 경계선은 이 블록 하단에 한 줄만 둔다.
+        ⚠️ **상단 줄에 남은 것은 탭뿐이다** (D-272·D-274). 카테고리 셀렉트에
+        이어 언어권 셀렉트까지 설정으로 가면서 `FilterBar` 자체가 없어졌다.
+
+        `sticky` 는 계속 **감싸는 쪽**이 건다 (D-176) — 안쪽 컴포넌트가 각자
+        걸면 스크롤에 따로 논다. 지금은 자식이 하나뿐이라 티가 안 나지만,
+        여기에 무언가를 다시 넣을 때 그 규칙이 살아 있어야 한다
       */}
       <div className="sticky top-0 z-20 border-b bg-background">
-        <FilterBar lang={lang} />
         {/* 전체 / 팔로잉 (D-175, OI-86 해소) */}
         <FeedTabs tab={tab} />
       </div>
@@ -130,11 +138,9 @@ export default async function FeedPage({
               : t("empty.feed")
           }
           description={
-            tab === "all" && lang !== "all" ? t("feed.emptyByLang") : undefined
+            tab === "all" && langNarrowed ? t("feed.emptyByLang") : undefined
           }
           action={
-            /* 선택한 언어권에 아이템이 없으면 '전체'로 돌아갈 경로를 준다
-               (FR-03-B-05) */
             tab === "following" && !viewer ? (
               <Link
                 href="/login"
@@ -142,14 +148,18 @@ export default async function FeedPage({
               >
                 {t("auth.login")}
               </Link>
-            ) : tab === "all" && lang !== "all" ? (
-              /* 홈은 `?category=` 를 쓰지 않는다 (D-272) — 언어권만 걷어낸
-                 주소가 곧 `/` 다 */
+            ) : tab === "all" && langNarrowed ? (
+              /*
+                ⚠️ **막다른 길을 만들지 않는다** (FR-03-B-05). 예전에는 `?lang=`
+                를 지워 전체로 돌아갔지만, 축이 설정으로 갔으므로 **설정으로
+                보내는 것**이 유일하게 정직한 출구다 — "여기선 못 넓힌다"는
+                화면을 남기면 유저는 고장으로 읽는다
+              */
               <Link
-                href="/"
+                href="/me/settings"
                 className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent"
               >
-                {t("feed.showAllLangs")}
+                {t("feed.widenLangs")}
               </Link>
             ) : undefined
           }

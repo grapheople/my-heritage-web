@@ -6,7 +6,17 @@ import { updateProfile } from "@/lib/actions/settings";
 import { PhotoUploader } from "@/components/domain/photo-uploader";
 
 /**
- * S-16 프로필 설정 — 방 이름 · 소개 · 사진 · 관심 카테고리.
+ * S-16 프로필 설정 — 방 이름 · 소개 · 사진 · **관심 카테고리 · 관심 언어권**.
+ *
+ * ## ⚠️ 관심 언어권은 S-12 "언어 설정" 과 **다른 것이다** (D-274)
+ * | | 무엇 | 어디 |
+ * |---|---|---|
+ * | 서비스 언어 (`User.language`) | *내* 화면이 보이는 말 | S-12 |
+ * | 관심 언어권 | *남의* 방을 볼지 말지 | **여기** |
+ *
+ * 같은 "언어"라는 말을 쓰므로 **문구로 갈라줘야 한다.** 합쳐 두면 한국어 UI 를
+ * 쓰는 사람이 일본 컬렉터를 못 보게 되고, 그건 D-027 이 언어권 기본값을
+ * `전체` 로 둔 이유를 정면으로 뒤집는다.
  *
  * ## ⚠️ 이 화면이 없으면 온보딩의 스킵이 성립하지 않는다 (FR-09-B-03)
  * S-24 에서 건너뛴 항목을 여기서 넣을 수 없으면, 유저는 "지금 안 하면 못
@@ -18,6 +28,8 @@ import { PhotoUploader } from "@/components/domain/photo-uploader";
 export function ProfileForm({
   initial,
   categoryLabels,
+  languageKeys,
+  languageLabels,
   roomNameMax,
   labels,
 }: {
@@ -26,8 +38,12 @@ export function ProfileForm({
     bio?: string;
     imageUrl?: string;
     preferredCategories: string[];
+    preferredLanguages: string[];
   };
   categoryLabels: Record<string, string>;
+  /** 서비스가 지원하는 언어 — `i18n/routing.ts` 가 단일 출처다 (D-274) */
+  languageKeys: string[];
+  languageLabels: Record<string, string>;
   roomNameMax: number;
   labels: { roomName: string; roomNameHint: string; bio: string };
 }) {
@@ -37,6 +53,7 @@ export function ProfileForm({
     initial.imageUrl ? [initial.imageUrl] : [],
   );
   const [picked, setPicked] = useState<string[]>(initial.preferredCategories);
+  const [langs, setLangs] = useState<string[]>(initial.preferredLanguages);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -54,6 +71,7 @@ export function ProfileForm({
             // 사진을 지운 경우 `null` 을 보내야 한다 — `undefined` 는 "안 보냄"이다
             imageUrl: photos[0] ?? null,
             preferredCategories: picked,
+            preferredLanguages: langs,
           });
           if (res.ok) setDone(true);
           else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
@@ -129,6 +147,40 @@ export function ProfileForm({
                 }
               >
                 {categoryLabels[key] ?? key}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 관심 언어권 (D-274) ── */}
+      <div>
+        <span className="text-sm font-semibold">관심 있는 언어권</span>
+        {/*
+          ⚠️ **바로 아래 "언어 설정"(S-12)과 헷갈리게 두면 안 된다.** 그쪽은
+          화면이 보이는 말이고 여기는 누구의 방을 볼지다. 문구로 갈라준다
+        */}
+        <p className="mt-1 text-xs text-muted-foreground">
+          홈 피드에 이 언어를 쓰는 사람의 방만 보여줘요. 고르지 않으면 전체를
+          보여줍니다 — 화면이 보이는 말은 아래 <b>언어 설정</b>에서 바꿉니다.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {languageKeys.map((key) => {
+            const on = langs.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  setLangs(on ? langs.filter((l) => l !== key) : [...langs, key])
+                }
+                className={
+                  on
+                    ? "rounded-full border border-primary bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground"
+                    : "rounded-full border px-3.5 py-1.5 text-sm hover:bg-accent"
+                }
+              >
+                {languageLabels[key] ?? key}
               </button>
             );
           })}

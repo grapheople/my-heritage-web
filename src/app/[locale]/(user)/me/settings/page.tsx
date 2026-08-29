@@ -6,6 +6,7 @@ import { Link, redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { ROOM_NAME_MAX } from "@/lib/profile";
 import { getProfileSettings } from "@/lib/data/settings";
+import { allLanguages } from "@/lib/language-scope";
 
 /**
  * S-11 프로필 설정.
@@ -50,11 +51,16 @@ export default async function ProfileSettingsPage({
           bio: p.bio,
           imageUrl: p.imageUrl,
           preferredCategories: p.preferredCategories,
+          preferredLanguages: p.preferredLanguages,
         }}
         categoryLabels={Object.fromEntries(
           CATEGORY_KEYS.map(
             (k) => [k, t(`category.${k}`)],
           ),
+        )}
+        languageKeys={allLanguages()}
+        languageLabels={Object.fromEntries(
+          allLanguages().map((l) => [l, t(`filter.lang.${l}`)]),
         )}
         roomNameMax={ROOM_NAME_MAX}
         labels={{

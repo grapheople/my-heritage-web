@@ -223,7 +223,7 @@
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",
-    "showAllLangs": "Show all languages",
+    "widenLangs": "Edit preferred languages",
     "tabAll": "All",
     "tabFollowing": "Following",
     "emptyFollowing": "No new items from rooms you follow",

@@ -4,6 +4,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { fail, type ActionResult, revalidate } from "@/lib/actions/shared";
 import { prisma } from "@/lib/prisma";
 import { ROOM_NAME_MAX } from "@/lib/profile";
+import { allLanguages } from "@/lib/language-scope";
 
 /**
  * 설정 · 알림 (S-11 · S-12 · S-22).
@@ -26,6 +27,11 @@ export async function updateProfile(input: {
    * 설정 화면이 이 항목을 안 보내는 경우와 "전부 해제"를 구분해야 한다
    */
   preferredCategories?: string[];
+  /**
+   * 관심 언어권 (D-274). `undefined` 면 건드리지 않는다 — `preferredCategories`
+   * 와 같은 이유로 "안 보냄"과 "전부 해제"를 구분해야 한다
+   */
+  preferredLanguages?: string[];
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer?.roomId) return fail({}, "로그인이 필요합니다");
@@ -50,22 +56,50 @@ export async function updateProfile(input: {
     },
   });
 
-  if (input.preferredCategories) {
+  if (input.preferredCategories || input.preferredLanguages) {
     await prisma.user.update({
       where: { id: viewer.userId },
       data: {
         // `set` 이라 빈 배열이면 전부 해제된다 — 그게 의도다 (FR-09-B-04)
-        preferredCategories: {
-          set: input.preferredCategories.map((key) => ({ key })),
-        },
+        ...(input.preferredCategories
+          ? {
+              preferredCategories: {
+                set: input.preferredCategories.map((key) => ({ key })),
+              },
+            }
+          : {}),
+        /*
+          ⚠️ **모르는 값을 그대로 넣지 않는다.** enum 컬럼이라 `"kr"` 같은 값이
+          오면 DB 가 던진다 — 폼이 보낸 것이라도 신뢰하지 않는다. 전부 해제는
+          정상 입력이므로(= 전체 보기) 걸러낸 결과가 빈 배열이어도 저장한다
+        */
+        ...(input.preferredLanguages
+          ? {
+              preferredLanguages: {
+                set: input.preferredLanguages.filter((l) =>
+                  allLanguages().includes(l),
+                ) as ("ko" | "ja" | "en")[],
+              },
+            }
+          : {}),
       },
     });
   }
 
   revalidate("/[locale]/me");
   revalidate("/[locale]/me/settings");
-  // 선호 카테고리가 피드 기본 필터를 바꾼다 (FR-09-B-05)
+  /*
+    ⚠️ **관심사가 바뀌면 축이 걸린 화면을 전부 다시 그려야 한다.**
+    예전에는 홈 하나였지만(FR-09-B-05) D-271 로 **범위**가 되면서 마켓·등록이
+    합류했고, 도감은 선택지 목록이 좁혀진다(D-273). 관심 언어권은 홈만 바꾼다
+    (D-274 — 마켓은 D-049, 도감은 FR-03-B-07 로 애초에 언어권 축이 없다).
+
+    한 곳이라도 빠지면 유저는 **저장했는데 안 바뀌는 화면**을 만난다
+  */
   revalidate("/[locale]");
+  revalidate("/[locale]/market");
+  revalidate("/[locale]/items/new");
+  revalidate("/[locale]/codex");
   return { ok: true };
 }
 
