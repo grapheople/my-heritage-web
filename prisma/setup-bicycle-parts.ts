@@ -60,7 +60,14 @@ const PART_SUBTYPES = [
  * ⚠️ **실제로 그 종류를 만드는 브랜드만 적는다.** 넓게 연결하면 안 만드는
  * 종류를 수집할 때 0건이거나 지어낸 제품이 온다 (D-262 에서 겪었다).
  */
-const PART_BRANDS: { name: string; ko: string[]; ja: string[]; subtypes: string[] }[] = [
+const PART_BRANDS: {
+  name: string;
+  ko: string[];
+  ja: string[];
+  /** ⚠️ 모델이 다르게 부르는 영문 표기 — 없으면 브랜드 게이트에 막힌다 (D-047) */
+  en?: string[];
+  subtypes: string[];
+}[] = [
   { name: "Shimano", ko: ["시마노"], ja: ["シマノ"], subtypes: ["drivetrain", "brakes", "wheelset"] },
   { name: "SRAM", ko: ["스램"], ja: ["スラム"], subtypes: ["drivetrain", "brakes"] },
   { name: "Campagnolo", ko: ["캄파뇰로", "캄파"], ja: ["カンパニョーロ"], subtypes: ["drivetrain", "brakes", "wheelset"] },
@@ -71,7 +78,8 @@ const PART_BRANDS: { name: string; ko: string[]; ja: string[]; subtypes: string[
   { name: "Mavic", ko: ["마빅"], ja: ["マヴィック"], subtypes: ["wheelset"] },
   { name: "Fizik", ko: ["피직"], ja: ["フィジーク"], subtypes: ["saddle", "handlebar"] },
   { name: "Selle Italia", ko: ["셀레이탈리아"], ja: ["セライタリア"], subtypes: ["saddle"] },
-  { name: "Brooks", ko: ["브룩스"], ja: ["ブルックス"], subtypes: ["saddle"] },
+  // ⚠️ 모델이 `Brooks England` 로 낸다 — alias 없으면 4건이 통째로 막혔다
+  { name: "Brooks", ko: ["브룩스"], ja: ["ブルックス"], en: ["Brooks England"], subtypes: ["saddle"] },
   { name: "Continental", ko: ["콘티넨탈"], ja: ["コンチネンタル"], subtypes: ["tire"] },
   { name: "Maxxis", ko: ["맥시스"], ja: ["マキシス"], subtypes: ["tire"] },
   { name: "Schwalbe", ko: ["슈발베"], ja: ["シュワルベ"], subtypes: ["tire"] },
@@ -139,7 +147,7 @@ async function main() {
       create: {
         name: b.name,
         // ⚠️ alias 가 없으면 "시마노" 로 검색해도 안 나와 브랜드가 없는 것으로 오인된다 (D-047)
-        aliases: { ko: b.ko, ja: b.ja, en: [] },
+        aliases: { ko: b.ko, ja: b.ja, en: b.en ?? [] },
       },
       select: { id: true },
     });
