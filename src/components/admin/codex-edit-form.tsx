@@ -13,21 +13,39 @@ import { updateCodexItem } from "@/lib/actions/admin";
  * ⚠️ **미검증 도감에는 다국어 설명 칸을 주지 않는다** (FR-07-A-05). 미검증본은
  * 유저가 쓴 원문 1개를 그대로 보여줘야 한다 — 번역하면 운영자가 검수하지 않은
  * 내용을 서비스가 보증하는 것처럼 보인다.
+ *
+ * ## ⚠️ 편집을 열면 **지금 값이 들어 있어야 한다** (D-280)
+ * 설명 칸이 `useState({ko:"",ja:"",en:""})` 로 **항상 비어** 시작했다. 기존
+ * 설명을 아예 넘겨받지 않았다. 빈 칸을 보고 저장하면 **3개 언어 설명이 통째로
+ * 지워진다** — 화면은 "편집" 인데 동작은 "초기화" 였다.
+ *
+ * ⚠️ **`useState(prop)` 은 첫 마운트에만 실행된다.** 저장 후 서버가 새 값을
+ * 내려줘도 상태는 옛 값에 머문다. 그래서 **열 때 props 로 되맞춘다** — 이
+ * 컴포넌트는 닫혀도 언마운트되지 않기 때문이다.
  */
 export function CodexEditForm({
   codexId,
   displayName,
   uniqueId,
   verified,
+  /**
+   * 기존 3개 언어 설명 (D-280). **안 넘기면 편집이 초기화가 된다.**
+   *
+   * 목록 화면처럼 설명을 안 읽는 곳에서는 생략할 수 있다 — 그때는 저장이
+   * 설명을 건드리지 않는다 (`updateCodexItem` 이 빈 값을 무시한다)
+   */
+  descriptions,
 }: {
   codexId: string;
   displayName: string;
   uniqueId: string;
   verified: boolean;
+  descriptions?: { ko: string; ja: string; en: string };
 }) {
+  const empty = { ko: "", ja: "", en: "" };
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(displayName);
-  const [desc, setDesc] = useState({ ko: "", ja: "", en: "" });
+  const [desc, setDesc] = useState(descriptions ?? empty);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -36,7 +54,12 @@ export function CodexEditForm({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // ⚠️ 열 때 **지금 값으로 되맞춘다** — `useState` 는 첫 마운트에만 돈다 (D-280)
+        onClick={() => {
+          setName(displayName);
+          setDesc(descriptions ?? empty);
+          setOpen(true);
+        }}
         className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
       >
         {saved ? "저장됨" : "편집"}

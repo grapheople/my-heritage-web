@@ -195,6 +195,8 @@ export default async function AdminCodexDetailPage({
           displayName={c.displayName}
           uniqueId={c.uniqueId}
           verified={c.verified}
+          // ⚠️ 안 넘기면 편집이 초기화가 된다 (D-280)
+          descriptions={c.descriptions}
         />
         {/*
           ⚠️ 표시명은 **명칭 바로 아래**에 둔다 (D-276). alias(§아래)와 멀리

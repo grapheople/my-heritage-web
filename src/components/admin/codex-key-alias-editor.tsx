@@ -42,7 +42,13 @@ export function CodexKeyAliasEditor({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // ⚠️ 열 때 지금 값으로 되맞춘다 (D-280)
+        onClick={() => {
+          setValues(initial.map((k) => k.value));
+          setDraft("");
+          setResult(null);
+          setOpen(true);
+        }}
         className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
       >
         키 alias 편집

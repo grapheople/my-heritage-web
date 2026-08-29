@@ -182,7 +182,11 @@ export function BrandDisplayNameEditor({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // ⚠️ 열 때 지금 값으로 되맞춘다 (D-280)
+        onClick={() => {
+          setNames(initial);
+          setOpen(true);
+        }}
         className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
       >
         {saved ? "저장됨" : "표시명"}
@@ -250,7 +254,11 @@ export function BrandAliasEditor({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // ⚠️ 열 때 지금 값으로 되맞춘다 (D-280)
+        onClick={() => {
+          setAliases(initial);
+          setOpen(true);
+        }}
         className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
       >
         {saved ? "저장됨" : "alias 편집"}

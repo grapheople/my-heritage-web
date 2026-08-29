@@ -2417,9 +2417,25 @@ export async function updateCodexItem(input: {
 
   const codex = await prisma.codexItem.findUnique({
     where: { id: input.codexId },
-    select: { verification: true },
+    select: { verification: true, descriptions: true },
   });
   if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+
+  /*
+    ⚠️ **빈 칸은 "지워라" 가 아니라 "건드리지 마라" 다** (D-280).
+
+    초판은 넘어온 값을 그대로 치환했다. 폼이 기존 설명을 안 받아 빈 칸으로
+    떠 있었으므로(같은 결정) **저장 한 번에 3개 언어 설명이 통째로 사라졌다.**
+    치환은 "편집" 이 아니라 "초기화" 다.
+
+    지우려면 **그 언어만** 비우는 것이 아니라 별도 동작이어야 한다 — 지금은
+    실수로 지우는 경로를 없애는 것이 먼저다. CSV import 의 표시명 규칙(D-276)과
+    같은 태도다.
+  */
+  const merged = { ...((codex.descriptions ?? {}) as Record<string, string>) };
+  for (const [lang, v] of Object.entries(input.descriptions ?? {})) {
+    if (v?.trim()) merged[lang] = v.trim();
+  }
 
   await prisma.codexItem.update({
     where: { id: input.codexId },
@@ -2427,11 +2443,7 @@ export async function updateCodexItem(input: {
       displayName,
       // 미검증본에는 다국어 설명을 넣지 않는다 (FR-07-A-05) — 원문 1개가 맞다
       ...(codex.verification === "VERIFIED" && input.descriptions
-        ? {
-            descriptions: Object.fromEntries(
-              Object.entries(input.descriptions).filter(([, v]) => v?.trim()),
-            ),
-          }
+        ? { descriptions: merged }
         : {}),
     },
   });
