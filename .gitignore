@@ -47,3 +47,7 @@ next-env.d.ts
 
 # 근육맵 미리보기 산출물 (D-239) — 생성물이므로 커밋하지 않는다. 스크립트가 SoT 다
 /.muscle-preview/
+
+# 도감 분류 제안 (D-257) — 재생성 가능하고 --apply 후에는 stale 이다.
+# 커밋하면 "적용된 제안"이 미적용인 것처럼 남는다. brands.csv 는 SoT 라 다르다
+prisma/data/classify-*.csv
