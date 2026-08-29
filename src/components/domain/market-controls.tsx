@@ -3,13 +3,16 @@
 import { ChevronDown, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { CategorySelect } from "@/components/domain/category-select";
 import { cn } from "@/lib/utils";
 
 /**
  * 마켓 필터 + 정렬 (FR-02-B, FR-02-C).
  *
- * **필터는 카테고리 + 통화 2개뿐이다** (FR-02-B-01).
+ * ## ⚠️ 카테고리 셀렉트가 여기 없다 (D-272)
+ * 마켓은 홈과 같이 **내 관심사 전체**를 보여준다. 카테고리를 하나 고르는
+ * 곳은 도감뿐이다 — 관심사 편집은 설정에서 한다.
+ *
+ * **필터는 통화 1개뿐이다** (FR-02-B-01 — 카테고리 필터는 D-272 로 빠졌다).
  * **언어권 필터를 제공하지 않는다** (FR-02-B-02, D-049) — NEW 피드와 다른 점이다.
  *
  * ⚠️ **가격순 정렬은 단일 통화가 선택됐을 때만 활성화된다** (FR-02-C-01).
@@ -22,13 +25,9 @@ const CURRENCIES = ["KRW", "JPY", "USD"] as const;
 export function MarketControls({
   currency,
   sort,
-  categoryKeys,
-  category,
 }: {
   currency?: string;
   sort: string;
-  categoryKeys: string[];
-  category: string;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -37,8 +36,8 @@ export function MarketControls({
   const priceSortEnabled = Boolean(currency);
 
   function apply(next: { currency?: string | null; sort?: string }) {
-    // ⚠️ **`category` 를 보존한다** (D-137). 빈 URLSearchParams 로 새로 만들면
-    // 통화만 바꿔도 보고 있던 카테고리 축이 초기화된다
+    // ⚠️ **다른 쿼리를 보존한다.** 빈 URLSearchParams 로 새로 만들면 통화만
+    // 바꿔도 함께 실려 있던 상태가 날아간다
     const p = new URLSearchParams(
       typeof window === "undefined" ? "" : window.location.search,
     );
@@ -54,10 +53,11 @@ export function MarketControls({
 
   return (
     <div className="sticky top-0 z-20 border-b bg-background">
-      {/* 카테고리 + 통화를 **우측**에 모은다 (D-141) */}
+      {/* 통화를 **우측**에 모은다 (D-141) */}
       <div className="flex items-center justify-end gap-3 px-4 py-2.5 lg:px-0">
-        <CategorySelect keys={categoryKeys} active={category} />
-        <div className="flex shrink-0 items-center border-l pl-3">
+        {/* 카테고리 셀렉트가 빠지면서 구분선(`border-l`)도 걷었다 — 왼쪽에
+            나란히 놓을 컨트롤이 없는데 선만 남으면 잘린 것처럼 보인다 (D-272) */}
+        <div className="flex shrink-0 items-center">
           <label className="relative flex items-center gap-1 text-sm text-muted-foreground">
             <span className="sr-only">{t("filter.currency")}</span>
             <select

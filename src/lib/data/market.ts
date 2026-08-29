@@ -24,6 +24,15 @@ import { DISPLAYABLE_ITEM } from "@/lib/item-display";
  */
 export type MarketFilter = {
   category?: string;
+  /**
+   * 여러 카테고리 — **내 관심사 집합** (D-271). `category` 가 있으면 그쪽이
+   * 이긴다. `feed.ts` 의 `categories` 와 같은 규칙이다.
+   *
+   * ⚠️ **빈 배열은 "전체"** 다. `myCategoryKeys()` 가 애초에 빈 배열을 내지
+   * 않지만, 여기서도 `length > 0` 을 확인해 조건을 건다 — `{ in: [] }` 는
+   * 아무것도 매칭하지 않아 화면이 통째로 비어버린다 (D-069·D-109)
+   */
+  categories?: string[];
   currency?: string;
   sort?: "recent" | "price";
   limit?: number;
@@ -52,7 +61,11 @@ export async function getMarketListings(
       */
       category: {
         sellable: true,
-        ...(filter.category ? { key: filter.category } : {}),
+        ...(filter.category
+          ? { key: filter.category }
+          : filter.categories?.length
+            ? { key: { in: filter.categories } }
+            : {}),
       },
       ...(filter.currency
         ? { currency: filter.currency as CurrencyCode }

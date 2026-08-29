@@ -101,11 +101,17 @@ export function ProfileForm({
       <div>
         <span className="text-sm font-semibold">
           관심 있는 카테고리
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {/* 용도를 밝힌다 — 왜 물었는지 모르면 고를 이유가 없다 (D-124) */}
-            첫 화면에 이 카테고리부터 보여줘요
-          </span>
         </span>
+        {/*
+          ⚠️ **용도를 정확히 쓴다** (D-124·D-271). 옛 문구는 "첫 화면에 이
+          카테고리부터 보여줘요" 였는데, 이제 순서가 아니라 **범위**를 정한다 —
+          홈·마켓·등록에 관심사만 나오고 도감 선택지도 여기서 좁혀진다.
+          "부터" 로 읽으면 나머지도 아래에 있는 줄 알고 스크롤하게 된다
+        */}
+        <p className="mt-1 text-xs text-muted-foreground">
+          홈·마켓·등록 화면이 여기서 고른 카테고리만 보여줘요. 고르지 않으면
+          전체를 보여줍니다.
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {CATEGORY_KEYS.map((key) => {
             const on = picked.includes(key);

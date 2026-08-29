@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { CategoryGate } from "@/components/domain/category-gate";
 import { CodexRow } from "@/components/domain/codex-row";
 import { EmptyState } from "@/components/domain/empty-state";
 import { SearchBar } from "@/components/domain/search-bar";
@@ -25,7 +26,8 @@ import { CODEX_BROWSE_LIMIT, listCodex, searchCodex } from "@/lib/data/codex";
  * | 규칙 | 근거 |
  * |---|---|
  * | 도감은 원문 명칭·고유값·**3개 언어 alias** 전부 대상 | D-009, FR-04-A-04 |
- * | 카테고리 축이 걸린다 | D-137, FR-04-A-09 |
+ * | 카테고리 축이 걸린다 — **하나를 고른다** | D-137, FR-04-A-09 |
+ * | 고를 수 있는 목록은 **내 관심사만** | **D-273** |
  * | **언어권 필터를 적용하지 않는다** | D-027, FR-03-B-07 |
  * | 병합된 도감은 결과에 없다 (survivor 를 낸다) | D-016 |
  */
@@ -35,7 +37,13 @@ export default async function CodexPage({
   const sp = await searchParams;
 
   const q = typeof sp.q === "string" ? sp.q : "";
-  // ⚠️ 카테고리는 항상 하나다 (D-137). `전체` 검색은 없다
+  /*
+    ⚠️ **여기만 하나를 고른다** (D-272). 홈·마켓은 관심사 전체로 바뀌었지만
+    도감은 제품 사전을 훑는 화면이라 한 카테고리 안에서 깊이 봐야 한다 —
+    시계 레퍼런스를 찾는 중에 텐트가 섞이면 목록이 못 쓰게 된다.
+
+    `scope.keys` 는 **내 관심사로 좁혀진 목록**이다 (D-273)
+  */
   const scope = await resolveCategory(
     typeof sp.category === "string" ? sp.category : undefined,
   );
@@ -44,6 +52,16 @@ export default async function CodexPage({
   return (
     <div>
       <SearchBar q={q} categoryKeys={scope.keys} category={category} />
+
+      {/*
+        ⚠️ 고른 적이 없으면 **여기서 묻는다** (D-272). 홈에서 걷어낸 선택
+        화면이 도감으로 왔다 — 도감은 여전히 한 카테고리 안에서만 보여주므로,
+        고른 적이 없으면 유저는 자기가 무엇을 보고 있는지 모른다.
+
+        ⚠️ 콘텐츠 **위에** 덮는다. 대체하지 않는다 — 크롤러는 목록을 읽어야
+        하고(D-109) 관람자는 벽부터 만나면 안 된다(D-069)
+      */}
+      {!scope.chosen && <CategoryGate keys={scope.keys} />}
 
       {q ? (
         <CodexResults q={q} category={category} />

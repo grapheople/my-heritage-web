@@ -3,6 +3,7 @@ import { ItemForm } from "@/components/domain/item-form";
 import { redirect } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { getRoutineFieldLabels, photoRequiredByCategory } from "@/lib/data/item";
+import { myCategoryKeys } from "@/lib/category-scope";
 import type { Locale } from "@/i18n/routing";
 
 /**
@@ -37,12 +38,21 @@ export default async function NewItemPage({
     불러오려면 라우트 핸들러가 하나 더 필요하고, 7개 boolean 이라 비용이 없다
   */
   const photoRequired = await photoRequiredByCategory();
+  /*
+    D-271 — 1단계 선택지는 **내 관심 카테고리**다. 전체 8개를 깔면 등록할
+    생각이 없는 카테고리가 절반을 차지한다. 관심사가 없으면 전체가 온다
+  */
+  const categoryKeys = await myCategoryKeys();
 
   return (
     <div className="px-4 py-5 lg:px-0">
       <h1 className="text-lg font-bold tracking-tight">{t("reg.newTitle")}</h1>
       <div className="mt-4">
-        <ItemForm routineFieldLabels={routineFieldLabels} photoRequired={photoRequired} />
+        <ItemForm
+          routineFieldLabels={routineFieldLabels}
+          photoRequired={photoRequired}
+          categoryKeys={categoryKeys}
+        />
       </div>
     </div>
   );

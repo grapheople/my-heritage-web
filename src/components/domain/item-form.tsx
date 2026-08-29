@@ -48,8 +48,8 @@ const ITEM_MAX_PHOTOS = 10;
  * | 초기 공개=공개, 판매=전시중 | FR-05-A-04, D-019 |
  * | **이탈 시 임시 저장하지 않는다** | FR-05-A-07 |
  * | 수정 시 **카테고리 변경 불가** | FR-05-B-02 |
+ * | 1단계 선택지 = **내 관심 카테고리** | **D-271** |
  */
-const CATEGORIES = CATEGORY_KEYS;
 
 export function ItemForm({
   /** 수정 모드 — 카테고리 고정 (FR-05-B-02) */
@@ -66,6 +66,14 @@ export function ItemForm({
   initialPhotos,
   routineFieldLabels,
   photoRequired,
+  /**
+   * 1단계에서 고를 수 있는 카테고리 — **내 관심사** (D-271). 서버가 넘긴다.
+   *
+   * ⚠️ **비어 오면 안 된다.** `myCategoryKeys()` 가 관심사가 없을 때 전체를
+   * 내므로 그럴 일은 없지만, 여기서도 전체로 떨어뜨린다 — 빈 배열이 오면
+   * 1단계에 버튼이 하나도 없어 **등록 자체가 막힌다**
+   */
+  categoryKeys,
 }: {
   fixedCategory?: string;
   initialValues?: Record<string, string>;
@@ -84,7 +92,9 @@ export function ItemForm({
    * 등록된다.**
    */
   photoRequired?: Record<string, boolean>;
+  categoryKeys?: string[];
 }) {
+  const categories = categoryKeys?.length ? categoryKeys : CATEGORY_KEYS;
   const t = useTranslations();
   const locale = useLocale();
   const [category, setCategory] = useState<string | null>(fixedCategory ?? null);
@@ -317,8 +327,10 @@ export function ItemForm({
     return (
       <div>
         <p className="text-sm text-muted-foreground">{t("reg.step1")}</p>
+        {/* ⚠️ **내 관심사만 나온다** (D-271). 전체 8개를 깔면 등록할 생각이
+            없는 카테고리가 절반을 차지한다 — 관심사는 설정에서 넓힌다 */}
         <ul className="mt-3 grid grid-cols-2 gap-2">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <li key={c}>
               <button type="button" onClick={() => { setCategory(c); setSubtype(""); }}
                 className="w-full rounded-lg border py-4 text-sm font-semibold hover:bg-accent">

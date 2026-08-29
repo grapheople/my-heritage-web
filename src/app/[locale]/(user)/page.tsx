@@ -8,8 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { absolute, localeAlternates } from "@/lib/site";
 import { getViewer } from "@/lib/auth/viewer";
 import { getFeed } from "@/lib/data/feed";
-import { resolveCategory } from "@/lib/category-scope";
-import { CategoryGate } from "@/components/domain/category-gate";
+import { myCategoryKeys } from "@/lib/category-scope";
 
 /**
  * S-01 NEW 피드 — 최초 진입 화면. 온보딩은 없다 (D-069).
@@ -21,7 +20,8 @@ import { CategoryGate } from "@/components/domain/category-gate";
  * | **팔로잉 탭**은 팔로우한 방만. 기본은 전체 탭 | **D-175** (OI-86) |
  * | 비공개 아이템·비공개 방은 제외 | D-019, FR-03-A-04 |
  * | 카드에 이미지·명칭·**카테고리**·소유자 방 이름 | FR-03-A-05 |
- * | 카테고리 + 언어권 필터를 **동시 적용**, 한 줄 배치 | D-082, FR-03-B-06 |
+ * | 피드 범위 = **내 관심 카테고리 전체** (고르지 않는다) | **D-271·D-272** |
+ * | 언어권 필터 한 줄 배치 | D-082, FR-03-B-06 |
  * | 언어권 기본값 `전체` | D-027, FR-03-B-03 |
  * | 일기는 섞지 않는다 | D-006 |
  *
@@ -84,17 +84,20 @@ export default async function FeedPage({
   // 기본은 전체다 — URL 에서 `?tab=all` 을 생략한다 (D-175)
   const tab = sp.tab === "following" ? "following" : "all";
 
-  // ⚠️ **카테고리는 필터가 아니라 축이다** (D-137). 항상 하나가 정해져 있고
-  // 피드는 그 안에서만 보여준다. `전체` 는 없다
-  const scope = await resolveCategory(
-    typeof sp.category === "string" ? sp.category : undefined,
-  );
-  const category = scope.key;
+  /*
+    ⚠️ **축의 단위가 "내 관심사 집합" 이다** (D-271). D-137 의 축은 그대로지만
+    하나를 고르지 않는다 — 시계와 캠핑을 함께 모으는 사람은 둘 다 본다.
+
+    관심사가 없거나 비로그인이면 **전체**가 온다. 여기서 `[]` 를 받을 일은
+    없다 — 받으면 D-069(관람자가 벽을 만남)와 D-109(크롤러가 빈 HTML)가
+    동시에 깨진다
+  */
+  const categories = await myCategoryKeys();
 
   // 필터는 **조회 조건**이다 — 다 가져와서 걸러내면 비공개·차단이 응답에
   // 실린 뒤 화면에서만 사라진다 (D-083)
   const items = await getFeed(
-    { category, lang, following: tab === "following" },
+    { categories, lang, following: tab === "following" },
     viewer,
   );
 
@@ -106,15 +109,16 @@ export default async function FeedPage({
         sticky 를 걷고 여기서 감싼다. 경계선은 이 블록 하단에 한 줄만 둔다.
       */}
       <div className="sticky top-0 z-20 border-b bg-background">
-        <FilterBar lang={lang} categoryKeys={scope.keys} category={category} />
+        <FilterBar lang={lang} />
         {/* 전체 / 팔로잉 (D-175, OI-86 해소) */}
         <FeedTabs tab={tab} />
       </div>
 
-      {/* ⚠️ 콘텐츠 **위에** 덮는다. 대체하지 않는다 — 크롤러는 피드를 읽어야
-          하고(D-109) 관람자는 벽부터 만나면 안 된다(D-069) */}
-      {!scope.chosen && <CategoryGate keys={scope.keys} />}
-
+      {/*
+        ⚠️ **카테고리 선택 모달이 없다** (D-272). 축이 집합이 되면서 홈에서
+        고를 것이 사라졌다 — 관심사가 없어도 전체를 보여주므로 벽이 아니다.
+        하나를 고르는 화면은 도감뿐이고, 관심사 편집은 설정에서 한다
+      */}
       {items.length === 0 ? (
         <EmptyState
           title={
@@ -139,8 +143,10 @@ export default async function FeedPage({
                 {t("auth.login")}
               </Link>
             ) : tab === "all" && lang !== "all" ? (
+              /* 홈은 `?category=` 를 쓰지 않는다 (D-272) — 언어권만 걷어낸
+                 주소가 곧 `/` 다 */
               <Link
-                href={category ? `/?category=${category}` : "/"}
+                href="/"
                 className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-accent"
               >
                 {t("feed.showAllLangs")}

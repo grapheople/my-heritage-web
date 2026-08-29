@@ -5,7 +5,7 @@ import { MarketCard } from "@/components/domain/market-card";
 import { MarketControls } from "@/components/domain/market-controls";
 import { getViewer } from "@/lib/auth/viewer";
 import { getMarketListings } from "@/lib/data/market";
-import { resolveCategory } from "@/lib/category-scope";
+import { myCategoryKeys } from "@/lib/category-scope";
 import { localeAlternates } from "@/lib/site";
 
 /**
@@ -19,7 +19,8 @@ import { localeAlternates } from "@/lib/site";
  * | 판매중 + 공개만 | D-019, FR-02-A-01·02 |
  * | 기본 정렬 = 판매 전환 시각 역순 | D-048, FR-02-A-03 |
  * | 가격은 판매자 통화 그대로. **환산 없음** | D-011, FR-02-A-05 |
- * | 필터는 카테고리 + 통화 **2개만**. 언어권 없음 | D-049, FR-02-B-01·02 |
+ * | 필터는 통화 **1개만**. 언어권 없음 | D-049·D-272, FR-02-B-01·02 |
+ * | 목록 범위 = **내 관심 카테고리 전체** | D-271 |
  * | 가격순은 단일 통화 선택 시에만. 비활성 이유를 안내 | D-048, FR-02-C-01·02 |
  * | 광고 삽입 지점 확보 (MVP 미노출) | D-025, FR-02-A-07 |
  */
@@ -35,11 +36,11 @@ export default async function MarketPage({
   const sp = await searchParams;
   const t = await getTranslations();
 
-  // ⚠️ 카테고리는 항상 하나다 (D-137)
-  const scope = await resolveCategory(
-    typeof sp.category === "string" ? sp.category : undefined,
-  );
-  const category = scope.key;
+  /*
+    ⚠️ **내 관심사 전체**를 본다 (D-271). 하나를 고르던 것에서 집합으로 바뀌었다
+    — 관심사가 없거나 비로그인이면 **전체**가 온다. 절대 비어 오지 않는다
+  */
+  const categories = await myCategoryKeys();
   const currency = typeof sp.currency === "string" ? sp.currency : undefined;
   // 통화가 없으면 가격순을 쓸 수 없다 (FR-02-C-01)
   const sort = sp.sort === "price" && currency ? "price" : "recent";
@@ -47,18 +48,13 @@ export default async function MarketPage({
   // 정렬·필터 모두 조회 계층에서 끝난다. 가격순은 단일 통화일 때만
   // 적용된다 — 환율을 쓰지 않기 때문 (D-011, FR-02-C-01)
   const listings = await getMarketListings(
-    { category, currency, sort },
+    { categories, currency, sort },
     await getViewer(),
   );
 
   return (
     <div>
-      <MarketControls
-        currency={currency}
-        sort={sort}
-        categoryKeys={scope.keys}
-        category={category}
-      />
+      <MarketControls currency={currency} sort={sort} />
 
       {listings.length === 0 ? (
         <EmptyState title={t("empty.market")} />
