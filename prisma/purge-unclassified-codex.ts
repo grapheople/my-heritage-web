@@ -3,9 +3,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 /**
- * 종류를 정할 수 없는 도감을 **지운다** (D-261).
+ * 도감을 **지운다** — 미분류분(D-261) 또는 특정 종류 전체(D-265).
  *
- * ## ⚠️ 옮기지 않고 지우는 이유
+ * ## ⚠️ (미분류분) 옮기지 않고 지우는 이유
  * 남은 것은 두 종류다:
  * - **다른 카테고리 제품** — Danner·Columbia 부츠·재킷, Salomon 러닝화. 신발·옷
  *   카테고리 소관이고 거기 이미 85·339건이 있어 **재수집이 이동보다 싸다**
@@ -26,9 +26,15 @@ import { PrismaClient } from "../src/generated/prisma/client";
  * `CodexMatchKey` 는 `onDelete: Cascade` 라 함께 사라진다.
  *
  * ```
- * pnpm tsx prisma/purge-unclassified-codex.ts camping          # 미리보기
- * pnpm tsx prisma/purge-unclassified-codex.ts camping --apply
+ * pnpm tsx prisma/purge-unclassified-codex.ts camping                       # 미분류분
+ * pnpm tsx prisma/purge-unclassified-codex.ts bicycle --subtype=complete    # 종류 전체
+ * pnpm tsx prisma/purge-unclassified-codex.ts bicycle --subtype=complete --apply
  * ```
+ *
+ * ## ⚠️ 종류는 지우지 않는다
+ * `--subtype=` 은 **그 종류의 도감만** 비운다. 종류 자체를 지우면 유저가 그
+ * 종류로 등록할 수 없게 되고(종류 필수, D-253), 자전거는 `parentId` 구성
+ * 관계의 부모가 사라져 D-211 이 깨진다.
  */
 
 const prisma = new PrismaClient({
@@ -38,9 +44,14 @@ const prisma = new PrismaClient({
 async function main() {
   const argv = process.argv.slice(2);
   const categoryKey = argv.find((a) => !a.startsWith("--"));
+  const subtypeKey =
+    argv.find((a) => a.startsWith("--subtype="))?.slice("--subtype=".length) || undefined;
   const APPLY = argv.includes("--apply");
   if (!categoryKey) {
-    console.log("사용법: pnpm tsx prisma/purge-unclassified-codex.ts <카테고리> [--apply]");
+    console.log(
+      "사용법: pnpm tsx prisma/purge-unclassified-codex.ts <카테고리> [--subtype=키] [--apply]",
+    );
+    console.log("  --subtype 없으면 **미분류분**을, 있으면 **그 종류 전체**를 지운다");
     return;
   }
   console.log(`대상 DB: ${process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":***@")}`);
@@ -52,8 +63,21 @@ async function main() {
   });
   if (!cat) throw new Error(`카테고리 '${categoryKey}' 가 없습니다`);
 
+  let subtypeId: string | null = null;
+  if (subtypeKey) {
+    const st = await prisma.categorySubtype.findUnique({
+      where: { categoryId_key: { categoryId: cat.id, key: subtypeKey } },
+      select: { id: true, labelKo: true },
+    });
+    if (!st) throw new Error(`'${categoryKey}' 에 '${subtypeKey}' 종류가 없습니다`);
+    subtypeId = st.id;
+    console.log(`대상: ${st.labelKo}(${subtypeKey}) 종류의 도감 전체`);
+  } else {
+    console.log("대상: 종류 미지정(미분류) 도감");
+  }
+
   const targets = await prisma.codexItem.findMany({
-    where: { categoryId: cat.id, subtypeId: null, mergedIntoId: null },
+    where: { categoryId: cat.id, subtypeId, mergedIntoId: null },
     orderBy: { displayName: "asc" },
     select: { id: true, displayName: true },
   });
@@ -65,15 +89,25 @@ async function main() {
   // ── 안전 검사 ─────────────────────────────────────────────────────────
   const owned = await prisma.item.count({ where: { codexItemId: { in: ids } } });
   if (owned > 0) {
-    console.log(`\n⚠️ 연결된 유저 아이템 ${owned}건 — 지우면 도감 연결을 잃습니다. 중단.`);
-    return;
+    /*
+      ⚠️ 아이템은 살아남지만(`SetNull`) **도감 연결을 잃는다.** 명칭이
+      `brand + model` 파생으로 바뀌고(D-073) 도감 페이지 보유자 목록에서
+      사라진다. `--force-owned` 없이는 멈춘다 — 말없이 하지 않는다.
+    */
+    const force = argv.includes("--force-owned");
+    console.log(`\n⚠️ 연결된 유저 아이템 ${owned}건 — 지우면 도감 연결을 잃습니다`);
+    if (!force) {
+      console.log("   중단합니다. 그래도 진행하려면 --force-owned 를 붙이세요.");
+      return;
+    }
+    console.log("   --force-owned — 진행합니다");
   }
   const merged = await prisma.codexItem.count({ where: { mergedIntoId: { in: ids } } });
   if (merged > 0) {
     console.log(`\n⚠️ 이 도감으로 병합된 것이 ${merged}건 — 되돌리기가 깨집니다. 중단.`);
     return;
   }
-  console.log("보유자 0명 · 병합 흡수 0건 확인");
+  console.log(owned > 0 ? `보유자 ${owned}건(강제 진행) · 병합 흡수 0건` : "보유자 0명 · 병합 흡수 0건 확인");
 
   if (!APPLY) {
     console.log("\n지울 목록:");
@@ -85,11 +119,14 @@ async function main() {
   // `CodexMatchKey` 는 Cascade 로 함께 사라진다
   const res = await prisma.codexItem.deleteMany({ where: { id: { in: ids } } });
   const left = await prisma.codexItem.count({
-    where: { categoryId: cat.id, subtypeId: null, mergedIntoId: null },
+    where: { categoryId: cat.id, subtypeId, mergedIntoId: null },
   });
   const orphanKeys = await prisma.codexMatchKey.count({ where: { codexItemId: { in: ids } } });
   console.log(`\n삭제 ${res.count}건`);
-  console.log(`검산 — 남은 미분류 ${left}건 (0이어야 함) · 고아 매칭키 ${orphanKeys}건 (0이어야 함)`);
+  console.log(
+    `검산 — 남은 ${subtypeKey ? `${subtypeKey} 도감` : "미분류"} ${left}건 (0이어야 함)` +
+      ` · 고아 매칭키 ${orphanKeys}건 (0이어야 함)`,
+  );
 }
 
 main()
