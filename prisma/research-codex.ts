@@ -50,7 +50,33 @@ import { prisma } from "../src/lib/prisma";
  * 즉 기본 힌트는 브랜드만 말하고 **무엇을 만드는 브랜드인지는 말하지 않는다.**
  * 겸업 브랜드에서 그 공백을 유명세가 메운다. **카테고리를 힌트에 박는다.**
  */
-function defaultHint(categoryKey: string, perBrand: number): string {
+function defaultHint(
+  categoryKey: string,
+  perBrand: number,
+  /** D-262 — 종류를 지정했으면 **그 종류만** 요청한다 */
+  subtypeLabel?: string,
+): string {
+  /*
+    ⚠️ **종류가 곧 힌트다 — 이게 없으면 조용히 오분류된다.**
+
+    실제로 겪었다: `--subtype=sleeping-bag` 으로 돌렸는데 힌트는 "대표 캠핑
+    장비" 였다. 모델이 Coleman **버너·쿨러·텐트**, Barebones **랜턴**,
+    Arc'teryx **배낭**을 냈고 그것이 전부 **침낭으로 저장**됐다.
+
+    화면상으로는 정상으로 보이는데 유저가 침낭을 등록하면 그 도감들과 만난다.
+    D-216(겸업 브랜드가 카테고리를 넘어옴)의 **종류 층 재현**이다.
+
+    ⚠️ **그 브랜드가 그 종류를 안 만들면 0건이 정답이다.** 50개 브랜드에
+    같은 종류를 물으면 대부분은 안 만든다 — 억지로 채우면 지어낸 제품이 온다.
+  */
+  if (subtypeLabel) {
+    return (
+      `이 브랜드의 **${subtypeLabel}** 제품 ${perBrand}개. ` +
+      `**${subtypeLabel} 가 아닌 것은 절대 내지 마세요** — 같은 브랜드의 다른 장비도 제외합니다. ` +
+      `이 브랜드가 ${subtypeLabel} 를 만들지 않으면 **빈 배열**을 내세요. 0건이 정답일 수 있습니다`
+    );
+  }
+
   if (categoryKey === "shoes") {
     return `이 브랜드에서 가장 유명한 신발 ${perBrand}개. 스타일 코드는 배색 단위이므로 확실히 아는 대표 배색의 스타일 코드를 쓰고, 명칭에 배색 이름을 넣으세요`;
   }
@@ -173,7 +199,7 @@ async function main() {
     ⚠️ 다만 힌트로 **확실하지 않은 코드를 짜내게 만들면 안 된다** (D-186) —
     조사 결과는 사람이 표본 확인한 뒤 받아들인다.
   */
-  const hint = hintArg || defaultHint(categoryKey, perBrand);
+  // ⚠️ 종류 라벨은 아래에서 해석된다 — 힌트 조립을 그 뒤로 미룬다 (D-262)
 
   const url = migrationDatabaseUrl();
   // ⚠️ 비밀번호를 출력하지 않는다 (D-116)
@@ -229,6 +255,8 @@ async function main() {
     subtypeLabel = st.labelKo;
     subtype = { key: subtypeKey, id: st.id };
   }
+
+  const hint = hintArg || defaultHint(categoryKey, perBrand, subtypeLabel || undefined);
 
   console.log(
     `${categoryLabel}(${categoryKey})${subtypeLabel ? ` · ${subtypeLabel}(${subtypeKey})` : ""}` +
