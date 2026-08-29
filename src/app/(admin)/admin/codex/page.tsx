@@ -78,7 +78,6 @@ export default async function AdminCodexPage({
                   codexId={c.id}
                   displayName={c.displayName}
                   uniqueId={c.uniqueId}
-                  verified={c.verified}
                 />
                 <Link href="/admin/codex/aliases"
                   className="rounded-md border px-2 py-1 text-xs hover:bg-accent">alias</Link>

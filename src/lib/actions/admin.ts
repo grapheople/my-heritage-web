@@ -2407,7 +2407,6 @@ export async function setCodexSubtype(input: {
 export async function updateCodexItem(input: {
   codexId: string;
   displayName: string;
-  descriptions?: { ko?: string; ja?: string; en?: string };
 }): Promise<ActionResult> {
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
@@ -2415,39 +2414,57 @@ export async function updateCodexItem(input: {
   const displayName = input.displayName.trim();
   if (!displayName) return fail({ displayName: "명칭을 입력해주세요" });
 
-  const codex = await prisma.codexItem.findUnique({
+  await prisma.codexItem.update({
     where: { id: input.codexId },
+    data: { displayName },
+  });
+
+  revalidate("/admin/codex", "/admin/codex/[codexId]", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
+  return { ok: true };
+}
+
+/**
+ * 도감 **설명** 편집 — 검증본 3개 언어 (A-04, `FR-07-A-05`, D-282).
+ *
+ * ## ⚠️ `updateCodexItem`(명칭)과 갈라 둔다
+ * 한 액션이 둘을 함께 쓰면 **명칭만 고치려던 저장이 설명을 건드릴 수 있다** —
+ * 실제로 그 경로에서 설명이 통째로 지워졌다 (D-280). 필드마다 경로가 하나면
+ * 그 사고가 구조적으로 불가능하다.
+ *
+ * ## ⚠️ 미검증본에는 쓰지 않는다 (`FR-07-A-05`)
+ * 미검증본의 설명 자리는 **유저가 쓴 원문**이다. 어드민 문장을 넣으면 유저가
+ * 쓴 것으로 읽히고, 운영자가 검수하지 않은 내용을 서비스가 보증하는 모양이
+ * 된다. **화면이 막고 여기서 한 번 더 막는다.**
+ *
+ * ## ⚠️ 빈 값은 "지워라" 가 아니라 "건드리지 마라" 다 (D-280)
+ * 지우는 것은 **별도 동작**이어야 한다. 실수로 지워지는 경로를 먼저 없앤다.
+ */
+export async function setCodexDescriptions(
+  codexId: string,
+  descriptions: { ko?: string; ja?: string; en?: string },
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: codexId },
     select: { verification: true, descriptions: true },
   });
   if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+  if (codex.verification !== "VERIFIED") {
+    return fail({}, "미검증 도감의 설명은 유저가 쓴 원문입니다 (FR-07-A-05)");
+  }
 
-  /*
-    ⚠️ **빈 칸은 "지워라" 가 아니라 "건드리지 마라" 다** (D-280).
-
-    초판은 넘어온 값을 그대로 치환했다. 폼이 기존 설명을 안 받아 빈 칸으로
-    떠 있었으므로(같은 결정) **저장 한 번에 3개 언어 설명이 통째로 사라졌다.**
-    치환은 "편집" 이 아니라 "초기화" 다.
-
-    지우려면 **그 언어만** 비우는 것이 아니라 별도 동작이어야 한다 — 지금은
-    실수로 지우는 경로를 없애는 것이 먼저다. CSV import 의 표시명 규칙(D-276)과
-    같은 태도다.
-  */
   const merged = { ...((codex.descriptions ?? {}) as Record<string, string>) };
-  for (const [lang, v] of Object.entries(input.descriptions ?? {})) {
+  for (const [lang, v] of Object.entries(descriptions)) {
     if (v?.trim()) merged[lang] = v.trim();
   }
 
   await prisma.codexItem.update({
-    where: { id: input.codexId },
-    data: {
-      displayName,
-      // 미검증본에는 다국어 설명을 넣지 않는다 (FR-07-A-05) — 원문 1개가 맞다
-      ...(codex.verification === "VERIFIED" && input.descriptions
-        ? { descriptions: merged }
-        : {}),
-    },
+    where: { id: codexId },
+    data: { descriptions: merged },
   });
 
-  revalidate("/admin/codex", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
+  revalidate("/admin/codex", "/admin/codex/[codexId]", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
   return { ok: true };
 }

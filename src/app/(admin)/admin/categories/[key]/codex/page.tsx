@@ -157,7 +157,6 @@ export default async function CategoryCodexPage({
                   codexId={c.id}
                   displayName={c.displayName}
                   uniqueId={c.uniqueId}
-                  verified={c.verified}
                 />
                 <Link
                   href="/admin/codex/aliases"

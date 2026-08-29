@@ -4,48 +4,39 @@ import { useState, useTransition } from "react";
 import { updateCodexItem } from "@/lib/actions/admin";
 
 /**
- * A-04 도감 명칭·설명 편집.
+ * A-04 도감 **명칭(원문)** 편집.
+ *
+ * ## ⚠️ 설명은 여기 없다 (D-282)
+ * 예전에는 한 폼이 명칭과 설명을 함께 다뤘다. 둘은 **성격이 다르다**:
+ *
+ * | | 명칭 | 설명 |
+ * |---|---|---|
+ * | 언제 있나 | **항상** — 없으면 도감이 목록에 못 뜬다 | 없는 것이 기본 (전체 0건) |
+ * | 검증과의 관계 | 무관 | **검증본만 3개 언어** (FR-07-A-05) |
+ * | 누가 쓰나 | 어드민 | 미검증=유저 · 검증=어드민 |
+ *
+ * 합쳐 두니 **명칭만 고치려던 저장이 설명을 지웠다** (D-280). 목록 화면에서는
+ * 설명을 읽지도 않으면서 빈 칸 3개가 함께 떴다. 갈라서 **필드마다 경로를
+ * 하나로** 만든다 — 그러면 그 사고가 구조적으로 불가능하다.
  *
  * ⚠️ **고유값은 편집하지 않는다.** 바꾸면 이미 연결된 아이템들이 다른 제품의
  * 도감에 붙은 채로 남는다. 잘못 넣었으면 **새로 만들고 병합**(A-06)하는 것이
  * 맞는 경로다 — 그래야 이력이 남고 되돌릴 수 있다. 화면에서 그 사실을 밝힌다.
  *
- * ⚠️ **미검증 도감에는 다국어 설명 칸을 주지 않는다** (FR-07-A-05). 미검증본은
- * 유저가 쓴 원문 1개를 그대로 보여줘야 한다 — 번역하면 운영자가 검수하지 않은
- * 내용을 서비스가 보증하는 것처럼 보인다.
- *
- * ## ⚠️ 편집을 열면 **지금 값이 들어 있어야 한다** (D-280)
- * 설명 칸이 `useState({ko:"",ja:"",en:""})` 로 **항상 비어** 시작했다. 기존
- * 설명을 아예 넘겨받지 않았다. 빈 칸을 보고 저장하면 **3개 언어 설명이 통째로
- * 지워진다** — 화면은 "편집" 인데 동작은 "초기화" 였다.
- *
- * ⚠️ **`useState(prop)` 은 첫 마운트에만 실행된다.** 저장 후 서버가 새 값을
- * 내려줘도 상태는 옛 값에 머문다. 그래서 **열 때 props 로 되맞춘다** — 이
- * 컴포넌트는 닫혀도 언마운트되지 않기 때문이다.
+ * ⚠️ **열 때 지금 값으로 되맞춘다** (D-280) — `useState` 는 첫 마운트에만
+ * 실행되고, 이 컴포넌트는 닫혀도 언마운트되지 않는다.
  */
 export function CodexEditForm({
   codexId,
   displayName,
   uniqueId,
-  verified,
-  /**
-   * 기존 3개 언어 설명 (D-280). **안 넘기면 편집이 초기화가 된다.**
-   *
-   * 목록 화면처럼 설명을 안 읽는 곳에서는 생략할 수 있다 — 그때는 저장이
-   * 설명을 건드리지 않는다 (`updateCodexItem` 이 빈 값을 무시한다)
-   */
-  descriptions,
 }: {
   codexId: string;
   displayName: string;
   uniqueId: string;
-  verified: boolean;
-  descriptions?: { ko: string; ja: string; en: string };
 }) {
-  const empty = { ko: "", ja: "", en: "" };
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(displayName);
-  const [desc, setDesc] = useState(descriptions ?? empty);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -54,15 +45,13 @@ export function CodexEditForm({
     return (
       <button
         type="button"
-        // ⚠️ 열 때 **지금 값으로 되맞춘다** — `useState` 는 첫 마운트에만 돈다 (D-280)
         onClick={() => {
           setName(displayName);
-          setDesc(descriptions ?? empty);
           setOpen(true);
         }}
         className="rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
       >
-        {saved ? "저장됨" : "편집"}
+        {saved ? "저장됨" : "명칭 편집"}
       </button>
     );
   }
@@ -76,52 +65,27 @@ export function CodexEditForm({
           onChange={(e) => setName(e.target.value)}
           className="mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm"
         />
+        {/* 도감 명칭은 전 언어 공통 원문 1개다 — 번역하지 않는다 (D-009).
+            언어별 표기는 **표시 명칭**이 따로 담당한다 (D-276) */}
+        <span className="mt-1 block text-xs text-muted-foreground">
+          전 언어 공통 원문 1개입니다 (D-009). 언어별 표기는 <b>표시 명칭</b>에서
+          넣습니다.
+        </span>
       </label>
 
       <p className="mt-2 rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
-        고유값 <span className="font-mono">{uniqueId}</span> 은 편집할 수 없습니다.
-        바꾸면 이미 연결된 아이템이 <b>다른 제품의 도감에 붙은 채로</b> 남습니다.
-        잘못 넣었으면 새로 만들고 <b>병합(A-06)</b>하세요.
+        고유값 <span className="font-mono">{uniqueId || "—"}</span> 은 편집할 수
+        없습니다. 바꾸면 이미 연결된 아이템이 <b>다른 제품의 도감에 붙은 채로</b>{" "}
+        남습니다. 잘못 넣었으면 새로 만들고 <b>병합(A-06)</b>하세요.
       </p>
-
-      {verified ? (
-        <div className="mt-2">
-          <span className="text-xs font-semibold">
-            설명
-            <span className="ml-2 font-normal text-muted-foreground">3개 언어 (D-010)</span>
-          </span>
-          <div className="mt-1 grid grid-cols-3 gap-2">
-            {(["ko", "ja", "en"] as const).map((l) => (
-              <label key={l} className="block">
-                <span className="text-xs uppercase text-muted-foreground">{l}</span>
-                <textarea
-                  value={desc[l]}
-                  onChange={(e) => setDesc({ ...desc, [l]: e.target.value })}
-                  rows={2}
-                  className="mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="mt-2 text-xs text-muted-foreground">
-          미검증 도감이라 설명은 <b>유저가 쓴 원문 그대로</b> 유지됩니다
-          (FR-07-A-05). 다국어 설명은 검증 후에 넣습니다.
-        </p>
-      )}
 
       <div className="mt-2 flex gap-2">
         <button
           type="button"
-          disabled={pending || !name.trim()}
+          disabled={pending || !name.trim() || name === displayName}
           onClick={() =>
             startTransition(async () => {
-              const res = await updateCodexItem({
-                codexId,
-                displayName: name,
-                descriptions: verified ? desc : undefined,
-              });
+              const res = await updateCodexItem({ codexId, displayName: name });
               if (res.ok) {
                 setSaved(true);
                 setOpen(false);
