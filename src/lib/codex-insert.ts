@@ -60,6 +60,15 @@ export async function insertCodex(input: {
     select: { id: true, matchingKey: { select: { attributeKeys: true } } },
   });
   if (!category) return { ok: false, error: "카테고리를 찾을 수 없습니다" };
+  // 브랜드 게이트가 키로 조회하므로 id → key 로 한 번 푼다
+  const subtypeKey = input.subtypeId
+    ? (
+        await prisma.categorySubtype.findUnique({
+          where: { id: input.subtypeId },
+          select: { key: true },
+        })
+      )?.key
+    : undefined;
 
   const keyOrder = category.matchingKey?.attributeKeys ?? [];
   if (keyOrder.length === 0) {
@@ -79,7 +88,15 @@ export async function insertCodex(input: {
   const keyValues = { ...input.keyValues };
   const brandName = keyValues.brand?.trim();
   if (keyOrder.includes("brand") && brandName) {
-    const resolved = await resolveMasterBrand(brandName, input.categoryKey);
+    /*
+      ⚠️ **종류를 함께 넘긴다** (D-263). 브랜드 연결은 포함적 scope 라
+      (D-255) 종류 전용 연결이 따로 있다 — Shimano 는 자전거 **공통**이
+      아니라 `구동계·브레이크·휠셋` 종류에만 붙어 있다.
+
+      안 넘기면 카테고리 공통만 보고 **"이 카테고리에 연결되지 않았습니다"**
+      로 거부한다. 실제로 그래서 Dura-Ace R9200 이 전부 막혔다.
+    */
+    const resolved = await resolveMasterBrand(brandName, input.categoryKey, subtypeKey);
     if (!resolved.ok) return { ok: false, error: resolved.error, field: "brand" };
     keyValues.brand = resolved.name;
   }
@@ -92,6 +109,7 @@ export async function insertCodex(input: {
   }
 
   const scopeId = scopeIdOf({ categoryId: category.id, subtypeId: input.subtypeId });
+
 
   const dup = await prisma.codexItem.findFirst({
     where: { scopeId, normalizedKey: key.normalizedKey },

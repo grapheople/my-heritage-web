@@ -205,16 +205,6 @@ async function main() {
   // ⚠️ 비밀번호를 출력하지 않는다 (D-116)
   console.log(`대상 DB — ${describeDatabase(url)}`);
 
-  const fields = await categoryFields(categoryKey);
-  if (fields.length === 0) {
-    console.log(`⚠️ 카테고리 '${categoryKey}' 에 속성 조합이 없습니다 (A-02)`);
-    return;
-  }
-  const parts = matchingKeyFields(fields);
-  if (parts.length === 0) {
-    console.log(`⚠️ 카테고리 '${categoryKey}' 의 매칭 키가 없습니다 (A-03)`);
-    return;
-  }
   const categoryLabel = await categoryLabelKo(categoryKey);
 
   /*
@@ -254,6 +244,24 @@ async function main() {
     }
     subtypeLabel = st.labelKo;
     subtype = { key: subtypeKey, id: st.id };
+  }
+
+  /*
+    ⚠️ **종류를 해석한 뒤에 속성을 푼다.** 종전에는 종류 해석 전에
+    `categoryFields(categoryKey)` 를 불러서, 화면에 찍히는 키가 카테고리
+    기본이었다 — `seedBrand` 는 종류 키를 쓰는데 **표시와 실제가 갈려**
+    0건이 났을 때 원인을 짚을 수 없었다 (D-188 이 제외 사유를 버려 원인을
+    두 번 잘못 짚은 것과 같은 유형).
+  */
+  const fields = await categoryFields(categoryKey, subtypeKey);
+  if (fields.length === 0) {
+    console.log(`⚠️ '${categoryKey}' 에 속성 조합이 없습니다 (A-02)`);
+    return;
+  }
+  const parts = matchingKeyFields(fields);
+  if (parts.length === 0) {
+    console.log(`⚠️ '${categoryKey}' 의 매칭 키가 없습니다 (A-03)`);
+    return;
   }
 
   const hint = hintArg || defaultHint(categoryKey, perBrand, subtypeLabel || undefined);

@@ -156,7 +156,9 @@ async function main() {
       scopeMade++;
     }
   }
-  console.log(`② 부품 브랜드 ${PART_BRANDS.length}개 · 종류 연결 ${scopeMade}건`);
+  console.log(
+    `② 부품 브랜드 ${PART_BRANDS.length}개 (신규 ${brandMade}) · 종류 연결 ${scopeMade}건`,
+  );
 
   if (APPLY) {
     console.log("\n검산 — 종류별 브랜드 수:");
