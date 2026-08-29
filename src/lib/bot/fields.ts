@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import {
+  ATTRIBUTE_SCOPE_ORDER,
+  attributeScopeWhere,
+  resolveMatchingKeyOrder,
+} from "@/lib/subtype";
 
 /**
  * 봇이 채울 항목 목록과 **값 정제** (D-153).
@@ -27,7 +32,41 @@ export type BotField = {
 };
 
 /** 카테고리의 활성 속성 + 매칭 키 구성 (표시 순서 그대로) */
-export async function categoryFields(categoryKey: string): Promise<BotField[]> {
+/**
+ * 봇 프롬프트용 속성 select — 카테고리 경로와 종류 경로가 **같은 모양**이어야
+ * 두 결과를 같은 map 으로 처리할 수 있다.
+ */
+const ATTRIBUTE_SELECT = {
+  required: true,
+  // 카테고리별 라벨 override (D-168) — 봇 프롬프트도 같은 이름을 봐야 한다
+  labelKo: true,
+  attributeDefinition: {
+    select: {
+      key: true,
+      type: true,
+      labelKo: true,
+      options: {
+        where: { active: true },
+        orderBy: { displayOrder: "asc" },
+        // D-209 — `null` 이면 공통, 값이면 그 카테고리 전용
+        select: { key: true, labelKo: true, categoryId: true },
+      },
+    },
+  },
+} as const;
+
+export async function categoryFields(
+  categoryKey: string,
+  /**
+   * D-253 — 종류를 주면 **공통 + 그 종류 전용**을 합쳐 내고, 매칭 키도 종류 것을
+   * 우선한다. 비우면 종전과 같다(카테고리 공통만).
+   *
+   * ⚠️ 규칙을 여기서 다시 쓰지 않는다 — `lib/subtype.ts` 의 `attributeScopeWhere`
+   * 와 `resolveMatchingKeyOrder` 를 그대로 쓴다. 봇이 자기 규칙을 들면 등록 폼과
+   * 갈리고, **봇이 만든 도감을 유저 등록이 못 찾는다** (D-190·D-197 과 같은 실패).
+   */
+  subtypeKey?: string | null,
+): Promise<BotField[]> {
   const category = await prisma.category.findUnique({
     where: { key: categoryKey },
     select: {
@@ -36,33 +75,37 @@ export async function categoryFields(categoryKey: string): Promise<BotField[]> {
       attributes: {
         where: { active: true },
         orderBy: { displayOrder: "asc" },
-        select: {
-          required: true,
-          // 카테고리별 라벨 override (D-168) — 봇 프롬프트도 같은 이름을 봐야 한다
-          labelKo: true,
-          attributeDefinition: {
-            select: {
-              key: true,
-              type: true,
-              labelKo: true,
-              options: {
-                where: { active: true },
-                orderBy: { displayOrder: "asc" },
-                // D-209 — `null` 이면 공통, 값이면 그 카테고리 전용
-                select: { key: true, labelKo: true, categoryId: true },
-              },
-            },
-          },
-        },
+        select: ATTRIBUTE_SELECT,
       },
     },
   });
   if (!category) return [];
 
-  // 매칭 키 정의가 없으면 `uniqueId` 가 기본이다 — `createItemAs` 와 같은 기준
-  const keys = new Set(category.matchingKey?.attributeKeys ?? ["uniqueId"]);
+  /*
+    D-253 — 종류를 받았으면 속성·매칭 키를 그 축으로 다시 푼다.
+    `subtype.ts` 가 두 규칙의 단일 출처다
+  */
+  let rows = category.attributes;
+  let keyOrder = category.matchingKey?.attributeKeys ?? ["uniqueId"];
 
-  return category.attributes.map((a) => {
+  if (subtypeKey) {
+    const st = await prisma.categorySubtype.findUnique({
+      where: { categoryId_key: { categoryId: category.id, key: subtypeKey } },
+      select: { id: true },
+    });
+    if (!st) return [];
+    rows = await prisma.categoryAttribute.findMany({
+      where: attributeScopeWhere({ categoryId: category.id, subtypeId: st.id }),
+      orderBy: ATTRIBUTE_SCOPE_ORDER,
+      select: ATTRIBUTE_SELECT,
+    });
+    keyOrder = await resolveMatchingKeyOrder({ categoryId: category.id, subtypeId: st.id });
+  }
+
+  // 매칭 키 정의가 없으면 `uniqueId` 가 기본이다 — `createItemAs` 와 같은 기준
+  const keys = new Set(keyOrder.length > 0 ? keyOrder : ["uniqueId"]);
+
+  return rows.map((a) => {
     const d = a.attributeDefinition;
     return {
       key: d.key,

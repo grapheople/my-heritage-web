@@ -93,10 +93,16 @@ async function seedBrand(
   brand: string,
   perBrand: number,
   hint: string,
+  /**
+   * D-253 — 종류. `key` 는 프롬프트 필드 해석에, `id` 는 저장에 쓴다.
+   * ⚠️ 둘이 같은 종류를 가리켜야 한다 — 갈리면 프롬프트가 본 속성과 저장되는
+   * 스코프가 어긋난다
+   */
+  subtype: { key: string; id: string } | null,
 ): Promise<Outcome> {
   const out: Outcome = { brand, found: 0, created: 0, dup: 0, failed: [], dropped: [] };
 
-  const fields = await categoryFields(categoryKey);
+  const fields = await categoryFields(categoryKey, subtype?.key);
   let r;
   try {
     r = await researchCodexEntries({
@@ -120,6 +126,8 @@ async function seedBrand(
   for (const c of r.candidates) {
     const res = await insertCodex({
       categoryKey,
+      // ⚠️ 비우면 카테고리 스코프에 들어가 종류 스코프 아이템과 안 만난다
+      subtypeId: subtype?.id ?? null,
       displayName: c.displayName,
       keyValues: c.keyValues,
       // ⚠️ 사람이 확인하지 않았다 (D-185). A-05 검수 대기 상태로 들어간다
@@ -134,10 +142,18 @@ async function seedBrand(
 }
 
 async function main() {
-  const [, , categoryKey, perBrandArg, onlyBrand, hintArg] = process.argv;
+  /*
+    D-253 — 종류는 **명명 플래그**로 받는다. 위치 인자가 이미 4개라 5번째로
+    넣으면 브랜드·힌트와 섞인다.
+  */
+  const argv = process.argv.slice(2);
+  const subtypeKey =
+    argv.find((a) => a.startsWith("--subtype="))?.slice("--subtype=".length) || undefined;
+  const [categoryKey, perBrandArg, onlyBrand, hintArg] = argv.filter((a) => !a.startsWith("--"));
   if (!categoryKey) {
-    console.log("사용법: pnpm db:research-codex <카테고리> [브랜드당 건수] [브랜드명] [힌트]");
+    console.log("사용법: pnpm db:research-codex <카테고리> [브랜드당 건수] [브랜드명] [힌트] [--subtype=키]");
     console.log("예시:   pnpm db:research-codex watch 5");
+    console.log("        pnpm db:research-codex bicycle 5 Shimano --subtype=drivetrain");
     return;
   }
   const perBrand = Math.min(Math.max(Number(perBrandArg) || 5, 1), 10);
@@ -174,8 +190,49 @@ async function main() {
     return;
   }
   const categoryLabel = await categoryLabelKo(categoryKey);
+
+  /*
+    ⚠️ **종류가 필수인 카테고리에서 종류 없이 돌리면 막는다** (D-253·D-257).
+    카테고리 스코프에 도감이 생기는데 유저 아이템은 전부 종류 스코프라
+    **영원히 만나지 않는다** — 조사 비용만 쓰고 연결이 0 이 된다.
+  */
+  const cat = await prisma.category.findUnique({
+    where: { key: categoryKey },
+    select: { id: true, subtypeRequired: true },
+  });
+  if (cat?.subtypeRequired && !subtypeKey) {
+    const list = await prisma.categorySubtype.findMany({
+      where: { categoryId: cat.id, active: true },
+      orderBy: { displayOrder: "asc" },
+      select: { key: true, labelKo: true },
+    });
+    console.log(`⚠️ '${categoryKey}' 는 종류가 필수입니다 — --subtype= 을 지정하세요`);
+    console.log(`   ${list.map((x) => `${x.key}(${x.labelKo})`).join(" · ")}`);
+    return;
+  }
+
+  let subtypeLabel = "";
+  let subtype: { key: string; id: string } | null = null;
+  if (subtypeKey) {
+    const st = await prisma.categorySubtype.findUnique({
+      where: { categoryId_key: { categoryId: cat!.id, key: subtypeKey } },
+      select: { id: true, labelKo: true, active: true },
+    });
+    if (!st) {
+      console.log(`⚠️ '${categoryKey}' 에 '${subtypeKey}' 종류가 없습니다`);
+      return;
+    }
+    if (!st.active) {
+      console.log(`⚠️ '${subtypeKey}' 는 비활성 종류입니다 — 신규 도감을 넣지 않습니다`);
+      return;
+    }
+    subtypeLabel = st.labelKo;
+    subtype = { key: subtypeKey, id: st.id };
+  }
+
   console.log(
-    `${categoryLabel}(${categoryKey}) · 키=[${parts.map((p) => p.key).join("+")}] · 브랜드당 ${perBrand}건`,
+    `${categoryLabel}(${categoryKey})${subtypeLabel ? ` · ${subtypeLabel}(${subtypeKey})` : ""}` +
+      ` · 키=[${parts.map((p) => p.key).join("+")}] · 브랜드당 ${perBrand}건`,
   );
 
   /*
@@ -205,7 +262,7 @@ async function main() {
     while (cursor < brands.length) {
       const i = cursor++;
       const name = brands[i].name;
-      const o = await seedBrand(categoryKey, categoryLabel, name, perBrand, hint);
+      const o = await seedBrand(categoryKey, categoryLabel, name, perBrand, hint, subtype);
       results.push(o);
       const tail =
         (o.dropped.length ? ` · 제외 ${o.dropped.length}` : "") +
