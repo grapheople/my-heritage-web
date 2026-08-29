@@ -216,6 +216,68 @@ export async function researchCodexEntries(input: {
   return sanitizeCodexCandidates(input.fields, parseJsonArray(text));
 }
 
+export type CodexClassification = {
+  id: string;
+  /** 종류 키 또는 `unknown` */
+  subtype: string;
+  confidence: "high" | "medium" | "low";
+  note: string;
+};
+
+/**
+ * 기존 도감을 **종류로 나눈다** (D-257).
+ *
+ * ## ⚠️ 수집(`researchCodexEntries`)과 목적이 반대다
+ * 저기는 없는 것을 만들어 오고, 여기는 **이미 있는 것을 나눈다.** 그래서 규칙도
+ * 반대다 — 저기는 "모르면 후보를 내지 마라", 여기는 **"모르면 `unknown` 이라고
+ * 말해라"**. 빠뜨리면 그 도감이 조용히 미분류로 남는다.
+ *
+ * ## ⚠️ `unknown` 은 실패가 아니라 검출 신호다
+ * 어느 종류에도 안 맞는 것은 대개 **애초에 그 카테고리가 아니다** — 캠핑 도감에
+ * 부츠·로프·헬멧이 섞여 있었다 (D-216). 억지로 고르게 만들면 그 신호가 사라진다.
+ *
+ * ## ⚠️ 결과를 DB 에 바로 넣지 않는다
+ * 호출부가 제안 파일로 내고 사람이 훑는다 (D-185 와 같은 태도). 오분류는
+ * **조용히** 망가진다 — 잘못된 종류로 들어가면 유저 아이템과 안 만나는데
+ * 화면상으로는 정상으로 보인다.
+ */
+export async function classifyCodexItems(input: {
+  categoryLabel: string;
+  subtypes: { key: string; label: string }[];
+  items: { id: string; displayName: string }[];
+}): Promise<CodexClassification[]> {
+  const prompt = await loadPrompt("codex-classify", {
+    categoryLabel: input.categoryLabel,
+    subtypeList: input.subtypes.map((s) => `- \`${s.key}\` — ${s.label}`).join("\n"),
+    items: input.items.map((i) => `- ${i.id} · ${i.displayName}`).join("\n"),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  const rows = parseJsonArray(text);
+
+  const valid = new Set(input.subtypes.map((s) => s.key));
+  const asked = new Map(input.items.map((i) => [i.id, i.displayName]));
+
+  return rows.flatMap((r): CodexClassification[] => {
+    const row = r as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id : "";
+    // ⚠️ 모델이 지어낸 id 는 버린다 — 엉뚱한 도감을 옮기는 것보다 빠뜨리는 게 낫다
+    if (!asked.has(id)) return [];
+    const raw = typeof row.subtype === "string" ? row.subtype : "unknown";
+    // 목록 밖의 종류도 unknown 으로 떨어뜨린다 (D-190 — 고르지 않는다)
+    const subtype = valid.has(raw) ? raw : "unknown";
+    const conf = row.confidence;
+    return [
+      {
+        id,
+        subtype,
+        confidence: conf === "high" || conf === "medium" || conf === "low" ? conf : "low",
+        note: typeof row.note === "string" ? row.note : "",
+      },
+    ];
+  });
+}
+
 /**
  * 운동 마스터 후보 하나 (D-227·D-232, `FR-11-B-01·05`).
  *

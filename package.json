@@ -32,6 +32,7 @@
     "attrs:workout": "tsx prisma/setup-workout-category.ts",
     "attrs:relax-keys": "tsx prisma/relax-matching-keys.ts",
     "db:research-codex": "tsx prisma/research-codex.ts",
+    "db:classify-codex": "tsx prisma/classify-codex.ts",
     "db:backfill-match-keys": "tsx prisma/backfill-match-keys.ts",
     "mcp": "tsx mcp/server.ts",
     "attrs:camping": "tsx prisma/setup-camping-subtypes.ts",
