@@ -1,9 +1,10 @@
+import type { Route } from "next";
+import Link from "next/link";
 import { AdminPage, Pill, Table, Td } from "@/components/admin/ui";
 import { AdminActionButton } from "@/components/admin/action-button";
-import { SubtypeManager } from "@/components/admin/subtype-manager";
 import { setCategoryActive, setCategorySellable } from "@/lib/actions/admin";
 import { adminCategoryOptions } from "@/lib/admin-categories";
-import { getAdminCategories, getAdminSubtypes } from "@/lib/data/admin";
+import { getAdminCategories } from "@/lib/data/admin";
 
 /**
  * A-01 카테고리 관리 (item-catalog F-01).
@@ -24,10 +25,9 @@ import { getAdminCategories, getAdminSubtypes } from "@/lib/data/admin";
  * 표시 순서만 어드민이 정한다 (FR-01-A-04).
  */
 export default async function AdminCategoriesPage() {
-  const [rows, categories, subtypes] = await Promise.all([
+  const [rows, categories] = await Promise.all([
     getAdminCategories(),
     adminCategoryOptions(),
-    getAdminSubtypes(),
   ]);
   /*
     ⚠️ **라벨 맵을 화면마다 만들지 않는다.** 같은 함정을 네 번 만났다 —
@@ -47,19 +47,28 @@ export default async function AdminCategoriesPage() {
           <tr key={c.slug} className={c.active ? "" : "text-muted-foreground"}>
             <Td>{c.order}</Td>
             {/* 라벨이 없으면 slug 로 — 빈칸으로 두면 무엇인지 알 수 없다 (D-173) */}
-            <Td className="font-semibold">{label.get(c.slug) ?? c.slug}</Td>
+            <Td className="font-semibold">
+              {/* D-246 — 카테고리 상세 진입점. 속성·매칭 키·도감이 여기 아래 있다 */}
+              <Link
+                href={`/admin/categories/${c.slug}` as Route}
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                {label.get(c.slug) ?? c.slug}
+              </Link>
+            </Td>
             <Td className="font-mono text-xs">{c.slug}</Td>
             <Td>{c.itemCount.toLocaleString("en-US")}</Td>
             {/*
-              D-207 — 하위 제품군. **없는 것이 기본**이고 그때 등록 폼은 지금과
-              같다. 캠핑처럼 속성 집합이 갈리는 카테고리에서만 만든다
+              D-246 — 제품군 편집은 상세 `하위 종류` 탭으로 갔다. 목록에 모달을
+              두면 카테고리마다 전 제품군을 조회해야 하고, 편집 자리가 두 곳이 된다
             */}
             <Td>
-              <SubtypeManager
-                categoryKey={c.slug}
-                categoryLabel={label.get(c.slug) ?? c.slug}
-                subtypes={subtypes.filter((s) => s.categoryKey === c.slug)}
-              />
+              <Link
+                href={`/admin/categories/${c.slug}/subtypes` as Route}
+                className="text-xs underline underline-offset-2 hover:text-primary"
+              >
+                관리
+              </Link>
             </Td>
             <Td>{c.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}</Td>
             <Td>

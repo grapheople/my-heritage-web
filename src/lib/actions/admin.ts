@@ -68,7 +68,7 @@ export async function setCategoryActive(
   // ⚠️ **비활성화는 신규 등록만 막는다.** 기존 아이템은 그대로 조회된다
   // (D-036, M-09) — 그래서 아이템을 건드리지 않는다
   await prisma.category.update({ where: { key }, data: { active } });
-  revalidate("/admin/categories");
+  revalidate("/admin/categories", "/admin/categories/[key]");
   return { ok: true };
 }
 
@@ -88,7 +88,7 @@ export async function setCategorySellable(
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   await prisma.category.update({ where: { key }, data: { sellable } });
   // 마켓 목록도 함께 갱신한다 — 조회 조건이 바뀌었다
-  revalidate("/admin/categories", "/[locale]/market");
+  revalidate("/admin/categories", "/admin/categories/[key]", "/[locale]/market");
   return { ok: true };
 }
 
@@ -142,7 +142,7 @@ export async function setCategoryAttribute(input: {
     },
   });
 
-  revalidate("/admin/attributes");
+  revalidate("/admin/categories/[key]", "/admin/categories/[key]/attributes");
   return { ok: true };
 }
 
@@ -235,7 +235,7 @@ export async function createAttributeOption(input: {
   } catch {
     return fail({ key: "이미 있는 선택지입니다" });
   }
-  revalidate("/admin/attributes");
+  revalidate("/admin/categories/[key]/attributes");
   return { ok: true };
 }
 
@@ -286,7 +286,7 @@ export async function updateAttributeOption(input: {
     where: { id: input.optionId },
     data: { ...labels, ...scope, ...(input.active === undefined ? {} : { active: input.active }) },
   });
-  revalidate("/admin/attributes");
+  revalidate("/admin/categories/[key]/attributes");
   return { ok: true };
 }
 
@@ -341,7 +341,7 @@ export async function createCategorySubtype(input: {
   } catch {
     return fail({ key: "이미 있는 종류입니다" });
   }
-  revalidate("/admin/categories", "/admin/matching-keys", "/admin/attributes");
+  revalidate("/admin/categories", "/admin/categories/[key]", "/admin/categories/[key]/subtypes", "/admin/categories/[key]/attributes", "/admin/categories/[key]/matching-key");
   return { ok: true };
 }
 
@@ -353,7 +353,7 @@ export async function setCategorySubtypeActive(
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   await prisma.categorySubtype.update({ where: { id }, data: { active } });
-  revalidate("/admin/categories", "/admin/matching-keys", "/admin/attributes");
+  revalidate("/admin/categories", "/admin/categories/[key]", "/admin/categories/[key]/subtypes", "/admin/categories/[key]/attributes", "/admin/categories/[key]/matching-key");
   return { ok: true };
 }
 
@@ -398,7 +398,7 @@ export async function setSubtypeAttribute(input: {
       ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
     },
   });
-  revalidate("/admin/attributes");
+  revalidate("/admin/categories/[key]/attributes");
   return { ok: true };
 }
 
@@ -420,7 +420,7 @@ export async function setSubtypeMatchingKey(input: {
   if (input.attributeKeys.length === 0) {
     // 제품군 전용을 없앤다 → 카테고리 기본이 적용된다
     await prisma.matchingKeyDefinition.deleteMany({ where: { subtypeId: input.subtypeId } });
-    revalidate("/admin/matching-keys");
+    revalidate("/admin/categories/[key]/matching-key");
     return { ok: true };
   }
 
@@ -443,7 +443,7 @@ export async function setSubtypeMatchingKey(input: {
     create: { subtypeId: input.subtypeId, attributeKeys: input.attributeKeys },
     update: { attributeKeys: input.attributeKeys },
   });
-  revalidate("/admin/matching-keys");
+  revalidate("/admin/categories/[key]/matching-key");
   return { ok: true };
 }
 
@@ -500,7 +500,7 @@ export async function setMatchingKey(input: {
     });
   });
 
-  revalidate("/admin/matching-keys");
+  revalidate("/admin/categories/[key]", "/admin/categories/[key]/matching-key");
   return { ok: true };
 }
 
@@ -524,7 +524,7 @@ export async function setCodexVerification(
       verifiedAt: verified ? new Date() : null,
     },
   });
-  revalidate("/admin/codex", "/admin/codex/verification", "/[locale]/codex/[codexId]");
+  revalidate("/admin/codex", "/admin/codex/verification", "/admin/categories/[key]", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
   return { ok: true };
 }
 
@@ -1092,7 +1092,7 @@ export async function undoMergeCodex(
     alias 는 검색 보조값이라 더 있어도 해가 없고(D-009), 어느 alias 가 어디서
     왔는지 기록하지 않았다. 필요하면 A-07 에서 손으로 지운다.
   */
-  revalidate("/admin/codex/merge", "/admin/codex");
+  revalidate("/admin/codex/merge", "/admin/codex", "/admin/categories/[key]", "/admin/categories/[key]/codex");
   return { ok: true, restoredItems: restored };
 }
 
@@ -1646,7 +1646,7 @@ export async function createCodexItem(input: {
     return res.field ? fail({ [res.field]: res.error }) : fail({}, res.error);
   }
 
-  revalidate("/admin/codex", "/admin/codex/verification");
+  revalidate("/admin/codex", "/admin/codex/verification", "/admin/categories/[key]", "/admin/categories/[key]/codex");
   return { ok: true, codexId: res.codexId };
 }
 
@@ -1774,7 +1774,7 @@ export async function createCodexItemsFromResearch(input: {
     );
   }
 
-  revalidate("/admin/codex", "/admin/codex/verification");
+  revalidate("/admin/codex", "/admin/codex/verification", "/admin/categories/[key]", "/admin/categories/[key]/codex");
   return { ok: true, results };
 }
 
@@ -1881,7 +1881,7 @@ export async function createAttributeDefinition(input: {
     },
   });
 
-  revalidate("/admin/attributes");
+  revalidate("/admin/categories/[key]/attributes");
   return { ok: true };
 }
 
@@ -1994,6 +1994,6 @@ export async function updateCodexItem(input: {
     },
   });
 
-  revalidate("/admin/codex", "/[locale]/codex/[codexId]");
+  revalidate("/admin/codex", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
   return { ok: true };
 }
