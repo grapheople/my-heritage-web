@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { searchCodex } from "@/lib/data/codex";
 import { prisma } from "@/lib/prisma";
+import { scopeIdOf } from "@/lib/scope";
 
 /**
  * 도감 매칭 인덱스 (D-197) · 매칭 계측 (D-198).
@@ -46,11 +47,15 @@ export type MatchKeyHit = {
  */
 export async function resolveCodexByKey(input: {
   categoryId: string;
+  /** D-253 — 종류가 있는 카테고리면 채운다. 매칭 범위가 이 축으로 갈린다 */
+  subtypeId?: string | null;
   normalizedKey: string;
 }): Promise<MatchKeyHit | null> {
   const hit = await prisma.codexMatchKey.findFirst({
     where: {
-      categoryId: input.categoryId,
+      // D-254 — 카테고리가 아니라 **스코프**로 찾는다. 휠셋 도감과 완성차
+      // 도감은 같은 카테고리에 있어도 서로 만나지 않아야 한다
+      scopeId: scopeIdOf(input),
       value: input.normalizedKey,
       codexItem: { mergedIntoId: null },
       // 승인 대기 중인 AI 제안만 제외한다 (FR-06-C-05)
@@ -75,22 +80,30 @@ type Tx = Prisma.TransactionClient;
  * `CodexItem` 에는 있는데 **매칭으로는 영원히 닿지 않는다** — 보유자만 0명인
  * 도감이 생기는 D-185·D-186 과 같은 실패 모양이다.
  *
- * `@@unique([categoryId, value])` 가 있으므로 이미 있으면 조용히 넘어간다.
+ * `@@unique([scopeId, value])` 가 있으므로 이미 있으면 조용히 넘어간다.
  * 다른 도감이 그 값을 선점했으면 던진다 — 호출부가 FR-02-B-07 로 안내한다.
  */
 export async function syncPrimaryMatchKey(
   tx: Tx,
-  input: { codexItemId: string; categoryId: string; normalizedKey: string },
+  input: {
+    codexItemId: string;
+    categoryId: string;
+    /** ⚠️ 도감의 `subtypeId` 와 **반드시 같아야 한다** — 다르면 도감과 매칭 키의 scope 가 갈린다 */
+    subtypeId?: string | null;
+    normalizedKey: string;
+  },
 ): Promise<void> {
   await tx.codexMatchKey.upsert({
     where: {
-      categoryId_value: { categoryId: input.categoryId, value: input.normalizedKey },
+      scopeId_value: { scopeId: scopeIdOf(input), value: input.normalizedKey },
     },
     // 이미 같은 도감의 PRIMARY 면 할 일이 없다. 다른 도감 것이면 update 가
     // 소유를 옮겨버리므로 **일치할 때만** 통과시킨다
     update: {},
     create: {
       categoryId: input.categoryId,
+      // scopeId 는 쓰지 않는다 — DB 가 이 둘로 계산한다
+      subtypeId: input.subtypeId ?? null,
       codexItemId: input.codexItemId,
       value: input.normalizedKey,
       kind: "PRIMARY",

@@ -236,7 +236,8 @@ async function main() {
 
     await prisma.$transaction(async (tx) => {
       const existing = await tx.codexItem.findUnique({
-        where: { categoryId_normalizedKey: { categoryId: catId, normalizedKey: row.normalizedKey } },
+        // D-254 — 임포트는 종류를 지정하지 않으므로 scopeId 가 catId 와 같다
+        where: { scopeId_normalizedKey: { scopeId: catId, normalizedKey: row.normalizedKey } },
         select: { id: true, verification: true },
       });
 
@@ -285,7 +286,7 @@ async function main() {
         "신규 0" 으로 찍히면 정식 값이 안 들어간 것과 구분되지 않는다
       */
       const hadPrimary = await tx.codexMatchKey.findUnique({
-        where: { categoryId_value: { categoryId: catId, value: row.normalizedKey } },
+        where: { scopeId_value: { scopeId: catId, value: row.normalizedKey } },
         select: { id: true },
       });
       await syncPrimaryMatchKey(tx, {
@@ -297,7 +298,7 @@ async function main() {
 
       for (const k of row.matchKeys) {
         const has = await tx.codexMatchKey.findUnique({
-          where: { categoryId_value: { categoryId: catId, value: k.value } },
+          where: { scopeId_value: { scopeId: catId, value: k.value } },
           select: { codexItemId: true },
         });
         if (has) {

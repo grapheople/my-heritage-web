@@ -631,7 +631,7 @@ export async function setCodexKeyAliases(
 
   const codex = await prisma.codexItem.findUnique({
     where: { id: codexId },
-    select: { categoryId: true, normalizedKey: true },
+    select: { categoryId: true, subtypeId: true, scopeId: true, normalizedKey: true },
   });
   if (!codex) return fail({}, "도감을 찾을 수 없습니다");
 
@@ -664,6 +664,9 @@ export async function setCodexKeyAliases(
       await prisma.codexMatchKey.create({
         data: {
           categoryId: codex.categoryId,
+          // ⚠️ 도감과 **같은 scope** 여야 한다 (D-254). 카테고리 scope 에 만들면
+          // 종류 스코프 도감의 alias 가 영원히 매칭되지 않는다
+          subtypeId: codex.subtypeId,
           codexItemId: codexId,
           value,
           kind: "ALIAS",
@@ -681,7 +684,7 @@ export async function setCodexKeyAliases(
         사라지는 쪽이 나쁘다 (D-185 와 같은 판단)
       */
       const owner = await prisma.codexMatchKey.findUnique({
-        where: { categoryId_value: { categoryId: codex.categoryId, value } },
+        where: { scopeId_value: { scopeId: codex.scopeId, value } },
         select: { kind: true, codexItem: { select: { displayName: true } } },
       });
       rejected.push(
@@ -1472,6 +1475,8 @@ export async function setBrandActive(
 export async function setBrandCategory(input: {
   brandId: string;
   categoryKey: string;
+  /** D-255 — 비우면 카테고리 공통 연결, 주면 그 종류 전용 연결 */
+  subtypeKey?: string | null;
   linked: boolean;
 }): Promise<ActionResult> {
   const ADMIN_ACTOR = await actor();
@@ -1489,14 +1494,34 @@ export async function setBrandCategory(input: {
   });
   if (!brand) return fail({}, "브랜드를 찾을 수 없습니다");
 
-  await prisma.brand.update({
-    where: { id: brand.id },
-    data: {
-      categories: input.linked
-        ? { connect: { id: category.id } }
-        : { disconnect: { id: category.id } },
-    },
-  });
+  /*
+    D-255 — 연결 단위가 카테고리에서 **스코프**로 바뀌었다. 종류를 주면 그 종류
+    전용 연결이고, 안 주면 카테고리 공통 연결이다(그 카테고리 전 종류에 보인다).
+  */
+  let subtypeId: string | null = null;
+  if (input.subtypeKey) {
+    const st = await prisma.categorySubtype.findUnique({
+      where: { categoryId_key: { categoryId: category.id, key: input.subtypeKey } },
+      select: { id: true },
+    });
+    if (!st) return fail({}, "종류를 찾을 수 없습니다");
+    subtypeId = st.id;
+  }
+
+  if (input.linked) {
+    await prisma.brandScope.upsert({
+      where: {
+        brandId_scopeId: { brandId: brand.id, scopeId: subtypeId ?? category.id },
+      },
+      update: {},
+      // scopeId 는 쓰지 않는다 — DB 가 이 둘로 계산한다 (D-254)
+      create: { brandId: brand.id, categoryId: category.id, subtypeId },
+    });
+  } else {
+    await prisma.brandScope.deleteMany({
+      where: { brandId: brand.id, scopeId: subtypeId ?? category.id },
+    });
+  }
 
   revalidate(
     "/admin/brands",
@@ -1550,7 +1575,7 @@ export async function resolveBrandRequest(input: {
         where: { key: req.categoryKey },
         select: { id: true },
       });
-      await tx.brand.upsert({
+      const brand = await tx.brand.upsert({
         where: { name: req.requestedName },
         create: {
           name: req.requestedName,
@@ -1559,11 +1584,27 @@ export async function resolveBrandRequest(input: {
             ja: clean(input.aliases?.ja),
             en: clean(input.aliases?.en),
           },
-          ...(category ? { categories: { connect: { id: category.id } } } : {}),
         },
-        // 이미 있으면 카테고리만 연결한다 — active 는 건드리지 않는다
-        update: category ? { categories: { connect: { id: category.id } } } : {},
+        // 이미 있으면 active 는 건드리지 않는다
+        update: {},
+        select: { id: true },
       });
+
+      /*
+        D-255 — 연결은 별도 행이다. upsert 안에서 `connectOrCreate` 를 쓰려면
+        유일 키에 `brandId` 가 필요한데 그 시점에는 아직 모른다.
+
+        카테고리 **공통** 연결로 만든다 — 요청은 종류를 담지 않고, 좁히는 것은
+        어드민이 A-01 상세 브랜드 탭에서 한다. 포함적 scope 라 넓게 두는 쪽이
+        안전하다 (좁으면 유저가 못 고른다)
+      */
+      if (category) {
+        await tx.brandScope.upsert({
+          where: { brandId_scopeId: { brandId: brand.id, scopeId: category.id } },
+          update: {},
+          create: { brandId: brand.id, categoryId: category.id },
+        });
+      }
     }
 
     await tx.brandRequest.updateMany({
@@ -2056,7 +2097,8 @@ export async function createBrand(input: {
         ja: clean(input.aliases?.ja),
         en: clean(input.aliases?.en),
       },
-      categories: { connect: categories.map((c) => ({ id: c.id })) },
+      // D-255 — 카테고리 공통 연결. 종류로 좁히는 것은 A-01 상세 브랜드 탭에서 한다
+      scopes: { create: categories.map((c) => ({ categoryId: c.id })) },
     },
   });
 

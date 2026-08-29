@@ -76,7 +76,10 @@ async function main() {
       name: true,
       aliases: true,
       active: true,
-      categories: { select: { key: true }, orderBy: { displayOrder: "asc" } },
+      // D-255 — 연결은 BrandScope 다. CSV 는 **카테고리 축**이므로 중복 제거해 낸다
+      scopes: {
+        select: { category: { select: { key: true, displayOrder: true } } },
+      },
     },
   });
 
@@ -86,11 +89,15 @@ async function main() {
   let inactive = 0;
 
   for (const b of brands) {
+    // 같은 카테고리에 공통 + 종류 행이 둘 다 있을 수 있다
+    const cats = [
+      ...new Map(b.scopes.map((r) => [r.category.key, r.category])).values(),
+    ].sort((a, c) => a.displayOrder - c.displayOrder);
     const ko = aliasList(b.aliases, "ko");
     const ja = aliasList(b.aliases, "ja");
     const en = aliasList(b.aliases, "en");
     aliasCount += ko.length + ja.length + en.length;
-    if (b.categories.length === 0) noCategory++;
+    if (cats.length === 0) noCategory++;
     // ⚠️ **비활성 브랜드도 내보낸다.** 임포터는 upsert 라 활성 상태를 되돌리지
     // 않는다 — 빼면 `--prune` 실행 시 영구히 사라지는 것과 같아진다 (D-036)
     if (!b.active) inactive++;
@@ -100,7 +107,7 @@ async function main() {
         cell(ko.join(";")),
         cell(ja.join(";")),
         cell(en.join(";")),
-        cell(b.categories.map((c) => c.key).join(";")),
+        cell(cats.map((c) => c.key).join(";")),
       ].join(","),
     );
   }

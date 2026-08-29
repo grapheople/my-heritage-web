@@ -390,8 +390,9 @@ export async function resolveExerciseRequest(input: {
 
     const clash = await prisma.codexMatchKey.findUnique({
       where: {
-        categoryId_value: {
-          categoryId: target.codexItem.categoryId,
+        // D-254 — 운동은 종류가 없어 scopeId 가 categoryId 와 같다. 동작 불변
+        scopeId_value: {
+          scopeId: target.codexItem.categoryId,
           value: req.normalizedName,
         },
       },

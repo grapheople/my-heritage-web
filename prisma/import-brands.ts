@@ -236,20 +236,42 @@ async function main() {
   let updated = 0;
 
   for (const r of rows) {
-    const connect = r.categories.map((c) => ({ id: catId.get(c)! }));
+    const wantCatIds = r.categories.map((c) => catId.get(c)!);
     const existing = await prisma.brand.findUnique({
       where: { name: r.name },
       select: { id: true },
     });
 
-    await prisma.brand.upsert({
+    const brand = await prisma.brand.upsert({
       where: { name: r.name },
-      create: { name: r.name, aliases: r.aliases, categories: { connect } },
+      create: { name: r.name, aliases: r.aliases },
       // ⚠️ 멱등 — 같은 CSV 를 두 번 넣어도 중복 생성되지 않는다 (D-045).
-      // categories 는 set 으로 덮어써서 CSV 가 SoT 가 되게 한다.
       // active 는 건드리지 않는다 — 운영에서 끈 브랜드를 되살리면 안 된다
-      update: { aliases: r.aliases, categories: { set: connect } },
+      update: { aliases: r.aliases },
+      select: { id: true },
     });
+
+    /*
+      D-255 — 연결은 `BrandScope` 행이다. CSV 가 **카테고리 축의 SoT** 인 것은
+      그대로다.
+
+      ⚠️ **어드민이 종류로 좁힌 연결을 지우지 않는다.** CSV 에는 종류가 없으므로
+      `set` 처럼 통째로 덮어쓰면 A-01 상세에서 만든 "시마노는 구동계·브레이크만"
+      같은 설정이 임포트 때마다 사라진다.
+
+      카테고리가 CSV 에서 **빠진 경우에만** 그 카테고리의 연결을 전부 지운다
+      (공통·종류 모두) — 카테고리를 뗐으면 그 아래 좁힘도 의미가 없다.
+    */
+    await prisma.brandScope.deleteMany({
+      where: { brandId: brand.id, categoryId: { notIn: wantCatIds } },
+    });
+    for (const categoryId of wantCatIds) {
+      await prisma.brandScope.upsert({
+        where: { brandId_scopeId: { brandId: brand.id, scopeId: categoryId } },
+        update: {},
+        create: { brandId: brand.id, categoryId },
+      });
+    }
 
     if (existing) updated++;
     else created++;

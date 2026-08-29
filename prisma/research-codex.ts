@@ -186,7 +186,8 @@ async function main() {
   const brands = await prisma.brand.findMany({
     where: {
       active: true,
-      categories: { some: { key: categoryKey } },
+      // D-255 — 공통·종류 연결 어느 쪽이든 이 카테고리에 붙어 있으면 대상이다
+      scopes: { some: { category: { key: categoryKey } } },
       ...(picked.length ? { name: { in: picked, mode: "insensitive" as const } } : {}),
     },
     orderBy: { name: "asc" },

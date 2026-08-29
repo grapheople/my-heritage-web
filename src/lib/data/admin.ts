@@ -79,11 +79,11 @@ export async function getAdminCategoryDetail(key: string) {
       requiresPhoto: true,
       userCodexCreation: true,
       matchingKey: { select: { attributeKeys: true } },
-      // N:M 이라 상세에서는 읽기 전용이다 (편집은 A-11)
-      brands: {
-        where: { active: true },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
+      // D-255 — 연결은 BrandScope 행이다. 개요는 **카테고리 공통 + 전 종류**를
+      // 합쳐 "이 카테고리에서 고를 수 있는 브랜드" 수를 낸다
+      brandScopes: {
+        where: { brand: { active: true } },
+        select: { brandId: true, brand: { select: { id: true, name: true } } },
       },
       _count: {
         select: { items: true, codexItems: true, subtypes: true, attributes: true },
@@ -104,7 +104,10 @@ export async function getAdminCategoryDetail(key: string) {
     requiresPhoto: c.requiresPhoto,
     userCodexCreation: c.userCodexCreation,
     matchingKeys: c.matchingKey?.attributeKeys ?? [],
-    brands: c.brands,
+    // 같은 브랜드가 공통 + 종류로 두 행일 수 있어 중복을 제거한다
+    brands: [...new Map(c.brandScopes.map((r) => [r.brandId, r.brand])).values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
     itemCount: c._count.items,
     codexCount: c._count.codexItems,
     unverifiedCodexCount,
@@ -240,7 +243,7 @@ export async function getAdminBrands() {
       // ⚠️ **연결 카테고리를 실제로 낸다** (D-182). 화면이 전 브랜드에 "시계" 를
       // 하드코딩하고 있었다 — 브랜드 마스터는 카테고리별인데(D-044·D-045)
       // 어드민이 어느 카테고리에 붙었는지 확인할 수 없었다
-      categories: { select: { key: true } },
+      scopes: { select: { category: { select: { key: true } }, subtype: { select: { key: true } } } },
     },
     take: ADMIN_LIST_LIMIT,
   });
@@ -252,7 +255,10 @@ export async function getAdminBrands() {
       id: b.id,
       name: b.name,
       active: b.active,
-      categoryKeys: b.categories.map((c) => c.key),
+      // D-255 — 공통·종류 연결을 합쳐 카테고리 키로 낸다 (A-11 은 카테고리 축으로 본다)
+      categoryKeys: [...new Set(b.scopes.map((r) => r.category.key))],
+      /** 종류로 좁혀진 연결이 있으면 그 라벨. A-11 이 "일부 종류만" 을 알려준다 */
+      subtypeKeys: [...new Set(b.scopes.map((r) => r.subtype?.key).filter((k): k is string => !!k))],
       // ⚠️ alias 가 비면 유저에게 "브랜드가 없다"로 보인다 (D-047)
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
@@ -298,7 +304,9 @@ export async function getAdminBrandsPage(q: AdminListQuery = {}) {
  */
 export async function getUnlinkedBrands(key: string) {
   const rows = await prisma.brand.findMany({
-    where: { active: true, categories: { none: { key } } },
+    // D-255 — 이 카테고리에 **어떤 형태로도** 안 붙은 브랜드. 종류 전용으로만
+    // 붙어 있어도 "연결됨"으로 친다 — 후보에 다시 띄우면 중복 연결을 부른다
+    where: { active: true, scopes: { none: { categoryId: undefined, category: { key } } } },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

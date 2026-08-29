@@ -176,7 +176,8 @@ export async function insertExercise(input: {
     두 곳을 가리키게 된다.
   */
   const taken = await prisma.codexMatchKey.findUnique({
-    where: { categoryId_value: { categoryId, value: normalizedKey } },
+    // D-254 — 운동은 종류가 없어 scopeId 가 categoryId 와 같다. 동작 불변
+    where: { scopeId_value: { scopeId: categoryId, value: normalizedKey } },
     select: { kind: true, codexItem: { select: { displayName: true } } },
   });
   if (taken) {

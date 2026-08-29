@@ -16,7 +16,7 @@ import { prisma } from "../src/lib/prisma";
 
 async function main() {
   const codexItems = await prisma.codexItem.findMany({
-    select: { id: true, categoryId: true, normalizedKey: true, displayName: true },
+    select: { id: true, categoryId: true, subtypeId: true, scopeId: true, normalizedKey: true, displayName: true },
     orderBy: { createdAt: "asc" },
   });
   console.log(`도감 ${codexItems.length}건 확인`);
@@ -32,7 +32,7 @@ async function main() {
       continue;
     }
     const existing = await prisma.codexMatchKey.findUnique({
-      where: { categoryId_value: { categoryId: c.categoryId, value: c.normalizedKey } },
+      where: { scopeId_value: { scopeId: c.scopeId, value: c.normalizedKey } },
       select: { codexItemId: true, kind: true },
     });
 

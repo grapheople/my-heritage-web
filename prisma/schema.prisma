@@ -384,7 +384,7 @@ model Category {
   attributes    CategoryAttribute[]
   codexItems    CodexItem[]
   items         Item[]
-  brands        Brand[]
+  brandScopes   BrandScope[]
   preferredBy   User[]                 @relation("userPreferredCategories")
   matchingKey   MatchingKeyDefinition?
   /// D-207 — 하위 제품군 (캠핑의 텐트·침낭·랜턴). 대부분의 카테고리는 비어 있다
@@ -472,6 +472,9 @@ model CategorySubtype {
   matchingKey MatchingKeyDefinition? @relation("subtypeMatchingKeys")
   /// D-253 — 이 종류에 속한 도감
   codexItems  CodexItem[]            @relation("subtypeCodex")
+  matchKeys   CodexMatchKey[]        @relation("subtypeMatchKeys")
+  /// D-255 — 이 종류 전용 브랜드 연결
+  brandScopes BrandScope[]
 
   @@unique([categoryId, key])
   @@index([categoryId, active, displayOrder])
@@ -598,15 +601,49 @@ model Brand {
   aliases Json    @default("{}")
   active  Boolean @default(true)
 
-  /// D-043 — Category와 N:M
-  categories Category[]
-  items      Item[]
+  /// D-255 — 카테고리 **또는 그 하위 종류**에 연결된다 (종전 Category N:M).
+  ///
+  /// ⚠️ **포함적 scope 다** — 카테고리 행(`subtypeId` null)은 그 카테고리 전
+  /// 종류에 공통으로 보이고, 종류 행은 그 종류에만 더해진다. 도감(배타)과
+  /// 반대 방향이다: 선택지 목록이라 좁히면 유저가 막힌다
+  scopes BrandScope[]
+  items  Item[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 /// D-046 — 유저 요청 + 어드민 승인 큐 (A-12). 즉시 반영하지 않는다
+/// D-255 — 브랜드가 **어느 단위에 붙는가**. 종전 암묵 조인 `_BrandToCategory` 를 대체한다.
+///
+/// ## ⚠️ 포함적 scope 다 — 도감과 반대다
+/// `subtypeId` 가 `null` 이면 **그 카테고리 전 종류 공통**, 값이 있으면 **그 종류에만**
+/// 더해진다. 등록 폼의 브랜드 목록은 **둘의 합집합**이다.
+///
+/// 도감이 배타적(정확히 한 scope)인 것과 방향이 반대인 이유는, 하나는 **유일성
+/// 판정**이고 하나는 **선택지 목록**이기 때문이다. 선택지를 좁히면 유저가 막힌다.
+///
+/// `CategoryAttribute`(공통 + 종류 전용 합집합)·`AttributeOption`(D-209)과 같은 패턴이다.
+model BrandScope {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// `null` = 이 카테고리 전 종류 공통
+  subtypeId String?
+  subtype   CategorySubtype? @relation(fields: [subtypeId], references: [id], onDelete: Cascade)
+
+  /// D-254 — GENERATED: `COALESCE("subtypeId", "categoryId")`
+  scopeId String @default(dbgenerated())
+
+  @@unique([brandId, scopeId])
+  @@index([scopeId])
+  @@index([categoryId])
+}
+
 model BrandRequest {
   id          String @id @default(cuid())
   requesterId String
@@ -780,10 +817,15 @@ enum MatchKeySource {
 model CodexMatchKey {
   id String @id @default(cuid())
 
-  /// CodexItem.categoryId 의 사본 — 유일 제약이 이 컬럼을 쓴다
+  /// CodexItem.categoryId 의 사본
   categoryId  String
+  /// D-253 — CodexItem.subtypeId 의 사본. 도감과 **항상 같아야 한다**
+  subtypeId   String?
+  subtype     CategorySubtype? @relation("subtypeMatchKeys", fields: [subtypeId], references: [id], onDelete: Restrict)
+  /// D-254 — GENERATED: `COALESCE("subtypeId", "categoryId")`. 유일 제약이 이 컬럼을 쓴다
+  scopeId     String           @default(dbgenerated())
   codexItemId String
-  codexItem   CodexItem @relation(fields: [codexItemId], references: [id], onDelete: Cascade)
+  codexItem   CodexItem        @relation(fields: [codexItemId], references: [id], onDelete: Cascade)
 
   /// D-014 정규화를 거친 값. 복합 키는 `|` 로 결합된 전체다 (E-02-09)
   value String
@@ -802,8 +844,9 @@ model CodexMatchKey {
 
   createdAt DateTime @default(now())
 
-  /// ⚠️ FR-02-B-06 — 정식 값과 키 alias 를 합친 전체 집합의 유일성
-  @@unique([categoryId, value])
+  /// ⚠️ FR-02-B-06 — 정식 값과 키 alias 를 합친 전체 집합의 유일성.
+  /// D-254 — 범위가 카테고리에서 **스코프**로 좁아졌다
+  @@unique([scopeId, value])
   @@index([codexItemId])
   @@index([sourceMergeId])
 }

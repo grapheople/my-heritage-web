@@ -2,6 +2,7 @@ import { resolveMasterBrand } from "@/lib/brand-master";
 import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
 import { syncPrimaryMatchKey } from "@/lib/codex-match-key";
 import { prisma } from "@/lib/prisma";
+import { scopeIdOf } from "@/lib/scope";
 
 /**
  * 도감 1건을 만든다 — **어드민 직접 등록과 자료 조사 등록이 같은 함수를 쓴다.**
@@ -28,6 +29,11 @@ export async function insertCodex(input: {
   categoryKey: string;
   displayName: string;
   keyValues: Record<string, string>;
+  /**
+   * D-253 — 종류가 있는 카테고리면 채운다. **도감의 이름 공간이 이 축으로 갈린다.**
+   * 비우면 카테고리 스코프가 되고, 그것이 종류 없는 카테고리의 정상 상태다.
+   */
+  subtypeId?: string | null;
   descriptions?: { ko?: string; ja?: string; en?: string };
   /**
    * ⚠️ **호출부가 정한다 — 출처에 따라 갈린다.** 사람이 확인해서 넣었으면
@@ -85,8 +91,10 @@ export async function insertCodex(input: {
     return { ok: false, error: "매칭 키 값을 입력해주세요", field: keyOrder[0] };
   }
 
+  const scopeId = scopeIdOf({ categoryId: category.id, subtypeId: input.subtypeId });
+
   const dup = await prisma.codexItem.findFirst({
-    where: { categoryId: category.id, normalizedKey: key.normalizedKey },
+    where: { scopeId, normalizedKey: key.normalizedKey },
     select: { id: true, displayName: true },
   });
   // 차단하고 **기존 도감을 알려준다** — 그냥 막으면 어드민이 왜 막혔는지 모른다
@@ -105,7 +113,7 @@ export async function insertCodex(input: {
   */
   const taken = await prisma.codexMatchKey.findUnique({
     where: {
-      categoryId_value: { categoryId: category.id, value: key.normalizedKey },
+      scopeId_value: { scopeId, value: key.normalizedKey },
     },
     select: { kind: true, codexItem: { select: { displayName: true } } },
   });
@@ -130,6 +138,8 @@ export async function insertCodex(input: {
     const made = await tx.codexItem.create({
       data: {
         categoryId: category.id,
+        // scopeId 는 쓰지 않는다 — DB 가 이 둘로 계산한다 (D-254)
+        subtypeId: input.subtypeId ?? null,
         displayName,
         uniqueId: uniqueIdForCodex(keyOrder, key.raw),
         normalizedKey: key.normalizedKey,
@@ -149,6 +159,8 @@ export async function insertCodex(input: {
     await syncPrimaryMatchKey(tx, {
       codexItemId: made.id,
       categoryId: category.id,
+      // ⚠️ 도감과 **같은 값**이어야 한다 — 갈리면 만든 도감을 매칭이 못 찾는다
+      subtypeId: input.subtypeId ?? null,
       normalizedKey: key.normalizedKey,
     });
     return made.id;

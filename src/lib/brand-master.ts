@@ -1,5 +1,6 @@
 import { normalizeBrandToken, type BrandAliases } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
+import { brandScopesWhere } from "@/lib/scope";
 
 /**
  * 브랜드 마스터 조회 — **매칭 키에 들어갈 브랜드 값을 정식 명칭으로 확정한다**
@@ -53,9 +54,11 @@ function match(rows: Row[], query: string): Row[] {
 export async function resolveMasterBrand(
   name: string,
   categoryKey: string,
+  /** D-255 — 종류가 있으면 그 종류 전용 브랜드까지 합쳐 본다 (포함적 scope) */
+  subtypeKey?: string | null,
 ): Promise<BrandResolution> {
   const inCategory = await prisma.brand.findMany({
-    where: { active: true, categories: { some: { key: categoryKey } } },
+    where: { active: true, scopes: brandScopesWhere({ categoryKey, subtypeKey }) },
     select: { name: true, aliases: true },
   });
 

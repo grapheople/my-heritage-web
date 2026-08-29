@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { BrandAliases } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
+import { brandScopesWhere } from "@/lib/scope";
 
 /**
  * 카테고리별 브랜드 목록 (D-043, OI-54).
@@ -15,13 +16,16 @@ import { prisma } from "@/lib/prisma";
  * 신규 등록에는 쓰지 못하지만 **기존 아이템의 값은 보존된다** — D-036 과 같은 논리.
  */
 export async function GET(req: Request) {
-  const category = new URL(req.url).searchParams.get("category");
+  const sp = new URL(req.url).searchParams;
+  const category = sp.get("category");
+  // D-255 — 종류를 주면 그 종류 전용 브랜드가 **더해진다**(좁아지지 않는다)
+  const subtype = sp.get("subtype");
   if (!category) {
     return NextResponse.json({ error: "category required" }, { status: 400 });
   }
 
   const brands = await prisma.brand.findMany({
-    where: { active: true, categories: { some: { key: category } } },
+    where: { active: true, scopes: brandScopesWhere({ categoryKey: category, subtypeKey: subtype }) },
     select: { name: true, aliases: true },
     orderBy: { name: "asc" },
   });

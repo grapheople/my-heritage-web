@@ -266,7 +266,10 @@ server.registerTool(
   async ({ codexId, value, note }) => {
     const codex = await prisma.codexItem.findUnique({
       where: { id: codexId },
-      select: { categoryId: true, normalizedKey: true, mergedIntoId: true, displayName: true },
+      select: {
+        categoryId: true, subtypeId: true, scopeId: true,
+        normalizedKey: true, mergedIntoId: true, displayName: true,
+      },
     });
     if (!codex) return json({ ok: false, error: "도감을 찾을 수 없습니다" });
     if (codex.mergedIntoId) return json({ ok: false, error: "병합된 도감입니다 — survivor 에 제안하세요" });
@@ -281,6 +284,8 @@ server.registerTool(
       await prisma.codexMatchKey.create({
         data: {
           categoryId: codex.categoryId,
+          // ⚠️ 도감과 같은 scope (D-254)
+          subtypeId: codex.subtypeId,
           codexItemId: codexId,
           value: normalized,
           kind: "ALIAS",
@@ -292,7 +297,7 @@ server.registerTool(
       });
     } catch {
       const owner = await prisma.codexMatchKey.findUnique({
-        where: { categoryId_value: { categoryId: codex.categoryId, value: normalized } },
+        where: { scopeId_value: { scopeId: codex.scopeId, value: normalized } },
         select: { kind: true, codexItem: { select: { displayName: true } } },
       });
       return json({
