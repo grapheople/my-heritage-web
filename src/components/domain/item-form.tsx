@@ -141,6 +141,7 @@ export function ItemForm({
     subtype: string;
     defs: AttrDef[];
     subtypes: SubtypeOption[];
+    subtypeRequired: boolean;
   } | null>(null);
   /**
    * D-207 — 하위 제품군(캠핑의 텐트·랜턴). **카테고리를 바꾸면 비운다** —
@@ -154,17 +155,19 @@ export function ItemForm({
     if (subtype) qs.set("subtype", subtype);
     fetch(`/api/categories/${category}/attributes?${qs}`)
       .then((r) => r.json())
-      .then((d: { attributes: AttrDef[]; subtypes?: SubtypeOption[] }) => {
+      .then((d: { attributes: AttrDef[]; subtypes?: SubtypeOption[]; subtypeRequired?: boolean }) => {
         if (alive)
           setLoaded({
             category,
             subtype,
             defs: d.attributes ?? [],
             subtypes: d.subtypes ?? [],
+            subtypeRequired: d.subtypeRequired ?? false,
           });
       })
       .catch(() => {
-        if (alive) setLoaded({ category, subtype, defs: [], subtypes: [] });
+        if (alive)
+          setLoaded({ category, subtype, defs: [], subtypes: [], subtypeRequired: false });
       });
     return () => {
       alive = false;
@@ -180,6 +183,14 @@ export function ItemForm({
   const attrs = fresh ? loaded.defs : [];
   // 선택지는 제품군을 고른 뒤에도 유지돼야 바꿀 수 있다
   const subtypeOptions = loaded?.category === category ? (loaded.subtypes ?? []) : [];
+  /*
+    D-253 — 종류가 필수인 카테고리에서는 비울 수 없다. 서버(`resolveSubtypeId`)가
+    최종 관문이고 이것은 **표시와 조기 차단**이다 — 제출하고 나서 거부당하면
+    유저가 어디가 문제인지 찾아 올라와야 한다
+  */
+  const subtypeRequired =
+    loaded?.category === category ? (loaded.subtypeRequired ?? false) : false;
+  const subtypeMissing = subtypeRequired && subtypeOptions.length > 0 && !subtype;
   /** 도감 연결에 필요한 항목 이름 — 이미 로케일에 맞게 온다 (`?locale=`) */
   const matchingKeyLabels = attrs
     .filter((a) => a.matchingKey)
@@ -400,7 +411,10 @@ export function ItemForm({
       */}
       {subtypeOptions.length > 0 && (
         <div>
-          <p className="text-sm font-semibold">{t("reg.subtype")}</p>
+          <p className="text-sm font-semibold">
+            {t("reg.subtype")}
+            {subtypeRequired && <span className="ml-0.5 text-destructive">*</span>}
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">{t("reg.subtypeHint")}</p>
           {fixedCategory ? (
             <p className="mt-2 text-sm">
@@ -415,7 +429,9 @@ export function ItemForm({
                     onClick={() => {
                       // 제품군이 바뀌면 속성 집합이 달라진다 — 값은 유지하되
                       // 폼이 새 정의를 받아 그리게 둔다 (없는 칸은 안 그려진다)
-                      setSubtype(o.key === subtype ? "" : o.key);
+                      // 필수면 같은 것을 다시 눌러도 해제되지 않는다 — 해제하면
+                      // 고를 수 없는 상태로 되돌아간다
+                      setSubtype(o.key === subtype && !subtypeRequired ? "" : o.key);
                     }}
                     className={cn(
                       "rounded-lg border px-3 py-1.5 text-sm",
@@ -545,7 +561,12 @@ export function ItemForm({
         </p>
       )}
 
-      <button type="submit" disabled={pending}
+      {/* D-253 — 종류가 필수인데 안 골랐으면 제출 전에 알린다 */}
+      {subtypeMissing && (
+        <p className="text-sm text-destructive">{t("reg.subtypeRequired")}</p>
+      )}
+
+      <button type="submit" disabled={pending || subtypeMissing}
         className="rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">
         {pending ? t("common.loading") : t("common.save")}
       </button>

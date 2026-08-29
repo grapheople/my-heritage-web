@@ -102,7 +102,28 @@ export async function resolveSubtypeId(input: {
   subtypeKey?: string;
 }): Promise<{ ok: true; subtypeId: string | null } | { ok: false; error: string }> {
   const key = input.subtypeKey?.trim();
-  if (!key) return { ok: true, subtypeId: null };
+  if (!key) {
+    /*
+      D-253 — **종류가 필수인 카테고리에서는 비울 수 없다.**
+
+      ## ⚠️ 종전에는 조용히 `null` 을 냈다
+      그것이 D-207 결정 5 가 도감의 종류 분할을 탈락시킨 이유였다 — 한 유저는
+      "휠셋"을 고르고 다른 유저는 안 고르면 **같은 제품이 두 도감으로 갈린다.**
+      스코프(D-254)가 종류 축으로 갈리는 지금은 그 갈림이 곧 매칭 실패다.
+
+      ## ⚠️ 카테고리를 코드에 열거하지 않는다
+      `category === "bicycle"` 이 아니라 DB 플래그를 읽는다 (D-173·D-231).
+      캠핑을 켜는 것은 도감 분류가 끝난 뒤의 **한 줄 UPDATE** 다 (D-257).
+    */
+    const category = await prisma.category.findUnique({
+      where: { id: input.categoryId },
+      select: { subtypeRequired: true },
+    });
+    if (category?.subtypeRequired) {
+      return { ok: false, error: "종류를 선택해주세요" };
+    }
+    return { ok: true, subtypeId: null };
+  }
   const row = await prisma.categorySubtype.findUnique({
     where: { categoryId_key: { categoryId: input.categoryId, key } },
     select: { id: true, active: true },

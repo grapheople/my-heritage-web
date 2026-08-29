@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getCategoryAttributes, type Locale } from "@/lib/data/attributes";
 import { getSubtypeOptions } from "@/lib/subtype";
 
@@ -22,9 +23,12 @@ export async function GET(
   // D-207 — 제품군을 고르면 그 전용 속성까지 합쳐 온다
   const subtype = sp.get("subtype") ?? undefined;
 
-  const [attributes, subtypes] = await Promise.all([
+  const [attributes, subtypes, category] = await Promise.all([
     getCategoryAttributes(key, locale, subtype),
     getSubtypeOptions(key, locale),
+    // D-253 — 폼이 `*` 를 붙이고 제출 전에 막을 수 있어야 한다.
+    // 서버(`resolveSubtypeId`)가 최종 관문이고 이것은 표시용이다
+    prisma.category.findUnique({ where: { key }, select: { subtypeRequired: true } }),
   ]);
 
   /*
@@ -33,7 +37,7 @@ export async function GET(
     비어 있으면(6개 카테고리) 폼이 UI 를 그리지 않는다
   */
   return NextResponse.json(
-    { attributes, subtypes },
+    { attributes, subtypes, subtypeRequired: category?.subtypeRequired ?? false },
     {
       headers: {
         // 어드민이 A-02 에서 바꾸면 반영돼야 하므로 짧게 잡는다

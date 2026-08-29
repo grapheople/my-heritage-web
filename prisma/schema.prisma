@@ -428,6 +428,21 @@ model Category {
   ///
   /// ⚠️ 기본이 `true` 라 새 카테고리는 기존 동작으로 붙는다. `workout` 만 `false`.
   userCodexCreation Boolean @default(true)
+
+  /// D-253 — **종류 선택이 필수인가.**
+  ///
+  /// ## ⚠️ 카테고리를 코드에 열거하지 않는다
+  /// `sellable`·`requiresPhoto`·`userCodexCreation` 과 같은 자리다 (D-173·D-231).
+  /// `category === "bicycle"` 로 비교하면 두 줄로 끝나지만 **DB 규칙을 코드에
+  /// 복제하는 것**이고, 카테고리가 늘 때 고칠 자리가 하나 더 생긴다.
+  ///
+  /// ## ⚠️ 기본이 `false` 다 — 여기만 다른 셋과 반대다
+  /// 나머지 셋은 "안전한 쪽"이 기본이라 `true` 인데, 이것은 **켜는 순간 등록
+  /// 단계가 하나 늘어난다.** 종류가 없는 카테고리에 켜지면 유저가 고를 것이
+  /// 없는 필수 항목 앞에서 막힌다. 종류를 갖추고 도감을 분류한 뒤에 켠다.
+  ///
+  /// 지금은 `bicycle` 만 `true` — 캠핑은 도감 208건 분류 후 켠다 (D-257).
+  subtypeRequired Boolean @default(false)
 }
 
 /// D-207 — **카테고리 하위 제품군.** 캠핑의 텐트·침낭·랜턴처럼
@@ -782,6 +797,7 @@ model CodexItem {
 
   /// D-254 — normalizedKey 는 **스코프** 단위 유일 (종전 categoryId 단위)
   @@unique([scopeId, normalizedKey])
+  @@index([subtypeId])
   @@index([verification])
   @@index([uniqueId])
 }
@@ -847,6 +863,7 @@ model CodexMatchKey {
   /// ⚠️ FR-02-B-06 — 정식 값과 키 alias 를 합친 전체 집합의 유일성.
   /// D-254 — 범위가 카테고리에서 **스코프**로 좁아졌다
   @@unique([scopeId, value])
+  @@index([subtypeId])
   @@index([codexItemId])
   @@index([sourceMergeId])
 }

@@ -402,6 +402,7 @@
     "matchingKeyHint": "Enter it accurately to link with the codex. An unregistered {field} is added to the codex after verification",
     "subtype": "Type",
     "subtypeHint": "Pick a type to see the fields that match it",
+    "subtypeRequired": "Please select a type",
     "subtypeNone": "Not selected"
   },
   "opt": {
