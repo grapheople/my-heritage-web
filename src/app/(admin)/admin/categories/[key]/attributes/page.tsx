@@ -53,8 +53,19 @@ export default async function CategoryAttributesPage({
   const subtypeRows = await Promise.all(
     mine.map(async (s) => ({ ...s, attrs: await getAdminSubtypeAttributes(s.id) })),
   );
-  /** 제품군에 붙일 수 있는 속성 후보 — 공통 표에 있는 정의를 그대로 쓴다 */
-  const allDefs = attrs.map((a) => ({ key: a.key, label: a.label }));
+
+  /*
+    제품군에 붙일 수 있는 속성 후보 (D-252).
+
+    ## ⚠️ 종전에는 **카테고리 공통 표**를 그대로 후보로 줬다 — 정확히 반대였다
+    공통은 이미 그 종류에도 나오므로 **붙이면 폼에 두 번 그려지고**, 정작
+    `rimDepth` 같은 **종류 전용 정의는 후보에 없어서 붙일 수가 없었다.**
+    자전거는 11개 후보가 전부 공통이었다 — 하나도 붙이면 안 되는 것들이다.
+
+    올바른 후보 = 전체 정의 − 이 카테고리 공통 − 그 종류가 이미 가진 것.
+    앞의 뺄셈은 `getUnattachedAttributes`(D-250)가 이미 해준다 — 새 쿼리가 없다.
+  */
+  const subtypeCandidatePool = candidates.map((c) => ({ key: c.key, label: c.label }));
 
   return (
     <>
@@ -121,6 +132,10 @@ export default async function CategoryAttributesPage({
           <h2 className="text-sm font-bold">하위 종류 전용 속성</h2>
           <p className="mt-1 mb-3 text-xs text-muted-foreground">
             위 공통 속성에 <b>더해서</b> 나옵니다. 종류를 고르지 않으면 공통만 나옵니다.
+            <br />
+            ⚠️ <b>공통에 이미 있는 속성은 종류에 붙일 수 없습니다</b> — 붙이면 등록 폼에 같은
+            칸이 두 번 나옵니다 (D-252). 종류마다 필수 여부를 다르게 하려면 공통에서 떼고
+            종류별로 각각 붙이세요.
           </p>
           <div className="flex flex-col gap-4">
             {subtypeRows.map((s) => (
@@ -130,7 +145,8 @@ export default async function CategoryAttributesPage({
                 label={s.labels.ko}
                 active={s.active}
                 attrs={s.attrs}
-                candidates={allDefs}
+                // 컴포넌트가 이 종류의 기존 속성을 다시 걸러낸다
+                candidates={subtypeCandidatePool}
               />
             ))}
           </div>

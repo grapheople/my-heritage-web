@@ -120,6 +120,33 @@ export async function setCategoryAttribute(input: {
   ]);
   if (!category || !def) return fail({}, "카테고리 또는 속성을 찾을 수 없습니다");
 
+  /*
+    ⚠️ **반대 방향 가드** (D-252). 중복은 종류 쪽에서만 생기는 게 아니다 —
+    `minWeight` 가 프레임·휠셋·안장에 붙어 있는데 나중에 누가 자전거 공통으로
+    올리면 **그 순간 세 종류에서 폼이 두 번 그려진다.**
+
+    이미 붙어 있는 행을 토글하는 것은 막지 않는다 — 그건 중복을 만들지 않는다.
+  */
+  const existing = await prisma.categoryAttribute.findUnique({
+    where: {
+      categoryId_attributeDefinitionId: { categoryId: category.id, attributeDefinitionId: def.id },
+    },
+    select: { id: true },
+  });
+  if (!existing) {
+    const clashes = await prisma.categoryAttribute.findMany({
+      where: { attributeDefinitionId: def.id, subtype: { categoryId: category.id } },
+      select: { subtype: { select: { labelKo: true } } },
+    });
+    if (clashes.length > 0) {
+      const names = clashes.map((c) => c.subtype?.labelKo).filter(Boolean).join("·");
+      return fail(
+        {},
+        `이 속성은 이미 ${names} 에 붙어 있습니다. 공통으로 올리려면 먼저 종류에서 떼세요.`,
+      );
+    }
+  }
+
   await prisma.categoryAttribute.upsert({
     where: {
       categoryId_attributeDefinitionId: {
@@ -379,6 +406,36 @@ export async function setSubtypeAttribute(input: {
     select: { id: true },
   });
   if (!def) return fail({}, "속성을 찾을 수 없습니다");
+
+  /*
+    ⚠️ **공통과 종류에 같은 속성이 동시에 붙으면 등록 폼이 두 번 그린다** (D-252).
+    `attributeScopeWhere` 가 `OR: [{categoryId}, {subtypeId}]` 로 합치기만 하고
+    `attributeDefinitionId` 중복을 제거하지 않기 때문이다. 값도 두 벌 저장된다 —
+    `ItemAttributeValue` 는 `categoryAttributeId` 단위 유니크라 막지 못한다.
+
+    UI 후보에서 걸러도 **여기서 다시 막는다.** 필터링은 강제가 아니다.
+  */
+  const subtype = await prisma.categorySubtype.findUnique({
+    where: { id: input.subtypeId },
+    select: { categoryId: true },
+  });
+  if (!subtype) return fail({}, "종류를 찾을 수 없습니다");
+
+  const common = await prisma.categoryAttribute.findUnique({
+    where: {
+      categoryId_attributeDefinitionId: {
+        categoryId: subtype.categoryId,
+        attributeDefinitionId: def.id,
+      },
+    },
+    select: { id: true },
+  });
+  if (common) {
+    return fail(
+      {},
+      "이 속성은 카테고리 공통에 이미 붙어 있습니다. 종류에 또 붙이면 등록 폼에 두 번 나옵니다.",
+    );
+  }
 
   await prisma.categoryAttribute.upsert({
     where: {
