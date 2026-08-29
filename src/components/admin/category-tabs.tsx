@@ -16,6 +16,7 @@ const TABS = [
   { seg: "subtypes", label: "하위 종류" },
   { seg: "attributes", label: "동적 속성" },
   { seg: "matching-key", label: "매칭 키" },
+  { seg: "brands", label: "연결 브랜드" },
   { seg: "codex", label: "도감" },
 ] as const;
 

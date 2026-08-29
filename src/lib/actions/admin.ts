@@ -1378,7 +1378,7 @@ export async function setBrandAliases(
     where: { id: brandId },
     data: { aliases: { ko: clean(aliases.ko), ja: clean(aliases.ja), en: clean(aliases.en) } },
   });
-  revalidate("/admin/brands");
+  revalidate("/admin/brands", "/admin/categories/[key]", "/admin/categories/[key]/brands");
   return { ok: true };
 }
 
@@ -1390,7 +1390,62 @@ export async function setBrandActive(
   const ADMIN_ACTOR = await actor();
   if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
   await prisma.brand.update({ where: { id: brandId }, data: { active } });
-  revalidate("/admin/brands");
+  revalidate("/admin/brands", "/admin/categories/[key]", "/admin/categories/[key]/brands");
+  return { ok: true };
+}
+
+/**
+ * 브랜드를 **이 카테고리에 붙이거나 뗀다** (D-251).
+ *
+ * ## ⚠️ 해제 경로가 아예 없었다
+ * 브랜드↔카테고리 연결은 `createBrand` 와 브랜드 요청 승인에서 `connect` 만
+ * 했다. **기존 브랜드에 카테고리를 추가하거나 떼는 방법이 UI 에 없었다** —
+ * 생성 시점에 잘못 고르면 시드 스크립트 말고는 고칠 자리가 없었다.
+ * D-250(속성 붙이기)과 같은 종류인데, 그쪽은 upsert 가 있었고 여기는 없다.
+ *
+ * ## ⚠️ 떼도 기존 아이템은 그대로다
+ * `Item.brandId` 는 **이 N:M 링크와 독립된 FK** 다. 떼면 그 카테고리 등록 폼의
+ * **브랜드 선택지에서만** 빠지고(D-044), 이미 등록된 아이템의 브랜드 표시는
+ * 유지된다 — 아이템 명칭이 `brand.name + model` 파생인 것도 그대로다 (D-073).
+ * **D-036 과 같은 성격이라 되돌릴 수 있다.**
+ *
+ * ⚠️ 브랜드 **원문 이름은 여기서 바꾸지 않는다** — 1개 고정이고(D-009) unique
+ * 키다. alias 는 `setBrandAliases`, 활성은 `setBrandActive` 가 맡는다.
+ */
+export async function setBrandCategory(input: {
+  brandId: string;
+  categoryKey: string;
+  linked: boolean;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const category = await prisma.category.findUnique({
+    where: { key: input.categoryKey },
+    select: { id: true },
+  });
+  if (!category) return fail({}, "카테고리를 찾을 수 없습니다");
+
+  const brand = await prisma.brand.findUnique({
+    where: { id: input.brandId },
+    select: { id: true },
+  });
+  if (!brand) return fail({}, "브랜드를 찾을 수 없습니다");
+
+  await prisma.brand.update({
+    where: { id: brand.id },
+    data: {
+      categories: input.linked
+        ? { connect: { id: category.id } }
+        : { disconnect: { id: category.id } },
+    },
+  });
+
+  revalidate(
+    "/admin/brands",
+    "/admin/categories/[key]",
+    "/admin/categories/[key]/brands",
+  );
   return { ok: true };
 }
 
@@ -1948,7 +2003,7 @@ export async function createBrand(input: {
     },
   });
 
-  revalidate("/admin/brands");
+  revalidate("/admin/brands", "/admin/categories/[key]", "/admin/categories/[key]/brands");
   return { ok: true };
 }
 

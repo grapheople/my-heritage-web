@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminActionButton } from "@/components/admin/action-button";
 import { Pill, StatCard } from "@/components/admin/ui";
@@ -27,10 +26,16 @@ export default async function CategoryOverviewPage({
 
   return (
     <>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="등록 아이템" value={c.itemCount} />
         <StatCard label="도감" value={c.codexCount} href={`/admin/categories/${key}/codex`} />
         <StatCard label="미검증 도감" value={c.unverifiedCodexCount} warn />
+        {/* D-251 — 연결 브랜드는 전용 탭으로 갔다 (연결·해제·alias·활성) */}
+        <StatCard
+          label="연결 브랜드"
+          value={c.brands.length}
+          href={`/admin/categories/${key}/brands`}
+        />
         <StatCard
           label="하위 종류"
           value={c.subtypeCount}
@@ -98,23 +103,6 @@ export default async function CategoryOverviewPage({
         </p>
       </section>
 
-      <section className="mt-8">
-        <h2 className="text-sm font-bold">연결 브랜드 {c.brands.length}건 (읽기 전용)</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          브랜드는 카테고리와 N:M 이라 여기서 편집하지 않습니다 —{" "}
-          <Link href="/admin/brands" className="underline">
-            브랜드 마스터 (A-11)
-          </Link>{" "}
-          에서 관리합니다. 연결되지 않은 브랜드는 유저 선택 목록에 없습니다 (D-044).
-        </p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {c.brands.length === 0 ? (
-            <span className="text-sm text-muted-foreground">연결된 브랜드가 없습니다</span>
-          ) : (
-            c.brands.map((b) => <Pill key={b.id}>{b.name}</Pill>)
-          )}
-        </div>
-      </section>
     </>
   );
 }

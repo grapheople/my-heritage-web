@@ -290,6 +290,43 @@ export async function getAdminBrandsPage(q: AdminListQuery = {}) {
 }
 
 /**
+ * 이 카테고리에 **아직 연결되지 않은** 활성 브랜드 (D-251).
+ *
+ * ⚠️ **비활성 브랜드는 후보에 넣지 않는다.** 비활성은 신규 등록 선택지에서
+ * 빠진 상태인데(D-036·D-043), 그걸 카테고리에 연결해봐야 유저에게는 여전히
+ * 보이지 않는다 — 어드민이 "연결했는데 왜 안 나오지"를 겪는다.
+ */
+export async function getUnlinkedBrands(key: string) {
+  const rows = await prisma.brand.findMany({
+    where: { active: true, categories: { none: { key } } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  return rows;
+}
+
+/**
+ * 이 카테고리에서 **브랜드별로 등록된 아이템 수** (D-251).
+ *
+ * ## ⚠️ 이 값이 "떼도 되나"의 근거다
+ * 없으면 어드민은 영향 범위를 모르고 해제한다. A-17 운동 마스터가 사용 수를
+ * 함께 내는 것(`FR-11-A-10`)과 같은 이유다.
+ *
+ * ⚠️ 브랜드 **전체** 아이템 수가 아니라 **이 카테고리 안**의 수다. 브랜드는
+ * 여러 카테고리에 걸리므로(N:M) 전체 수를 보여주면 해제 영향이 부풀려진다.
+ *
+ * 쿼리 1 개로 끝낸다 — 브랜드마다 세면 목록 크기만큼 쿼리가 늘어난다.
+ */
+export async function getCategoryBrandItemCounts(key: string) {
+  const rows = await prisma.item.groupBy({
+    by: ["brandId"],
+    where: { category: { key }, brandId: { not: null } },
+    _count: { _all: true },
+  });
+  return new Map(rows.map((r) => [r.brandId as string, r._count._all]));
+}
+
+/**
  * A-12 브랜드 요청 큐 — **같은 요청은 합쳐서 건수로** 보여준다 (FR-09-A-06).
  * 요청 건수 순 (FR-09-B-01).
  */
