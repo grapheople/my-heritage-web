@@ -75,7 +75,8 @@ export function AttributeCreateForm() {
             options: needsOptions ? options : undefined,
           });
           if (res.ok) {
-            setDone(`"${label.ko}" 속성을 추가했습니다. 카테고리에 붙이려면 아래 표에서 설정하세요.`);
+            // D-250 — 붙이는 컨트롤이 생기기 전에는 이 안내가 **없는 기능**을 가리켰다
+            setDone(`"${label.ko}" 속성을 추가했습니다. 아래 "이 카테고리에 없는 속성 붙이기"에서 붙이세요.`);
             setKey("");
             setLabel({ ko: "", ja: "", en: "" });
             setUnit({ ko: "", ja: "", en: "" });
