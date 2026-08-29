@@ -8,6 +8,7 @@ import { setBrandActive, setBrandCategory } from "@/lib/actions/admin";
 import { parseListParams } from "@/lib/admin-list-params";
 import {
   getAdminBrandsPage,
+  getAdminSubtypes,
   getCategoryBrandItemCounts,
   getUnlinkedBrands,
 } from "@/lib/data/admin";
@@ -39,12 +40,17 @@ export default async function CategoryBrandsPage({
 }: PageProps<"/admin/categories/[key]/brands">) {
   const { key } = await params;
   const listParams = parseListParams(await searchParams);
-  const [list, itemCounts, candidates] = await Promise.all([
+  const [list, itemCounts, candidates, allSubtypes] = await Promise.all([
     // ⚠️ URL 의 카테고리가 이긴다 — 쿼리의 category 는 덮어쓴다
     getAdminBrandsPage({ ...listParams, category: key }),
     getCategoryBrandItemCounts(key),
     getUnlinkedBrands(key),
+    getAdminSubtypes(),
   ]);
+  // D-255 — 종류가 없는 카테고리면 빈 배열 → 선택 UI 가 안 그려진다
+  const subtypes = allSubtypes
+    .filter((s) => s.categoryKey === key && s.active)
+    .map((s) => ({ key: s.key, label: s.labels.ko }));
 
   return (
     <>
@@ -136,8 +142,16 @@ export default async function CategoryBrandsPage({
           연결하면 이 카테고리 등록 폼의 브랜드 선택지에 나옵니다 (D-044).{" "}
           <b>활성 브랜드만 후보입니다</b> — 비활성은 연결해도 유저에게 안 보입니다
           (D-036).
+          {subtypes.length > 0 && (
+            <>
+              <br />
+              <b>전 종류 공통</b>으로 두면 이 카테고리의 모든 종류에 나오고,{" "}
+              <b>특정 종류 전용</b>으로 좁히면 그 종류에만 더해집니다 — 좁혀도 공통
+              연결은 그대로 보입니다 (D-255).
+            </>
+          )}
         </p>
-        <BrandLinkForm categoryKey={key} candidates={candidates} />
+        <BrandLinkForm categoryKey={key} candidates={candidates} subtypes={subtypes} />
       </section>
 
       <p className="mt-4 text-xs text-muted-foreground">

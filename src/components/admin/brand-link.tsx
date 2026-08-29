@@ -16,11 +16,16 @@ import { setBrandCategory } from "@/lib/actions/admin";
 export function BrandLinkForm({
   categoryKey,
   candidates,
+  subtypes,
 }: {
   categoryKey: string;
   candidates: { id: string; name: string }[];
+  /** D-255 — 비어 있으면 종류 선택 UI 를 그리지 않는다 (종류 없는 카테고리) */
+  subtypes: { key: string; label: string }[];
 }) {
   const [pick, setPick] = useState("");
+  /** 빈 문자열 = 카테고리 공통 (그 카테고리 전 종류에 보인다) */
+  const [scope, setScope] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -46,6 +51,21 @@ export function BrandLinkForm({
           </option>
         ))}
       </select>
+      {subtypes.length > 0 && (
+        <select
+          value={scope}
+          onChange={(e) => setScope(e.target.value)}
+          className="rounded-md border px-2 py-1.5 text-sm"
+        >
+          {/* 기본은 공통 — 좁히는 것은 의도적 행동이어야 한다 */}
+          <option value="">전 종류 공통</option>
+          {subtypes.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label} 전용
+            </option>
+          ))}
+        </select>
+      )}
       <button
         type="button"
         disabled={!pick || pending}
@@ -55,6 +75,7 @@ export function BrandLinkForm({
             const res = await setBrandCategory({
               brandId: pick,
               categoryKey,
+              subtypeKey: scope || undefined,
               linked: true,
             });
             if (res.ok) setPick("");
