@@ -296,6 +296,24 @@ export async function getAdminBrandsPage(q: AdminListQuery = {}) {
 }
 
 /**
+ * 이 카테고리에서 **종류가 지정되지 않은** 도감 수 (D-257).
+ *
+ * ⚠️ **전체 기준이다 — 페이지 기준이 아니다.** 페이지 기준으로 세면 2페이지에서
+ * 숫자가 줄어 "거의 끝났다"로 오인한다 (D-183 이 고친 것이 정확히 그런 자기모순
+ * 경고였다).
+ *
+ * 이 값이 0 이 되어야 그 카테고리의 `subtypeRequired` 를 켤 수 있다 — 미분류인
+ * 채로 켜면 유저가 고른 종류 스코프에 도감이 없어 중복 도감이 생긴다.
+ *
+ * ⚠️ 병합된 도감은 세지 않는다 — survivor 만 분류하면 된다.
+ */
+export async function countUnclassifiedCodex(categoryKey: string): Promise<number> {
+  return prisma.codexItem.count({
+    where: { category: { key: categoryKey }, subtypeId: null, mergedIntoId: null },
+  });
+}
+
+/**
  * 이 카테고리에 **아직 연결되지 않은** 활성 브랜드 (D-251).
  *
  * ⚠️ **비활성 브랜드는 후보에 넣지 않는다.** 비활성은 신규 등록 선택지에서
@@ -606,6 +624,8 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       verification: true,
       aliases: true,
       category: { select: { key: true } },
+      // D-253 — 어느 종류 스코프에 있는지. `null` 이면 카테고리 스코프(미분류)
+      subtype: { select: { key: true, labelKo: true } },
       _count: { select: { items: true } },
       /*
         D-192 — **키 alias 는 명칭 alias 와 다른 축이다.** 언어별로 나뉘지 않고
@@ -641,6 +661,8 @@ export async function getAdminCodex(opts: { unverifiedOnly?: boolean } = {}) {
       // 화면이 라벨 맵을 들고 있지 않게 한다 (위 `getCodexKeyForms` 주석 참조)
       categoryLabel: labels.get(c.category.key) ?? c.category.key,
       verified: c.verification === "VERIFIED",
+      subtypeKey: c.subtype?.key ?? null,
+      subtypeLabel: c.subtype?.labelKo ?? null,
       ownerCount: c._count.items,
       aliases: [...list("ko"), ...list("ja"), ...list("en")],
       // 편집 폼은 언어별로 나눠 받아야 한다 (D-009)

@@ -3,12 +3,18 @@ import { AdminActionButton } from "@/components/admin/action-button";
 import { CodexCreateForm } from "@/components/admin/codex-create-form";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { CodexResearchPanel } from "@/components/admin/codex-research-panel";
+import { CodexSubtypePicker } from "@/components/admin/codex-subtype";
 import { AdminListControls } from "@/components/admin/list-controls";
 import { Pill, Table, Td } from "@/components/admin/ui";
 import { setCodexVerification } from "@/lib/actions/admin";
 import { parseListParams } from "@/lib/admin-list-params";
 import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
-import { getAdminCodexPage, getCodexKeyForms } from "@/lib/data/admin";
+import {
+  countUnclassifiedCodex,
+  getAdminCodexPage,
+  getAdminSubtypes,
+  getCodexKeyForms,
+} from "@/lib/data/admin";
 
 /**
  * 카테고리 상세 — 도감 (A-04 카테고리분 흡수, codex F-04 · D-246 · D-248).
@@ -34,11 +40,24 @@ export default async function CategoryCodexPage({
 }: PageProps<"/admin/categories/[key]/codex">) {
   const { key } = await params;
   const listParams = parseListParams(await searchParams);
-  const [list, keyForms] = await Promise.all([
+  const [list, keyForms, allSubtypes] = await Promise.all([
     // ⚠️ URL 의 카테고리가 이긴다 — 쿼리의 category 는 덮어쓴다
     getAdminCodexPage({ ...listParams, category: key }),
     getCodexKeyForms(),
+    getAdminSubtypes(),
   ]);
+  // D-253 — 종류가 없는 카테고리면 빈 배열 → 종류 열을 그리지 않는다
+  const subtypes = allSubtypes
+    .filter((s) => s.categoryKey === key && s.active)
+    .map((s) => ({ key: s.key, label: s.labels.ko }));
+  /*
+    ⚠️ **미분류 건수는 이 페이지 기준이 아니라 전체 기준이어야 한다.** 페이지
+    기준으로 세면 2페이지에서 숫자가 줄어 "거의 끝났다"로 오인한다 (D-183 이
+    고친 것이 정확히 그런 자기모순 경고였다)
+  */
+  const unclassified = subtypes.length > 0
+    ? await countUnclassifiedCodex(key)
+    : 0;
   // 카테고리당 항상 1건이다 (`getCodexKeyForms` 가 전 카테고리를 낸다)
   const myForms = keyForms.filter((f) => f.categoryKey === key);
 
@@ -74,6 +93,18 @@ export default async function CategoryCodexPage({
         />
       </div>
 
+      {/*
+        ⚠️ 미분류가 남아 있으면 **종류 필수화를 켤 수 없다** (D-257). 켜는 순간
+        유저가 종류를 고르는데 그 스코프에 도감이 없어 중복 도감이 생긴다
+      */}
+      {unclassified > 0 && (
+        <div className="mb-4 rounded-lg border border-warn bg-warn-bg p-3 text-sm text-warn">
+          <b>미분류 도감 {unclassified}건</b> — 전부 분류해야 이 카테고리의 종류 선택을
+          필수로 켤 수 있습니다 (D-257). 미분류인 채로 켜면 유저가 고른 종류 스코프에
+          도감이 없어 <b>같은 제품의 도감이 중복 생성</b>됩니다.
+        </div>
+      )}
+
       {/* categories 를 넘기지 않는다 — 카테고리는 URL 로 고정됐다 */}
       <AdminListControls
         total={list.total}
@@ -81,10 +112,28 @@ export default async function CategoryCodexPage({
         loadLimit={list.loadLimit}
       />
 
-      <Table head={["명칭 (원문)", "고유값", "검증", "보유자", "조치"]}>
+      <Table
+        head={[
+          "명칭 (원문)",
+          ...(subtypes.length > 0 ? ["종류"] : []),
+          "고유값",
+          "검증",
+          "보유자",
+          "조치",
+        ]}
+      >
         {list.rows.map((c) => (
           <tr key={c.id}>
             <Td className="font-semibold">{c.displayName}</Td>
+            {subtypes.length > 0 && (
+              <Td>
+                <CodexSubtypePicker
+                  codexId={c.id}
+                  current={c.subtypeKey}
+                  subtypes={subtypes}
+                />
+              </Td>
+            )}
             <Td className="font-mono text-xs">{c.uniqueId}</Td>
             <Td>{c.verified ? <Pill tone="sale">검증됨</Pill> : <Pill tone="warn">미검증</Pill>}</Td>
             <Td>{c.ownerCount}</Td>

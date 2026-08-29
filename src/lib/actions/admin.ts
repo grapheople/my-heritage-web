@@ -2116,6 +2116,111 @@ export async function createBrand(input: {
  * ⚠️ **검증된 도감은 유저가 수정할 수 없다** (FR-03-C-01). 그래서 오류
  * 신고(D-035)가 여기로 들어오고, 어드민이 이 폼으로 고친다.
  */
+/**
+ * 도감을 **다른 종류로 옮긴다** (D-253·D-257).
+ *
+ * ## ⚠️ 이 경로가 아예 없었다
+ * `CodexItem.subtypeId` 를 설정할 방법이 어드민 어디에도 없었다. 스코프를
+ * 종류 축으로 나눠놓고(D-254) **분류할 손이 없는** 상태였다.
+ *
+ * ## ⚠️ 매칭 키를 **함께** 옮긴다
+ * `CodexMatchKey` 가 `subtypeId` 사본을 갖고 그 둘로 `scopeId` 가 계산된다.
+ * 도감만 옮기면 **매칭 키가 옛 스코프에 남아 갈리고**, 옮긴 도감을 매칭이
+ * 영원히 못 찾는다 — D-256 자전거 이관에서 확인한 함정이다.
+ *
+ * ## ⚠️ 스코프가 바뀌면 유일성이 다시 판정된다
+ * 옮기려는 종류에 같은 `normalizedKey` 나 같은 키 alias 값이 이미 있으면
+ * **거부하고 상대를 알려준다.** 고르지 않는다 — 하나를 골라 넣으면 잘못된
+ * 도감이 조용히 커진다 (D-190 · `insertCodex` 와 같은 태도).
+ *
+ * `subtypeKey` 가 비면 **카테고리 스코프로 되돌린다** — 잘못 옮긴 것을
+ * 물릴 수 있어야 한다.
+ */
+export async function setCodexSubtype(input: {
+  codexId: string;
+  subtypeKey?: string | null;
+}): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const codex = await prisma.codexItem.findUnique({
+    where: { id: input.codexId },
+    select: { id: true, categoryId: true, subtypeId: true, normalizedKey: true, mergedIntoId: true },
+  });
+  if (!codex) return fail({}, "도감을 찾을 수 없습니다");
+  // 흡수된 도감을 옮기면 survivor 와 어긋난다 (FR-02-B-08 과 같은 이유)
+  if (codex.mergedIntoId) return fail({}, "병합된 도감입니다 — survivor 를 옮기세요");
+
+  let nextSubtypeId: string | null = null;
+  if (input.subtypeKey) {
+    const st = await prisma.categorySubtype.findUnique({
+      where: { categoryId_key: { categoryId: codex.categoryId, key: input.subtypeKey } },
+      select: { id: true, active: true },
+    });
+    if (!st) return fail({}, "종류를 찾을 수 없습니다");
+    // 비활성 종류로 **새로 옮기지** 않는다 (D-036 태도)
+    if (!st.active) return fail({}, "현재 선택할 수 없는 종류입니다");
+    nextSubtypeId = st.id;
+  }
+
+  if (nextSubtypeId === codex.subtypeId) return { ok: true };
+
+  const nextScope = nextSubtypeId ?? codex.categoryId;
+
+  // 옮길 곳에 같은 normalizedKey 를 가진 다른 도감이 있나
+  const clash = await prisma.codexItem.findFirst({
+    where: { scopeId: nextScope, normalizedKey: codex.normalizedKey, id: { not: codex.id } },
+    select: { displayName: true },
+  });
+  if (clash) {
+    return fail({}, `옮길 종류에 같은 값의 도감이 이미 있습니다 — "${clash.displayName}"`);
+  }
+
+  /*
+    ⚠️ 유일성 범위는 `normalizedKey` ∪ **키 alias** 다 (FR-02-B-06). 위 검사만
+    으로는 부족하다 — 이 도감의 alias 중 하나가 옮길 스코프에서 이미 쓰이고
+    있으면 매칭 키 이동이 유니크 위반으로 터진다.
+  */
+  const myKeys = await prisma.codexMatchKey.findMany({
+    where: { codexItemId: codex.id },
+    select: { value: true },
+  });
+  const takenByOther = await prisma.codexMatchKey.findFirst({
+    where: {
+      scopeId: nextScope,
+      value: { in: myKeys.map((k) => k.value) },
+      codexItemId: { not: codex.id },
+    },
+    select: { value: true, codexItem: { select: { displayName: true } } },
+  });
+  if (takenByOther) {
+    return fail(
+      {},
+      `옮길 종류에서 "${takenByOther.value}" 를 이미 "${takenByOther.codexItem.displayName}" 가 쓰고 있습니다`,
+    );
+  }
+
+  // ⚠️ 도감과 매칭 키를 한 트랜잭션으로 옮긴다 — 갈리면 매칭이 끊긴다
+  await prisma.$transaction(async (tx) => {
+    await tx.codexItem.update({
+      where: { id: codex.id },
+      data: { subtypeId: nextSubtypeId },
+    });
+    await tx.codexMatchKey.updateMany({
+      where: { codexItemId: codex.id },
+      data: { subtypeId: nextSubtypeId },
+    });
+  });
+
+  revalidate(
+    "/admin/codex",
+    "/admin/categories/[key]",
+    "/admin/categories/[key]/codex",
+    "/[locale]/codex/[codexId]",
+  );
+  return { ok: true };
+}
+
 export async function updateCodexItem(input: {
   codexId: string;
   displayName: string;
