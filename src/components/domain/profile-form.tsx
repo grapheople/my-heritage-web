@@ -3,11 +3,24 @@
 import { Check } from "lucide-react";
 import { useState, useTransition } from "react";
 import { CATEGORY_KEYS } from "@/lib/categories";
-import { updateProfile } from "@/lib/actions/settings";
+import {
+  setPreferredCategories,
+  setPreferredLanguages,
+  updateProfile,
+} from "@/lib/actions/settings";
 import { PhotoUploader } from "@/components/domain/photo-uploader";
 
 /**
  * S-16 프로필 설정 — 방 이름 · 소개 · 사진 · **관심 카테고리 · 관심 언어권**.
+ *
+ * ## ⚠️ 저장 경로가 **둘**이고 그것이 의도다 (D-287)
+ * | 항목 | 저장 시점 | 액션 |
+ * |---|---|---|
+ * | 방 이름 · 사진 · 소개 | **[방 정보 저장]** 을 눌러야 | `updateProfile` |
+ * | 관심 카테고리 · 언어권 | **칩을 누르는 즉시** | `setPreferred*` |
+ *
+ * 관심사를 폼에 묶어두면 유저가 방 이름을 고치다 만 상태에서 칩을 눌렀을 때
+ * **저장 안 한 방 이름까지 함께 저장**된다. 필드마다 경로를 하나로 둔다 (D-282).
  *
  * ## ⚠️ 관심 언어권은 S-12 "언어 설정" 과 **다른 것이다** (D-274)
  * | | 무엇 | 어디 |
@@ -85,6 +98,70 @@ function ChoiceChip({
   );
 }
 
+/**
+ * 고르는 **즉시 저장**되는 칩 무리 (D-287).
+ *
+ * ## ⚠️ 폼의 [저장] 과 경로를 나눈다
+ * 칩이 즉시 저장되는데 폼도 같은 필드를 보내면 **한 필드에 경로가 둘**이 된다
+ * (D-282). 더 구체적인 위험도 있다 — 유저가 방 이름을 고치다 만 상태에서 칩을
+ * 누르면 폼 액션이 **저장 안 한 방 이름까지 함께 저장**한다.
+ *
+ * ## ⚠️ 낙관적으로 그리고 **실패하면 되돌린다**
+ * 칩은 누른 순간 반응해야 한다. 서버를 기다리면 두 번 눌러 상태가 꼬인다.
+ * 다만 실패를 삼키면 **저장된 줄 알고 떠난다** — 되돌리고 이유를 말한다.
+ *
+ * ⚠️ **연타를 막지 않는다.** 마지막 요청이 이긴다 — 각 요청이 전체 집합을
+ * 보내므로 순서가 어긋나도 최종 상태는 화면과 같아진다.
+ */
+function InstantChips({
+  keys,
+  labels,
+  selected,
+  onSave,
+}: {
+  keys: string[];
+  labels: Record<string, string>;
+  selected: string[];
+  onSave: (next: string[]) => Promise<{ ok: boolean; message?: string }>;
+}) {
+  const [picked, setPicked] = useState(selected);
+  const [error, setError] = useState("");
+  const [, startTransition] = useTransition();
+
+  const toggle = (key: string) => {
+    const next = picked.includes(key)
+      ? picked.filter((k) => k !== key)
+      : [...picked, key];
+    const prev = picked;
+    setPicked(next); // 낙관적
+    setError("");
+    startTransition(async () => {
+      const res = await onSave(next);
+      // ⚠️ 실패를 삼키지 않는다 — 되돌리고 이유를 말한다
+      if (!res.ok) {
+        setPicked(prev);
+        setError(res.message ?? "저장하지 못했어요");
+      }
+    });
+  };
+
+  return (
+    <>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {keys.map((key) => (
+          <ChoiceChip
+            key={key}
+            on={picked.includes(key)}
+            label={labels[key] ?? key}
+            onToggle={() => toggle(key)}
+          />
+        ))}
+      </div>
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+    </>
+  );
+}
+
 export function ProfileForm({
   initial,
   categoryLabels,
@@ -112,8 +189,6 @@ export function ProfileForm({
   const [photos, setPhotos] = useState<string[]>(
     initial.imageUrl ? [initial.imageUrl] : [],
   );
-  const [picked, setPicked] = useState<string[]>(initial.preferredCategories);
-  const [langs, setLangs] = useState<string[]>(initial.preferredLanguages);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -130,8 +205,6 @@ export function ProfileForm({
             bio: bio.trim() || undefined,
             // 사진을 지운 경우 `null` 을 보내야 한다 — `undefined` 는 "안 보냄"이다
             imageUrl: photos[0] ?? null,
-            preferredCategories: picked,
-            preferredLanguages: langs,
           });
           if (res.ok) setDone(true);
           else setError(res.formError ?? Object.values(res.fieldErrors)[0] ?? "");
@@ -188,23 +261,17 @@ export function ProfileForm({
         */}
         <p className="mt-1 text-xs text-muted-foreground">
           홈·마켓·등록 화면이 여기서 고른 카테고리만 보여줘요. 고르지 않으면
-          전체를 보여줍니다.
+          전체를 보여줍니다. <b>누르면 바로 저장돼요.</b>
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {CATEGORY_KEYS.map((key) => {
-            const on = picked.includes(key);
-            return (
-              <ChoiceChip
-                key={key}
-                on={on}
-                label={categoryLabels[key] ?? key}
-                onToggle={() =>
-                  setPicked(on ? picked.filter((k) => k !== key) : [...picked, key])
-                }
-              />
-            );
-          })}
-        </div>
+        <InstantChips
+          keys={[...CATEGORY_KEYS]}
+          labels={categoryLabels}
+          selected={initial.preferredCategories}
+          onSave={async (next) => {
+            const res = await setPreferredCategories(next);
+            return { ok: res.ok, message: res.ok ? undefined : res.formError };
+          }}
+        />
       </div>
 
       {/* ── 관심 언어권 (D-274) ── */}
@@ -216,32 +283,32 @@ export function ProfileForm({
         */}
         <p className="mt-1 text-xs text-muted-foreground">
           홈 피드에 이 언어를 쓰는 사람의 방만 보여줘요. 고르지 않으면 전체를
-          보여줍니다 — 화면이 보이는 말은 아래 <b>언어 설정</b>에서 바꿉니다.
+          보여줍니다 — 화면이 보이는 말은 아래 <b>언어 설정</b>에서 바꿉니다.{" "}
+          <b>누르면 바로 저장돼요.</b>
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {languageKeys.map((key) => {
-            const on = langs.includes(key);
-            return (
-              <ChoiceChip
-                key={key}
-                on={on}
-                label={languageLabels[key] ?? key}
-                onToggle={() =>
-                  setLangs(on ? langs.filter((l) => l !== key) : [...langs, key])
-                }
-              />
-            );
-          })}
-        </div>
+        <InstantChips
+          keys={languageKeys}
+          labels={languageLabels}
+          selected={initial.preferredLanguages}
+          onSave={async (next) => {
+            const res = await setPreferredLanguages(next);
+            return { ok: res.ok, message: res.ok ? undefined : res.formError };
+          }}
+        />
       </div>
 
       <div className="flex items-center gap-3">
+        {/*
+          ⚠️ **이 버튼은 관심사를 저장하지 않는다** (D-287). 칩은 누르는 즉시
+          저장되고 이 버튼은 방 이름·사진·소개만 다룬다 — 같은 필드에 경로가
+          둘이면 방 이름을 고치다 만 상태에서 칩을 눌렀을 때 그것까지 저장된다
+        */}
         <button
           type="submit"
           disabled={pending}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
         >
-          {pending ? "저장 중…" : "저장"}
+          {pending ? "저장 중…" : "방 정보 저장"}
         </button>
         {done && <span className="text-sm text-sale">저장했어요</span>}
         {error && <span className="text-sm text-destructive">{error}</span>}

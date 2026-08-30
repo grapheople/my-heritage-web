@@ -22,16 +22,6 @@ export async function updateProfile(input: {
   bio?: string;
   /** 방 대표 이미지 (S-24·S-16). `null` 이면 지운다 */
   imageUrl?: string | null;
-  /**
-   * 선호 카테고리 key 목록 (D-124). `undefined` 면 건드리지 않는다 —
-   * 설정 화면이 이 항목을 안 보내는 경우와 "전부 해제"를 구분해야 한다
-   */
-  preferredCategories?: string[];
-  /**
-   * 관심 언어권 (D-274). `undefined` 면 건드리지 않는다 — `preferredCategories`
-   * 와 같은 이유로 "안 보냄"과 "전부 해제"를 구분해야 한다
-   */
-  preferredLanguages?: string[];
 }): Promise<ActionResult> {
   const viewer = await getViewer();
   if (!viewer?.roomId) return fail({}, "로그인이 필요합니다");
@@ -56,50 +46,86 @@ export async function updateProfile(input: {
     },
   });
 
-  if (input.preferredCategories || input.preferredLanguages) {
-    await prisma.user.update({
-      where: { id: viewer.userId },
-      data: {
-        // `set` 이라 빈 배열이면 전부 해제된다 — 그게 의도다 (FR-09-B-04)
-        ...(input.preferredCategories
-          ? {
-              preferredCategories: {
-                set: input.preferredCategories.map((key) => ({ key })),
-              },
-            }
-          : {}),
-        /*
-          ⚠️ **모르는 값을 그대로 넣지 않는다.** enum 컬럼이라 `"kr"` 같은 값이
-          오면 DB 가 던진다 — 폼이 보낸 것이라도 신뢰하지 않는다. 전부 해제는
-          정상 입력이므로(= 전체 보기) 걸러낸 결과가 빈 배열이어도 저장한다
-        */
-        ...(input.preferredLanguages
-          ? {
-              preferredLanguages: {
-                set: input.preferredLanguages.filter((l) =>
-                  allLanguages().includes(l),
-                ) as ("ko" | "ja" | "en")[],
-              },
-            }
-          : {}),
-      },
-    });
-  }
-
+  /*
+    ⚠️ 관심사는 여기서 저장하지 않는다 (D-287) — `setPreferredCategories` ·
+    `setPreferredLanguages` 가 담당한다. 그래서 축이 걸린 화면(홈·마켓·등록·
+    도감)을 다시 그릴 이유도 없다
+  */
   revalidate("/[locale]/me");
   revalidate("/[locale]/me/settings");
-  /*
-    ⚠️ **관심사가 바뀌면 축이 걸린 화면을 전부 다시 그려야 한다.**
-    예전에는 홈 하나였지만(FR-09-B-05) D-271 로 **범위**가 되면서 마켓·등록이
-    합류했고, 도감은 선택지 목록이 좁혀진다(D-273). 관심 언어권은 홈만 바꾼다
-    (D-274 — 마켓은 D-049, 도감은 FR-03-B-07 로 애초에 언어권 축이 없다).
+  return { ok: true };
+}
 
-    한 곳이라도 빠지면 유저는 **저장했는데 안 바뀌는 화면**을 만난다
-  */
+/**
+ * 축이 걸린 화면을 전부 다시 그린다 (D-271·D-273·D-274).
+ *
+ * ⚠️ **한 곳이라도 빠지면 유저는 "저장했는데 안 바뀌는 화면" 을 만난다.**
+ * 예전에는 홈 하나였지만(FR-09-B-05) D-271 로 관심사가 **범위**가 되면서
+ * 마켓·등록이 합류했고, 도감은 선택지 목록이 좁혀진다(D-273).
+ */
+function revalidateAxisScreens(): void {
+  revalidate("/[locale]/me/settings");
   revalidate("/[locale]");
   revalidate("/[locale]/market");
   revalidate("/[locale]/items/new");
   revalidate("/[locale]/codex");
+}
+
+/**
+ * 관심 카테고리 저장 — **고르는 즉시** (D-287).
+ *
+ * ## ⚠️ `updateProfile` 에서 떼어냈다
+ * 칩이 즉시 저장되는데 폼의 [저장] 도 같은 필드를 보내면 **한 필드에 경로가
+ * 둘**이 된다 — D-282 가 도감 명칭·설명에서 겪은 것과 같은 모양이다.
+ *
+ * 더 구체적인 위험도 있었다: 유저가 방 이름을 고치다 만 상태에서 칩을 누르면
+ * `updateProfile` 이 **저장 안 한 방 이름까지 함께 저장**한다. 칩은 칩만 건드려야 한다.
+ *
+ * ⚠️ **빈 배열은 "전부 해제" 다** — 유효한 입력이고, 그러면 전체가 보인다
+ * (`myCategoryKeys` 가 빈 집합을 전체로 떨어뜨린다 — D-271).
+ */
+export async function setPreferredCategories(
+  keys: string[],
+): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+
+  /*
+    ⚠️ **모르는 key 를 그대로 넣지 않는다.** 관계 연결이라 없는 key 면 Prisma 가
+    던진다 — 폼이 보낸 것이라도 신뢰하지 않는다
+  */
+  const valid = await prisma.category.findMany({
+    where: { key: { in: keys } },
+    select: { key: true },
+  });
+
+  await prisma.user.update({
+    where: { id: viewer.userId },
+    data: { preferredCategories: { set: valid.map((c) => ({ key: c.key })) } },
+  });
+  revalidateAxisScreens();
+  return { ok: true };
+}
+
+/**
+ * 관심 언어권 저장 — **고르는 즉시** (D-287).
+ *
+ * ⚠️ `User.language`(서비스 UI 언어, S-12)와 **다른 필드**다 (D-274).
+ */
+export async function setPreferredLanguages(
+  langs: string[],
+): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+
+  // enum 컬럼이라 모르는 값이 오면 DB 가 던진다
+  const valid = langs.filter((l) => allLanguages().includes(l));
+
+  await prisma.user.update({
+    where: { id: viewer.userId },
+    data: { preferredLanguages: { set: valid as ("ko" | "ja" | "en")[] } },
+  });
+  revalidateAxisScreens();
   return { ok: true };
 }
 
