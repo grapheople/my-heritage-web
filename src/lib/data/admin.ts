@@ -1,6 +1,7 @@
 import { categoryLabelKo } from "@/lib/category-label";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
+import { buildBrandIndex, countCodexByBrand } from "@/lib/codex-brand";
 
 /**
  * 어드민 조회 (A-01~A-13).
@@ -233,6 +234,41 @@ export async function getAdminAttributeOptions() {
 
 /** A-11 브랜드 마스터 (D-043 · D-047) */
 export async function getAdminBrands() {
+  /*
+    D-289 — **연결된 도감 수**를 함께 낸다.
+
+    ⚠️ `CodexItem` 에 브랜드 링크가 없어 이름에서 추정한다 — 규칙은
+    `lib/codex-brand.ts` **하나**에 있고 우선순위 복사 스크립트와 공유한다.
+    여기에 복사해 두면 한쪽만 고쳐져 조용히 갈린다.
+
+    ⚠️ 도감 전건을 한 번 읽어 메모리에서 센다. 브랜드마다 세면 309번 질의가
+    되고, 조인으로는 애초에 셀 수 없다(링크가 없다). 도감이 수만 건이 되면
+    `CodexItem.brandId` 를 실제로 두는 것이 맞다 — 그때 이 주석을 근거로 삼는다
+  */
+  const [scopeRows, codexRows] = await Promise.all([
+    prisma.brandScope.findMany({
+      select: { category: { select: { key: true } }, brand: { select: { name: true } } },
+    }),
+    prisma.codexItem.findMany({
+      select: {
+        normalizedKey: true,
+        displayName: true,
+        category: { select: { key: true } },
+      },
+    }),
+  ]);
+  const brandIndex = buildBrandIndex(
+    scopeRows.map((r) => ({ categoryKey: r.category.key, brandName: r.brand.name })),
+  );
+  const codexCounts = countCodexByBrand(
+    codexRows.map((c) => ({
+      normalizedKey: c.normalizedKey,
+      displayName: c.displayName,
+      categoryKey: c.category.key,
+    })),
+    brandIndex,
+  );
+
   const rows = await prisma.brand.findMany({
     // D-285 — 유저 목록과 같은 순서로 보여준다. 어드민이 결과를 예측할 수 있어야 한다
     orderBy: [{ displayOrder: "desc" }, { name: "asc" }],
@@ -272,6 +308,14 @@ export async function getAdminBrands() {
       displayNames: { ko: b.nameKo ?? "", ja: b.nameJa ?? "", en: b.nameEn ?? "" },
       /** 노출 우선순위 — **높을수록 앞**, 0 = 지정 안 됨 (D-285) */
       displayOrder: b.displayOrder,
+      /**
+       * 연결된 도감 수 (D-289) — 이름으로 **추정**한 값이다.
+       *
+       * ⚠️ 0 이면 "그 브랜드로 만들어진 도감이 없다" 는 뜻이고, 수집이 안 된
+       * 것일 수도 **매칭 키로 도감을 만들 수 없는 것**일 수도 있다 — 시계
+       * 마이크로브랜드가 후자다 (D-288)
+       */
+      codexCount: codexCounts.get(b.name) ?? 0,
     };
   });
 }

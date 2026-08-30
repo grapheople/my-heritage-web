@@ -91,11 +91,26 @@ export default async function AdminBrandsPage({
         </div>
       )}
 
-      <Table head={["원문 (고정)", "alias", "연결 카테고리", "상태", "조치"]}>
+      <Table head={["원문 (고정)", "도감", "alias", "연결 카테고리", "상태", "조치"]}>
         {brands.map((b) => (
           <tr key={b.name}>
             {/* 원문은 번역하지 않는다 — 1개 고정 (D-009) */}
             <Td className="font-semibold">{b.name}</Td>
+            {/*
+              D-289 — 연결된 도감 수. **이름으로 추정한 값**이다 (`CodexItem` 에
+              브랜드 링크가 없다).
+
+              ⚠️ **0 을 그냥 두지 않고 표시한다.** 수집이 안 된 것일 수도,
+              매칭 키로 도감을 만들 수 없는 것일 수도 있다 — 시계
+              마이크로브랜드가 후자다 (D-288). 어느 쪽이든 어드민이 봐야 한다
+            */}
+            <Td className="tabular-nums">
+              {b.codexCount === 0 ? (
+                <span className="text-muted-foreground">0</span>
+              ) : (
+                b.codexCount
+              )}
+            </Td>
             <Td>
               <span className="flex flex-wrap gap-1">
                 {b.aliases.map((a) => <Pill key={a}>{a}</Pill>)}

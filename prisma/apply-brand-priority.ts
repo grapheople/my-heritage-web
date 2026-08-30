@@ -1,6 +1,7 @@
 import "./env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { buildBrandIndex, inferCodexBrand } from "../src/lib/codex-brand";
 import { normalizeBrandToken } from "../src/lib/brand-search";
 
 /**
@@ -145,19 +146,16 @@ async function main() {
     if (v > 0) tokenOrder.set(normalizeBrandToken(b.name), v);
   }
   /*
-    카테고리별 브랜드 후보 — **전부** 넣는다. 긴 이름부터 봐서
-    `Grand Seiko` 가 `Seiko` 를, `Yeti Cycles` 가 `YETI` 를 가리게 한다
+    ⚠️ 브랜드 추정 규칙은 **`lib/codex-brand.ts` 하나**에 있다 (D-289).
+    A-11 의 "연결 도감 수" 도 같은 함수를 쓴다 — 여기에 복사해 두면 한쪽만
+    고쳐져 조용히 갈린다
   */
   const scopes = await prisma.brandScope.findMany({
     select: { category: { select: { key: true } }, brand: { select: { name: true } } },
   });
-  const byCategory = new Map<string, { name: string; token: string }[]>();
-  for (const sc of scopes) {
-    const k = sc.category.key;
-    if (!byCategory.has(k)) byCategory.set(k, []);
-    byCategory.get(k)!.push({ name: sc.brand.name, token: normalizeBrandToken(sc.brand.name) });
-  }
-  for (const list of byCategory.values()) list.sort((a, b) => b.token.length - a.token.length);
+  const brandIndex = buildBrandIndex(
+    scopes.map((sc) => ({ categoryKey: sc.category.key, brandName: sc.brand.name })),
+  );
 
   let copied = 0;
   let viaKey = 0;
@@ -165,21 +163,24 @@ async function main() {
   let unmatched = 0;
 
   for (const c of codex) {
-    // ① 매칭 키 첫 세그먼트 — 캠핑·자전거처럼 `brand` 가 키에 있는 카테고리
-    let next = tokenOrder.get(c.normalizedKey.split(SEP)[0]) ?? 0;
-    if (next > 0) viaKey++;
+    const brandName = inferCodexBrand(
+      {
+        normalizedKey: c.normalizedKey,
+        displayName: c.displayName,
+        categoryKey: c.category.key,
+      },
+      brandIndex,
+    );
+    // ⚠️ **매칭된 브랜드의 우선순위**를 가져온다 — 0 이면 0 이다
+    const next = brandName ? (want.get(brandName) ?? 0) : 0;
 
-    // ② 명칭 앞부분 — 시계처럼 키에 브랜드가 없는 카테고리
-    if (next === 0) {
-      const norm = normalizeBrandToken(c.displayName);
-      const hit = (byCategory.get(c.category.key) ?? []).find((b) => norm.startsWith(b.token));
-      if (hit) {
-        // ⚠️ **매칭된 브랜드의 우선순위**를 가져온다 — 0 이면 0 이다
-        next = want.get(hit.name) ?? 0;
-        if (next > 0) viaName++;
-      }
+    // 집계만 — 어느 경로로 찾았는지 로그에 남긴다
+    if (next > 0) {
+      if (tokenOrder.has(c.normalizedKey.split(SEP)[0])) viaKey++;
+      else viaName++;
+    } else {
+      unmatched++;
     }
-    if (next === 0) unmatched++;
 
     if (c.displayOrder === next) continue;
     if (APPLY) await prisma.codexItem.update({ where: { id: c.id }, data: { displayOrder: next } });
