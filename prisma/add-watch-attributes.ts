@@ -35,7 +35,7 @@ const APPLY = process.argv.includes("--apply");
 
 type Spec = {
   key: string;
-  type: "number" | "select";
+  type: "number" | "select" | "text";
   ko: string; ja: string; en: string;
   unit?: [string, string, string];
   options?: { key: string; ko: string; ja: string; en: string }[];
@@ -43,19 +43,17 @@ type Spec = {
 
 /** 표시 순서는 `condition`(6) 앞에 넣는다 — 스펙이 상태보다 먼저 온다 */
 const SPECS: Spec[] = [
-  {
-    key: "movement", type: "select",
-    ko: "무브먼트", ja: "ムーブメント", en: "Movement",
-    /*
-      ⚠️ 널리 쓰이는 것만 넣는다. 스프링 드라이브·솔라 같은 브랜드 고유 방식은
-      필요해지면 A-02 에서 더한다 — 지금 없는 근거로 미리 넣지 않는다
-    */
-    options: [
-      { key: "automatic", ko: "오토매틱", ja: "自動巻き", en: "Automatic" },
-      { key: "manual", ko: "수동", ja: "手巻き", en: "Manual winding" },
-      { key: "quartz", ko: "쿼츠", ja: "クォーツ", en: "Quartz" },
-    ],
-  },
+  /*
+    ⚠️ **구동 방식이 아니라 무브먼트(칼리버) 이름이다** (D-292).
+    `Rolex 3235` · `ETA 2824-2` · `Miyota 9015` · `Seiko NH35` 처럼 쓴다.
+
+    처음에 `select`(오토매틱·수동·쿼츠)로 만들었는데 **다른 것을 묻고 있었다.**
+    구동 방식이 필요해지면 **별도 속성**으로 더한다 — 한 칸에 둘을 담으면
+    `Rolex 3235` 와 `오토매틱` 이 같은 자리에 섞인다.
+
+    ⚠️ 값이 브랜드마다 제각각이라 `select` 로 못 묶는다. 자유 입력이 맞다.
+  */
+  { key: "movement", type: "text", ko: "무브먼트", ja: "ムーブメント", en: "Movement" },
   { key: "caseDiameter", type: "number", ko: "케이스 지름", ja: "ケース径", en: "Case diameter", unit: ["mm", "mm", "mm"] },
   { key: "lugToLug", type: "number", ko: "러그투러그", ja: "ラグ幅（縦）", en: "Lug-to-lug", unit: ["mm", "mm", "mm"] },
   { key: "lugWidth", type: "number", ko: "러그 폭", ja: "ラグ幅", en: "Lug width", unit: ["mm", "mm", "mm"] },
