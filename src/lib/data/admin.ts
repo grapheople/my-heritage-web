@@ -500,6 +500,42 @@ export async function getCategoryBrandItemCounts(key: string) {
 }
 
 /**
+ * 이 카테고리의 **브랜드별 도감 수** (D-289, A-01 상세 브랜드 탭).
+ *
+ * ## ⚠️ A-11 의 도감 수와 **다른 값**이다
+ * A-11 은 **전 카테고리 합계**를 낸다. 여기는 **이 카테고리 것만** 센다 —
+ * `Snow Peak` 는 캠핑·의류 양쪽에 도감이 있고, 캠핑 탭에서 의류 도감까지
+ * 세면 "여기 브랜드를 떼도 되나" 판단이 틀어진다.
+ *
+ * ⚠️ 브랜드 링크가 없어 **이름으로 추정**한다 — 규칙은 `lib/codex-brand.ts`
+ * 하나에 있다. 반환 키는 **브랜드명**이다 (`getCategoryBrandItemCounts` 는
+ * 브랜드 id 를 쓴다 — 그쪽은 진짜 관계라 id 가 있다).
+ */
+export async function getCategoryBrandCodexCounts(key: string) {
+  const [scopeRows, codexRows] = await Promise.all([
+    prisma.brandScope.findMany({
+      where: { category: { key } },
+      select: { brand: { select: { name: true } } },
+    }),
+    prisma.codexItem.findMany({
+      where: { category: { key } },
+      select: { normalizedKey: true, displayName: true },
+    }),
+  ]);
+  const index = buildBrandIndex(
+    scopeRows.map((r) => ({ categoryKey: key, brandName: r.brand.name })),
+  );
+  return countCodexByBrand(
+    codexRows.map((c) => ({
+      normalizedKey: c.normalizedKey,
+      displayName: c.displayName,
+      categoryKey: key,
+    })),
+    index,
+  );
+}
+
+/**
  * A-12 브랜드 요청 큐 — **같은 요청은 합쳐서 건수로** 보여준다 (FR-09-A-06).
  * 요청 건수 순 (FR-09-B-01).
  */

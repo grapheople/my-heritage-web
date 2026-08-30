@@ -9,6 +9,7 @@ import { parseListParams } from "@/lib/admin-list-params";
 import {
   getAdminBrandsPage,
   getAdminSubtypes,
+  getCategoryBrandCodexCounts,
   getCategoryBrandItemCounts,
   getUnlinkedBrands,
 } from "@/lib/data/admin";
@@ -40,10 +41,12 @@ export default async function CategoryBrandsPage({
 }: PageProps<"/admin/categories/[key]/brands">) {
   const { key } = await params;
   const listParams = parseListParams(await searchParams);
-  const [list, itemCounts, candidates, allSubtypes] = await Promise.all([
+  const [list, itemCounts, codexCounts, candidates, allSubtypes] = await Promise.all([
     // ⚠️ URL 의 카테고리가 이긴다 — 쿼리의 category 는 덮어쓴다
     getAdminBrandsPage({ ...listParams, category: key }),
     getCategoryBrandItemCounts(key),
+    // D-289 — **이 카테고리 도감만** 센다. A-11 의 전역 합계와 다른 값이다
+    getCategoryBrandCodexCounts(key),
     getUnlinkedBrands(key),
     getAdminSubtypes(),
   ]);
@@ -72,7 +75,7 @@ export default async function CategoryBrandsPage({
         placeholder="브랜드명 · alias 검색"
       />
 
-      <Table head={["브랜드 (원문)", "alias", "이 카테고리 아이템", "상태", "조치"]}>
+      <Table head={["브랜드 (원문)", "alias", "이 카테고리 도감", "이 카테고리 아이템", "상태", "조치"]}>
         {list.rows.map((b) => {
           const used = itemCounts.get(b.id) ?? 0;
           return (
@@ -89,8 +92,19 @@ export default async function CategoryBrandsPage({
                   )}
                 </span>
               </Td>
+              {/*
+                D-289 — 이 카테고리 도감 수. **이름으로 추정한 값**이다
+                (`CodexItem` 에 브랜드 링크가 없다).
+
+                ⚠️ **아이템 수와 나란히 두는 것이 요점이다.** 도감은 있는데
+                아이템이 0 이면 수집만 되고 아무도 안 쓰는 브랜드이고, 둘 다
+                0 이면 연결을 떼도 되는 후보다
+              */}
+              <Td className="tabular-nums">
+                {codexCounts.get(b.name) ?? 0}
+              </Td>
               {/* ⚠️ 이 값이 "떼도 되나"의 근거다 (FR-11-A-10 과 같은 이유) */}
-              <Td>{used.toLocaleString("en-US")}</Td>
+              <Td className="tabular-nums">{used.toLocaleString("en-US")}</Td>
               <Td>{b.active ? <Pill tone="sale">활성</Pill> : <Pill>비활성</Pill>}</Td>
               <Td>
                 <span className="flex flex-wrap items-start gap-2">
