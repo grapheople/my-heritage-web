@@ -1516,6 +1516,33 @@ export async function setCodexDisplayNames(
   return { ok: true };
 }
 
+/**
+ * 브랜드 **노출 우선순위** (A-11, D-285).
+ *
+ * ⚠️ **높을수록 앞**이고 0 이 기본이다. 방향이 반대면 기본값 0 이 맨 앞으로
+ * 온다 — 실제로 그렇게 만들었다가 정반대로 동작하는 것을 실측으로 잡았다.
+ *
+ * ⚠️ **도감에는 자동으로 반영되지 않는다.** 도감의 `displayOrder` 는 복사본이라
+ * `prisma/apply-brand-priority.ts` 를 다시 돌려야 한다 — 안 돌려도 도감 정렬만
+ * 옛 값일 뿐 기능은 멀쩡하다.
+ *
+ * ⚠️ **검색 랭킹을 이기지 않는다** (OI-54) — 같은 랭크 안의 동점만 가른다.
+ */
+export async function setBrandDisplayOrder(
+  brandId: string,
+  displayOrder: number,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+  if (!Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 1000) {
+    return fail({ displayOrder: "0~1000 사이 정수로 넣어주세요" });
+  }
+
+  await prisma.brand.update({ where: { id: brandId }, data: { displayOrder } });
+  revalidate("/admin/brands", "/admin/categories/[key]", "/admin/categories/[key]/brands");
+  return { ok: true };
+}
+
 /** 브랜드 비활성화 — **삭제하지 않는다.** 이미 붙은 아이템이 있다 */
 export async function setBrandActive(
   brandId: string,

@@ -33,6 +33,14 @@ export type SearchableBrand = {
   nameKo?: string | null;
   nameJa?: string | null;
   nameEn?: string | null;
+  /**
+   * 노출 우선순위 — **높을수록 앞** (D-285). 0 = 지정 안 됨.
+   *
+   * ⚠️ **랭킹을 이기지 않는다.** `gs` 를 쳤을 때 alias 가 정확히 `gs` 인
+   * `Grand Seiko` 가 `G-SHOCK` 보다 먼저 와야 한다 (OI-54) — 우선순위를
+   * 랭킹보다 앞에 두면 그 순서가 뒤집힌다. **같은 랭크 안에서만** 가른다
+   */
+  displayOrder?: number;
 };
 
 export type BrandHit<T extends SearchableBrand = SearchableBrand> = {
@@ -122,7 +130,11 @@ function rank(brand: SearchableBrand, nq: string): { rank: number; alias?: strin
 
 /**
  * 검색어로 브랜드를 걸러 랭킹 순으로 돌려준다.
- * 검색어가 비면 **원문 사전순 전체**를 돌려준다 (목록 브라우징).
+ * 검색어가 비면 **호출부가 준 순서 그대로** 돌려준다 (목록 브라우징) —
+ * `/api/brands` 가 이미 우선순위 순으로 내려준다 (D-285).
+ *
+ * ⚠️ **우선순위는 랭킹 다음이다.** 정확 일치가 먼저고(OI-54), 같은 랭크
+ * 안에서만 우선순위가 가른다.
  *
  * ⚠️ `brands` 는 **이미 카테고리로 걸러진 목록**이어야 한다 (OI-54 해결의 절반).
  */
@@ -131,9 +143,15 @@ export function searchBrands<T extends SearchableBrand>(
   query: string,
 ): BrandHit<T>[] {
   const nq = normalizeBrandToken(query);
+  /*
+    ⚠️ **높을수록 앞이라 뺄셈 방향이 반대다** (D-285). 이렇게 두면 기본값 0 이
+    자연히 맨 뒤로 간다 — "낮을수록 앞" 이면 0 이 가장 작아 맨 앞에 온다
+  */
+  const prio = (b: T) => b.displayOrder ?? 0;
+
   if (!nq) {
     return [...brands]
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => prio(b) - prio(a) || a.name.localeCompare(b.name))
       .map((brand) => ({ brand }));
   }
 
@@ -144,6 +162,12 @@ export function searchBrands<T extends SearchableBrand>(
   }
 
   return scored
-    .sort((a, b) => a.r - b.r || a.brand.name.localeCompare(b.brand.name))
+    // ⚠️ 랭크가 **먼저**다 — 우선순위는 같은 랭크 안의 동점만 가른다 (D-285)
+    .sort(
+      (a, b) =>
+        a.r - b.r ||
+        prio(b.brand) - prio(a.brand) ||
+        a.brand.name.localeCompare(b.brand.name),
+    )
     .map(({ brand, alias }) => ({ brand, matchedAlias: alias }));
 }

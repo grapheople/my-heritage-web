@@ -26,8 +26,14 @@ export async function GET(req: Request) {
 
   const brands = await prisma.brand.findMany({
     where: { active: true, scopes: brandScopesWhere({ categoryKey: category, subtypeKey: subtype }) },
-    select: { name: true, aliases: true, nameKo: true, nameJa: true, nameEn: true },
-    orderBy: { name: "asc" },
+    select: { name: true, aliases: true, nameKo: true, nameJa: true, nameEn: true, displayOrder: true },
+    /*
+      D-285 — **높을수록 앞**. 검색어가 없을 때의 브라우징 순서가 이것이다.
+      검색어가 있으면 `searchBrands` 의 랭킹이 먼저고 우선순위는 동점만 가른다.
+
+      ⚠️ 방향이 `desc` 인 것이 의도다 — 기본값 0 이 자연히 맨 뒤로 간다
+    */
+    orderBy: [{ displayOrder: "desc" }, { name: "asc" }],
   });
 
   return NextResponse.json(
@@ -38,6 +44,7 @@ export async function GET(req: Request) {
         nameKo: b.nameKo,
         nameJa: b.nameJa,
         nameEn: b.nameEn,
+        displayOrder: b.displayOrder,
       })),
     },
     /*

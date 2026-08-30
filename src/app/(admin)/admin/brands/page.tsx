@@ -6,6 +6,7 @@ import {
   BrandCreateForm,
   BrandDisplayNameEditor,
 } from "@/components/admin/brand-forms";
+import { BrandPriorityEditor } from "@/components/admin/brand-priority";
 import { AdminListControls } from "@/components/admin/list-controls";
 import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
@@ -116,6 +117,12 @@ export default async function AdminBrandsPage({
             <Td className="flex flex-wrap gap-2">
               {/* ⚠️ 표시명과 alias 는 **다른 것**이다 (D-276) — 버튼을 나눠 둔다:
                   표시명은 화면에 뜨는 이름, alias 는 검색 토큰이다 */}
+              {/* D-285 — 노출 우선순위. 높을수록 앞이고 0 이 기본이다 */}
+              <BrandPriorityEditor
+                brandId={b.id}
+                brandName={b.name}
+                initial={b.displayOrder}
+              />
               <BrandDisplayNameEditor
                 brandId={b.id}
                 brandName={b.name}

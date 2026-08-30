@@ -234,7 +234,8 @@ export async function getAdminAttributeOptions() {
 /** A-11 브랜드 마스터 (D-043 · D-047) */
 export async function getAdminBrands() {
   const rows = await prisma.brand.findMany({
-    orderBy: { name: "asc" },
+    // D-285 — 유저 목록과 같은 순서로 보여준다. 어드민이 결과를 예측할 수 있어야 한다
+    orderBy: [{ displayOrder: "desc" }, { name: "asc" }],
     select: {
       id: true,
       name: true,
@@ -243,6 +244,7 @@ export async function getAdminBrands() {
       nameKo: true,
       nameJa: true,
       nameEn: true,
+      displayOrder: true,
       active: true,
       // ⚠️ **연결 카테고리를 실제로 낸다** (D-182). 화면이 전 브랜드에 "시계" 를
       // 하드코딩하고 있었다 — 브랜드 마스터는 카테고리별인데(D-044·D-045)
@@ -268,6 +270,8 @@ export async function getAdminBrands() {
       aliasesByLang: { ko: list("ko"), ja: list("ja"), en: list("en") },
       /** 표시용 명칭 (D-276). 빈 문자열 = 미설정 → 화면에서 원문으로 떨어진다 */
       displayNames: { ko: b.nameKo ?? "", ja: b.nameJa ?? "", en: b.nameEn ?? "" },
+      /** 노출 우선순위 — **높을수록 앞**, 0 = 지정 안 됨 (D-285) */
+      displayOrder: b.displayOrder,
     };
   });
 }

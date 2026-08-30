@@ -362,7 +362,19 @@ export async function listCodex(opts: {
     prisma.codexItem.findMany({
       where,
       select: CODEX_SELECT,
-      orderBy: { createdAt: "desc" },
+      /*
+        D-285 — **유명 브랜드가 먼저**. `displayOrder` 는 `Brand.displayOrder`
+        를 복사한 값이다 (도감에는 브랜드 링크가 없다).
+
+        ⚠️ **`desc` 인 것이 의도다.** 초판은 "낮을수록 앞" 이라 `asc` 였는데
+        기본값 0 이 가장 작아 **맨 앞**에 왔다 — 우선순위가 정반대로 동작했다
+        (실측으로 확인). `NULLS LAST` 는 NULL 에만 듣고 0 에는 안 듣는다.
+        방향을 뒤집으니 **0 = 지정 안 됨이 자연히 맨 뒤**가 되고 raw 쿼리도
+        필요 없어졌다.
+
+        같은 우선순위 안에서는 **최근 추가순** — 원래 기준을 유지한다
+      */
+      orderBy: [{ displayOrder: "desc" }, { createdAt: "desc" }],
       take: CODEX_BROWSE_LIMIT,
     }),
   ]);
