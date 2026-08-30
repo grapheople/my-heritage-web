@@ -398,8 +398,6 @@
     "viewItem": "登録したアイテムを見る",
     "photoMax": "写真は最大{max}枚です",
     "photoMoveLeft": "前に移動",
-    "nickname": "自分用の呼び名",
-    "nicknameHint": "同じアイテムを2つ以上持っているときの区別用です。例: 通勤用",
     "matchingKeyHint": "正確に入力すると図鑑と紐づきます。未登録の{field}は検証後に図鑑へ登録されます",
     "subtype": "種類",
     "subtypeHint": "種類を選ぶと、それに合った項目が表示されます",

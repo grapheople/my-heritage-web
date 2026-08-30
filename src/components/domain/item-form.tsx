@@ -138,8 +138,6 @@ export function ItemForm({
     다른 기기의 변경이 조용히 사라진다
   */
   const [routineEntries, setRoutineEntries] = useState<DraftEntry[]>([]);
-  /** 유저 별칭(선택) — 명칭을 대체하지 않는다 (D-112) */
-  const [nickname, setNickname] = useState(initialValues?.__nickname ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<
@@ -306,7 +304,6 @@ export function ItemForm({
           itemId,
           values,
           photoUrls: photos,
-          nickname,
         });
         if (res.ok) {
           setSaved({
@@ -326,7 +323,6 @@ export function ItemForm({
         category,
         values,
         photoUrls: photos,
-        nickname,
         // D-207 — 빈 문자열이면 보내지 않는다. 서버가 카테고리 소속을 재검증한다
         subtype: subtype || undefined,
         /*
@@ -537,21 +533,6 @@ export function ItemForm({
         />
       ))}
 
-      {/* 별칭 — 선택. 같은 도감 아이템을 2개 가졌을 때 구분용 (D-112) */}
-      <div>
-        <label className="text-sm font-semibold" htmlFor="item-nickname">
-          {t("reg.nickname")}{" "}
-          <span className="font-normal text-muted-foreground">{t("diary.optional")}</span>
-        </label>
-        <input
-          id="item-nickname"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm"
-        />
-        {/* 명칭을 대체하지 않는다 — 명칭은 도감·브랜드에서 파생된다 (D-073) */}
-        <p className="mt-1 text-xs text-muted-foreground">{t("reg.nicknameHint")}</p>
-      </div>
 
       {/*
         D-236 — **루틴 구성.** 등록 시점에 운동·휴식을 담는다 (PM 요청).

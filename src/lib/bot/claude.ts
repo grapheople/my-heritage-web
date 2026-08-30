@@ -112,29 +112,6 @@ export async function writeDiaryBody(input: {
   return unwrap(text).slice(0, 1000);
 }
 
-/**
- * 아이템 별칭 (D-112 — 같은 도감 아이템을 구분하는 유저 별칭).
- *
- * 명칭은 파생값이라 봇이 만들지 않는다 (D-073). 별칭만 짓는다.
- */
-export async function writeItemNickname(input: {
-  itemName: string;
-  locale: "ko" | "ja" | "en";
-}): Promise<string> {
-  const lang = { ko: "한국어", ja: "일본어", en: "영어" }[input.locale];
-  const text = await ask(
-    `수집품에 붙일 짧은 별칭을 ${lang}로 하나만 지어줘.
-
-물건: ${input.itemName}
-
-조건:
-- 12자 이내, 한 줄
-- 소유자가 애정을 담아 부르는 이름 느낌
-- 물건 이름을 그대로 반복하지 마
-- 따옴표·설명·이모지 없이 별칭만 출력`,
-  );
-  return unwrap(text).split("\n")[0].slice(0, 30);
-}
 
 /**
  * 아이템 항목 **전체**를 자료 수집으로 채운다 (D-153).

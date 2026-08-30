@@ -172,10 +172,6 @@ export default async function ItemDetailPage({
         </div>
         {/* 아이템 명칭은 파생값이고 번역하지 않는다 (D-073) */}
         <h1 className="mt-2 text-xl font-bold tracking-tight">{item.name}</h1>
-        {/* 별칭은 명칭 아래. 대체하지 않는다 (D-112) */}
-        {item.nickname && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{item.nickname}</p>
-        )}
         <p className="mt-1 text-sm text-muted-foreground">
           {t(item.categoryKey)}
         </p>

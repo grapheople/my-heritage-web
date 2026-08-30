@@ -398,8 +398,6 @@
     "viewItem": "View the item",
     "photoMax": "Up to {max} photos",
     "photoMoveLeft": "Move earlier",
-    "nickname": "Your nickname",
-    "nicknameHint": "To tell apart two of the same item. e.g. “daily”",
     "matchingKeyHint": "Enter it accurately to link with the codex. An unregistered {field} is added to the codex after verification",
     "subtype": "Type",
     "subtypeHint": "Pick a type to see the fields that match it",

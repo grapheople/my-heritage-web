@@ -305,7 +305,6 @@ export async function getItemDetail(
   return {
     id: item.id,
     name: deriveItemName(item),
-    nickname: item.nickname ?? undefined,
     // D-211 — 부품도 아이템이라 명칭 파생이 같다 (D-073)
     parts: item.parts.map((p) => ({
       id: p.id,
@@ -412,7 +411,7 @@ export async function getItemForEdit(
   viewer: Viewer,
 ): Promise<{
   categoryKey: string;
-  /** 속성 key → 폼이 그대로 쓰는 문자열. 별칭은 `__nickname` */
+  /** 속성 key → 폼이 그대로 쓰는 문자열 */
   values: Record<string, string>;
   photos: string[];
 } | null> {
@@ -420,7 +419,6 @@ export async function getItemForEdit(
   const item = await prisma.item.findFirst({
     where: { id: itemId, roomId: viewer.roomId },
     select: {
-      nickname: true,
       category: {
         select: { key: true, matchingKey: { select: { attributeKeys: true } } },
       },
@@ -463,8 +461,6 @@ export async function getItemForEdit(
     }
     values[key] = v.value === null || v.value === undefined ? "" : String(v.value);
   }
-  // 별칭은 속성이 아니라 별개 컬럼이다 (D-112) — `__` 로 구분한다
-  if (item.nickname) values.__nickname = item.nickname;
 
   return {
     categoryKey: item.category.key,

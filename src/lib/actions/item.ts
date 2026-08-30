@@ -56,8 +56,6 @@ export type CreateItemInput = {
    * 들고 온다 — 등록 요청에 바이트를 실으면 타임아웃에 걸린다
    */
   photoUrls: string[];
-  /** 유저 별칭(선택) — 같은 도감 아이템 구분용 (D-112) */
-  nickname?: string;
   /**
    * D-207 — 하위 제품군 `key` (캠핑의 `tent`·`lantern`). **선택이다.**
    * 제품군이 없는 카테고리는 보내지 않으며, 그때 폼은 공통 속성만 그린다.
@@ -362,7 +360,6 @@ export async function createItemAs(
       subtypeId,
       brandId,
       model: input.values.model?.trim() || null,
-      nickname: input.nickname?.trim() || null,
       codexItemId,
       // 초기 상태 (FR-05-A-04, D-019)
       visibility: "PUBLIC",
@@ -451,7 +448,6 @@ export type UpdateItemInput = {
   values: Record<string, string>;
   /** 사진 URL. **순서가 표시 순서**이고 첫 장이 대표다 (FR-07-A-04·05) */
   photoUrls: string[];
-  nickname?: string;
 };
 
 export async function updateItem(input: UpdateItemInput): Promise<ActionResult> {
@@ -563,7 +559,6 @@ export async function updateItemAs(
       data: {
         brandId,
         model: input.values.model?.trim() || null,
-        nickname: input.nickname?.trim() || null,
         codexItemId,
       },
     });

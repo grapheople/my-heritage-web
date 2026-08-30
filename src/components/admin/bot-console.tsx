@@ -72,7 +72,6 @@ export function BotConsole({
   /** 힌트 — 어떤 제품을 찾을지. 비우면 브랜드의 대표 제품을 고르게 한다 */
   const [hint, setHint] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
-  const [nickname, setNickname] = useState("");
   /** 자료 수집에서 버린 값 — 조용히 버리면 왜 빈칸인지 알 수 없다 */
   const [dropped, setDropped] = useState<string[]>([]);
   /** 직접 올린 사진. 비면 플레이스홀더가 만들어진다 (D-154) */
@@ -96,7 +95,6 @@ export function BotConsole({
   function changeCategory(key: string) {
     setCategory(key);
     setValues({});
-    setNickname("");
     setDropped([]);
     setPhotos([]);
   }
@@ -378,7 +376,6 @@ export function BotConsole({
                     if (!r.ok) return { ok: false, err: r.formError };
                     // 손으로 채운 값을 지우지 않는다 — 수집된 값만 덮어쓴다
                     setValues((v) => ({ ...v, ...r.values }));
-                    if (r.nickname) setNickname(r.nickname);
                     setDropped(r.dropped);
                     const n = Object.keys(r.values).length;
                     return { ok: true, msg: `자료 수집 — ${n}개 항목 채움` };
@@ -398,19 +395,6 @@ export function BotConsole({
                   수집된 값을 <b>확인·수정한 뒤</b> 등록하세요. 지어낸 고유값은
                   실재하지 않는 도감을 만듭니다 (D-015).
                 </p>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-semibold">
-                    별칭
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      비우면 자동 생성
-                    </span>
-                  </span>
-                  <input
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    className="w-44 rounded-md border px-3 py-2 text-sm"
-                  />
-                </label>
               </div>
 
               <div className="mt-3">
@@ -526,7 +510,6 @@ export function BotConsole({
                         categoryKey: category,
                         brand,
                         values,
-                        nickname,
                         photoUrls: photos,
                       });
                       if (!r.ok) {
@@ -536,7 +519,6 @@ export function BotConsole({
                         };
                       }
                       setValues({});
-                      setNickname("");
                       setDropped([]);
                       setPhotos([]);
                       const pic =

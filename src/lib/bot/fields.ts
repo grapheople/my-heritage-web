@@ -174,8 +174,7 @@ export function jsonSkeleton(fields: BotField[]): string {
   const entries = fields
     .filter((f) => f.key !== "brand")
     .map((f) => `"${f.key}":${f.type === "multiselect" ? "[]" : '""'}`);
-  // 별칭은 속성이 아니라 `Item.nickname` 이다 — 따로 요청한다 (D-112)
-  return `{${entries.join(",")},"nickname":""}`;
+  return `{${entries.join(",")}}`;
 }
 
 /* ────────────────────────────────────────────
@@ -335,7 +334,6 @@ export function sanitizeCodexCandidates(
 /** 정제 결과 — 무엇이 버려졌는지 어드민에게 보여준다 */
 export type Sanitized = {
   values: Record<string, string>;
-  nickname: string;
   /** 버린 항목과 이유. 조용히 버리면 왜 빈칸인지 알 수 없다 */
   dropped: string[];
 };
@@ -447,7 +445,5 @@ export function sanitize(
         values[f.key] = s.slice(0, TEXT_MAX);
     }
   }
-
-  const nickname = String(raw.nickname ?? "").trim().slice(0, 30);
-  return { values, nickname, dropped };
+  return { values, dropped };
 }

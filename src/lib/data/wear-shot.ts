@@ -158,7 +158,7 @@ type Row = {
     id: string;
     category: { key: string };
     room: { id: string; name: string };
-  } & Parameters<typeof deriveItemName>[0] & { nickname: string | null };
+  } & Parameters<typeof deriveItemName>[0];
 };
 
 function toCard(r: Row): WearShotCard {

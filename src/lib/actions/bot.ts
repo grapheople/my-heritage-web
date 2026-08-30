@@ -8,7 +8,6 @@ import { botEnabled } from "@/lib/bot/guard";
 import {
   researchItemContent,
   writeDiaryBody,
-  writeItemNickname,
 } from "@/lib/bot/claude";
 import { categoryFields, sanitize } from "@/lib/bot/fields";
 import { userLocalDate } from "@/lib/format";
@@ -240,7 +239,6 @@ export async function botResearchItem(input: {
 }): Promise<
   ActionResult<{
     values: Record<string, string>;
-    nickname: string;
     dropped: string[];
   }>
 > {
@@ -267,7 +265,7 @@ export async function botResearchItem(input: {
       locale: b.locale,
       today: await botToday(b.viewer.userId),
     });
-    return { ok: true, values: r.values, nickname: r.nickname, dropped: r.dropped };
+    return { ok: true, values: r.values, dropped: r.dropped };
   } catch (e) {
     // ⚠️ 예외를 흘리지 않는다 — 화면에 크래시가 뜨면 어드민은 CLI 문제인지
     // 프롬프트 문제인지 구분할 수 없다 (D-150)
@@ -296,7 +294,6 @@ export async function botPostItem(input: {
   brand: string;
   /** 속성 키 → 값. 자료 수집 결과 또는 어드민이 손으로 고친 값 */
   values: Record<string, string>;
-  nickname?: string;
   /** 직접 업로드한 사진. 비면 플레이스홀더를 만든다. 첫 장이 대표 (FR-07-A-04) */
   photoUrls?: string[];
 }): Promise<ActionResult<{ itemId: string; codexLinked: boolean }>> {
@@ -340,16 +337,6 @@ export async function botPostItem(input: {
     }
   }
 
-  // 별칭은 있으면 좋고 없어도 된다 — 실패해도 등록을 막지 않는다
-  let nickname = input.nickname?.trim() || undefined;
-  if (!nickname) {
-    try {
-      nickname = await writeItemNickname({ itemName, locale: b.locale });
-    } catch {
-      nickname = undefined;
-    }
-  }
-
   /*
     도감 연결은 **`createItemAs` 가 값만 보고 판정한다** (D-169) — 매칭 키가 비면
     `buildMatchingKey` 가 `null` 을 내 건너뛴다. 봇이 따로 플래그를 넘기지 않는다.
@@ -363,7 +350,6 @@ export async function botPostItem(input: {
     category: input.categoryKey,
     values,
     photoUrls,
-    nickname,
   });
   if (!res.ok) {
     const labels = Object.fromEntries(fields.map((f) => [f.key, f.label]));

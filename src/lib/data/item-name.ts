@@ -30,8 +30,6 @@ export function deriveItemName(item: NameSource): string {
 /** 조회 시 위 파생에 필요한 최소 select — 화면마다 다시 쓰지 않게 모아둔다 */
 export const NAME_SELECT = {
   model: true,
-  // 별칭은 명칭과 늘 함께 쓰인다 (D-112) — 여기 두면 화면마다 빠뜨리지 않는다
-  nickname: true,
   brand: { select: { name: true } },
   codexItem: { select: { displayName: true } },
 } as const;
