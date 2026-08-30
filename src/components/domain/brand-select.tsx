@@ -28,6 +28,15 @@ import { cn } from "@/lib/utils";
  * 원문과 표시명이 다르면 **원문을 옆에 함께 보여준다.** 컬렉터는 원문 표기로
  * 물건을 부르므로(D-009) 원문이 사라지면 오히려 못 알아본다.
  *
+ * ## ⚠️ 종류를 함께 보낸다 (D-283)
+ * 브랜드는 **카테고리 공통 ∪ 종류 전용**이다 (D-255 — 포함적 scope). 종류를
+ * 안 보내면 **종류 전용 브랜드가 목록에서 통째로 빠진다.** API 는 처음부터
+ * `?subtype=` 을 받고 있었는데 **폼이 보내지 않았다** — 축을 만들고 호출부가
+ * 안 읽는, 이 세션에서 반복된 실패다 (D-270 일반화).
+ *
+ * ⚠️ **좁히는 것이 아니라 더하는 것이다.** 종류를 고르면 선택지가 줄지 않고
+ * 늘어난다 — 줄이면 유저가 막히고 브랜드 추가 요청(S-17)이 쌓인다.
+ *
  * ## OI-54 — 부분 일치 노이즈를 두 가지로 막는다
  * 1. **카테고리 필터** — 이 컴포넌트는 `category` 에 연결된 브랜드만 받는다.
  *    그래서 `アンカー` 를 쳐도 자전거에서는 `Anchor`, 데스크테리어에서는
@@ -42,6 +51,12 @@ export function BrandSelect({
   /** 선택된 카테고리 — 이게 없으면 브랜드를 고를 수 없다 (OI-54) */
   category,
   /**
+   * 선택된 종류 (D-283). 있으면 **그 종류 전용 브랜드가 더해진다** (D-255).
+   *
+   * ⚠️ 없어도 동작한다 — 종류가 없는 카테고리(시계·신발 등)가 있다
+   */
+  subtype,
+  /**
    * 표시명 우선순위 — 서버가 뷰어의 관심 언어권으로 계산해 넘긴다 (D-276).
    *
    * ⚠️ 여기서 직접 읽지 않는다. `/api/brands` 는 공유 캐시에 들어가므로
@@ -53,6 +68,7 @@ export function BrandSelect({
   onChange: (v: string) => void;
   invalid?: boolean;
   category: string;
+  subtype?: string;
   langOrder: string[];
 }) {
   const t = useTranslations();
@@ -62,25 +78,33 @@ export function BrandSelect({
    * effect 에서 `setBrands(null)` 로 초기화하면 계단식 렌더가 되므로
    * (react-hooks/set-state-in-effect), 카테고리가 바뀌었는지는 렌더 중에 비교한다.
    */
-  const [loaded, setLoaded] = useState<{ category: string; brands: SearchableBrand[] } | null>(null);
+  const [loaded, setLoaded] = useState<{
+    scope: string;
+    brands: SearchableBrand[];
+  } | null>(null);
+
+  /** 카테고리+종류를 한 값으로 묶는다 — 둘 중 하나만 바뀌어도 목록을 다시 받는다 */
+  const scope = `${category}\u0000${subtype ?? ""}`;
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/brands?category=${encodeURIComponent(category)}`)
+    const qs = new URLSearchParams({ category });
+    if (subtype) qs.set("subtype", subtype);
+    fetch(`/api/brands?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : { brands: [] }))
       .then((d: { brands: SearchableBrand[] }) => {
-        if (alive) setLoaded({ category, brands: d.brands });
+        if (alive) setLoaded({ scope, brands: d.brands });
       })
       .catch(() => {
-        if (alive) setLoaded({ category, brands: [] });
+        if (alive) setLoaded({ scope, brands: [] });
       });
     return () => {
       alive = false;
     };
-  }, [category]);
+  }, [category, subtype, scope]);
 
-  // 카테고리가 바뀌면 이전 목록은 쓰지 않는다
-  const brands = loaded?.category === category ? loaded.brands : null;
+  // 카테고리나 종류가 바뀌면 이전 목록은 쓰지 않는다
+  const brands = loaded?.scope === scope ? loaded.brands : null;
 
   const hits = useMemo(
     () => (brands ? searchBrands(brands, q) : []),

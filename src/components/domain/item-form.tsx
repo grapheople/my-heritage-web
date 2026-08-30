@@ -528,6 +528,8 @@ export function ItemForm({
                 onChange={(v) => set(a.key, v)}
                 invalid={Boolean(errors[a.key])}
                 category={category}
+                // ⚠️ 종류를 함께 보낸다 (D-283) — 안 보내면 종류 전용 브랜드가 빠진다
+                subtype={subtype || undefined}
                 langOrder={langs}
               />
             ) : undefined
