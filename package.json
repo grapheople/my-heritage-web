@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3002",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && tsx scripts/generate-migration-manifest.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -16,7 +16,7 @@
     "db:studio": "prisma studio",
     "db:local": "prisma dev",
     "prisma:format": "prisma format",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && tsx scripts/generate-migration-manifest.ts",
     "db:import-brands": "tsx prisma/import-brands.ts",
     "db:export-brands": "tsx prisma/export-brands.ts",
     "db:up": "docker compose up -d --wait",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { readMigrationState } from "@/lib/migration-status";
 import { BUCKET, isRemoteStorageConfigured, storageClient } from "@/lib/storage";
 
 /**
@@ -40,19 +41,56 @@ function withTimeout<T>(work: Promise<T>, label: string): Promise<T> {
 
 export async function GET() {
   try {
-    const [categories, attributeDefs, categoryAttrs, levels, brands, admins] =
-      await withTimeout(
-        Promise.all([
+    const [
+      categories,
+      categoriesWithAttrs,
+      attributeDefs,
+      categoryAttrs,
+      levels,
+      brands,
+      admins,
+      migrations,
+    ] = await withTimeout(
+      Promise.all([
         prisma.category.count({ where: { active: true } }),
+        /**
+         * ⚠️ **카테고리마다** 속성 조합이 있는가 (D-097 5단계).
+         *
+         * 전체 개수만 보면(예전 판정) 카테고리 하나가 조합 없이 추가돼도
+         * 통과한다 — 그 카테고리에서는 유저가 아이템을 등록할 수 없는데도.
+         */
+        prisma.category.count({
+          where: { active: true, attributes: { some: { active: true } } },
+        }),
         prisma.attributeDefinition.count(),
-        // ⚠️ 여기가 0 이면 아이템 등록이 불가능하다 (D-097 5단계)
         prisma.categoryAttribute.count({ where: { active: true } }),
         prisma.levelDefinition.count(),
         prisma.brand.count({ where: { active: true } }),
-          prisma.adminUser.count({ where: { active: true } }),
-        ]),
-        "database",
-      );
+        prisma.adminUser.count({ where: { active: true } }),
+        /**
+         * ⚠️ 이것만 실패해도 나머지 판정은 살려야 한다 — `_prisma_migrations`
+         * 가 없는 DB(생성 직후)에서 헬스체크 전체가 죽으면 안 된다.
+         */
+        readMigrationState().catch(() => null),
+      ]),
+      "database",
+    );
+
+    /**
+     * 배포-마이그레이션 순서 사고 (2026-09-03).
+     *
+     * ⚠️ **`pending` 만 판정에 넣는다.** 코드가 기대하는 마이그레이션이 DB 에
+     * 없으면 그 컬럼을 읽는 화면이 전부 죽는다 — 치명적이다. 반대로 DB 가
+     * 앞선 경우(`unknown`, 코드를 되돌린 배포)는 보통 여분 컬럼이 남아 있을
+     * 뿐이라 서비스는 돈다. 그래서 세지만 `ready` 를 내리지는 않고 노출만 한다.
+     */
+    const migrationsReady = migrations !== null && migrations.pending.length === 0;
+    if (migrations === null) {
+      console.error("[health] _prisma_migrations 를 읽지 못했다");
+    } else if (migrations.pending.length > 0) {
+      // 응답에는 이름을 내지 않는다 (스키마 정보) — 로그로만 남긴다
+      console.error("[health] 미적용 마이그레이션:", migrations.pending.join(", "));
+    }
 
     /**
      * 스토리지 버킷 (D-114). **없으면 업로드가 전부 실패하고**, 아이템은 사진
@@ -77,11 +115,21 @@ export async function GET() {
 
     /** 출시 순서 각 단계가 끝났는가 (D-097 · D-104 · D-114) */
     const steps = {
-      "① 마이그레이션": true, // 쿼리가 성공했다는 것이 곧 증거다
-      "② 마스터 시드": categories === 6 && attributeDefs > 0 && levels > 0,
+      // ⚠️ 하드코딩 true 였다 — 그래서 2026-09-03 사고를 통과시켰다
+      "① 마이그레이션": migrationsReady,
+      /**
+       * ⚠️ **카테고리 수를 코드에 박지 않는다.** 예전 판정은 `categories === 6`
+       * 이었는데 등산·운동이 추가되어 8개가 되자 영구히 `false` 였다 —
+       * `ready` 가 계속 내려가 있어 신호로서 죽어 있었다.
+       *
+       * `sellable`·`requiresPhoto`·`userCodexCreation` 이 "카테고리를 코드에
+       * 열거하지 않는다"로 정해진 것과 같은 이유다 (D-173·D-231·D-253).
+       * 완전성은 아래 ⑤가 **카테고리마다** 본다.
+       */
+      "② 마스터 시드": categories > 0 && attributeDefs > 0 && levels > 0,
       "③ 브랜드 import": brands > 0,
       "④ 최초 어드민": admins > 0,
-      "⑤ A-02 속성 조합": categoryAttrs > 0,
+      "⑤ A-02 속성 조합": categories > 0 && categoriesWithAttrs === categories,
       // 로컬 파일시스템 모드면 해당 없음 — true 로 둔다
       "⑥ 스토리지 버킷": storageReady ?? true,
     };
@@ -91,12 +139,29 @@ export async function GET() {
       {
         ready,
         steps,
-        counts: { categories, attributeDefs, categoryAttrs, levels, brands, admins },
+        counts: {
+          categories,
+          categoriesWithAttrs,
+          attributeDefs,
+          categoryAttrs,
+          levels,
+          brands,
+          admins,
+          // 이름은 내지 않는다 — 개수만으로 순서 사고를 판단할 수 있다
+          migrations: migrations
+            ? {
+                expected: migrations.expected,
+                applied: migrations.applied,
+                pending: migrations.pending.length,
+                unknown: migrations.unknown.length,
+              }
+            : null,
+        },
         storage: isRemoteStorageConfigured() ? BUCKET : "local-filesystem",
         // ⑤가 비면 배포는 성공했지만 서비스가 동작하지 않는다
         hint: ready
           ? undefined
-          : "DEPLOY.md §4 의 순서를 확인하세요. ⑤가 비면 유저가 아이템을 등록할 수 없습니다 (D-097).",
+          : "DEPLOY.md §4 의 순서를 확인하세요. ①이 비면 마이그레이션을 적용하지 않고 배포된 상태입니다 — 해당 컬럼을 읽는 화면이 500 입니다. ⑤가 비면 그 카테고리에 유저가 아이템을 등록할 수 없습니다 (D-097).",
       },
       { headers: { "Cache-Control": "no-store" } },
     );
