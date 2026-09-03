@@ -16,7 +16,7 @@
     "tab": {
       "items": "Items",
       "records": "Records",
-      "wear": "Shots"
+      "wear": "Daily Log"
     },
     "leftItems": "Items that left",
     "itemCount": "{count, plural, =1 {# item} other {# items}}",

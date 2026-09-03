@@ -16,7 +16,7 @@
     "tab": {
       "items": "아이템",
       "records": "기록",
-      "wear": "착용샷"
+      "wear": "하루기록"
     },
     "leftItems": "떠난 아이템",
     "itemCount": "{count, plural, other {아이템 #개}}",

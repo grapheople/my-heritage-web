@@ -16,7 +16,7 @@
     "tab": {
       "items": "アイテム",
       "records": "記録",
-      "wear": "着用ショット"
+      "wear": "1日の記録"
     },
     "leftItems": "旅立ったアイテム",
     "itemCount": "{count, plural, other {アイテム#点}}",
