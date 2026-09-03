@@ -110,7 +110,9 @@ pnpm storage:init
 # ① 마이그레이션 — DIRECT_URL 로
 pnpm db:deploy
 
-# ② 마스터 시드 (카테고리 6 · 속성 정의 14 · 레벨 10)
+# ② 마스터 시드 (카테고리 **6** · 공통 속성 정의 14 · 레벨 10)
+#    ⚠️ 여기서 만드는 카테고리는 6개다 (D-007). 등산·운동은 아래 4-1 에서
+#       별도 스크립트로 붙는다 — 지금 운영은 8개다
 pnpm prisma db seed
 
 # ③ 브랜드 마스터 290건 (D-044·D-045)
@@ -119,6 +121,48 @@ pnpm db:import-brands ../my-heritage-planning/projects/item-catalog/drafts/brand
 # ④ 최초 어드민 (D-104 — 화면으로 만들 수 없다)
 pnpm admin:add <이메일> "<이름>"
 ```
+
+### 4-1. 카테고리·정책 스크립트
+
+`prisma db seed` 는 **뼈대만** 만든다. 지금 운영 상태(카테고리 8 · 속성 조합
+132 · 종류 20 · 도감 1,503)는 아래 스크립트들이 쌓아 만든 것이다. **순서대로**
+돌린다 — 뒤의 것이 앞의 것을 고치는 관계가 있다.
+
+| | 명령 | 무엇을 | 근거 |
+|:---:|---|---|---|
+| A | `pnpm attrs:bootstrap` | 카테고리별 속성 조합 + 매칭 키 **최초 구성** | D-118 |
+| B | `pnpm attrs:relax-keys` | 매칭 키를 필수에서 풀고 카테고리별 라벨 override | D-168·D-169 |
+| C | `pnpm attrs:drop-price` | 구매가 속성 비활성화 | D-163 |
+| D | `pnpm attrs:scope-options` | 카테고리 전용 선택지(시계 `여분 링크`) 스코프 | D-209 |
+| E | `pnpm tsx prisma/add-watch-attributes.ts` | 시계 스펙 속성 7종 | D-291 |
+| F | `pnpm tsx prisma/setup-hiking-category.ts` | **등산 카테고리 신설** (+`backpack`·`climbing`) | D-259 |
+| G | `pnpm attrs:camping` | 캠핑에 `조리도구`·`물병` 종류 | D-258 |
+| H | `pnpm attrs:bicycle-parts` | 자전거 부품 매칭 키 + 부품 브랜드 | D-263 |
+| I | `pnpm tsx prisma/setup-bicycle-complete.ts` | 자전거 `완성차` 종류 | D-256 |
+| J | `pnpm tsx prisma/set-frame-size-required.ts` | 프레임에 사이즈 필수 | D-290 |
+| K | `pnpm attrs:workout` | **운동 카테고리 신설** | D-166 |
+| L | `pnpm attrs:workout-master` | 운동 전면 개편 — 매칭 키 비우기·분류 속성 비활성·`routine` 종류 삭제 | D-227~D-232 |
+| M | `pnpm db:seed-exercises` | 운동 마스터 본시드 (미검증으로 들어가 A-05 에서 검수) | D-241 |
+| N | `pnpm db:import-codex <파일>` | 도감 마스터 | D-183 |
+| O | `pnpm tsx prisma/apply-brand-priority.ts` | 브랜드 노출 우선순위 | D-285 |
+
+**⚠️ K → L 순서를 뒤집지 마라.** L 이 K 가 만든 분류 속성 12종을 비활성화하고
+매칭 키를 비운다 (D-227). L 만 돌리면 속성이 만들어지지 않고, K 만 돌리면
+**루틴명마다 도감이 생긴다** (`FR-10-A-02`).
+
+**⚠️ `pnpm attrs:workout-routine` 은 여기 없다.** 그 스크립트가 만드는 `routine`
+종류를 L 이 삭제하기 때문이다 (`FR-10-A-08`). 새 환경에서는 만들 필요가 없다.
+
+**⚠️ 이 목록만으로는 지금 운영과 같아지지 않는다.** 캠핑의 `tent`·`lantern`·
+`침낭` 같은 종류는 **어떤 스크립트에도 없다** — 운영이 A-01 화면에서 직접 만든
+것이다. 새 환경을 세울 때는 그만큼을 화면에서 채워야 한다.
+
+**⚠️ 이 순서는 처음부터 끝까지 한 번에 실행해 검증한 적이 없다.** 각 스크립트가
+쌓인 순서를 결정 근거(D-xxx)와 운영 데이터로 역추적해 적은 것이다 (2026-09-03).
+새 환경을 실제로 세울 일이 생기면 **로컬 빈 DB 에 한 번 통째로 돌려보고** 이
+문서를 고칠 것.
+
+### 4-2. 운영이 화면에서 하는 것
 
 그다음은 **운영이 화면에서** 한다:
 
@@ -130,6 +174,53 @@ pnpm admin:add <이메일> "<이름>"
 
 > **⑤를 건너뛰면 배포는 성공하는데 서비스가 동작하지 않는다.** 시드가 조합을
 > 넣지 않는 것은 의도다 — 조합은 카테고리마다 다르고 운영 판단이다 (D-097).
+>
+> ⚠️ **최초 구성은 4-1 A(`attrs:bootstrap`)가 스크립트로 넣는다** (D-118).
+> 화면 작업이 되는 것은 **그 뒤의 유지**다 — 카테고리를 새로 만들거나(A-01)
+> 조합을 고치는 일. 빈 DB 에서 ⑤를 손으로 채우는 것이 아니다.
+>
+> `/api/health` 의 ⑤는 **활성 카테고리 전부**가 조합을 갖고 있는지 본다 (§7).
+> 4-1 F·K 로 카테고리를 늘린 뒤 조합을 안 넣으면 여기서 걸린다.
+
+### 4-3. 새 환경에서 **돌리지 않는** 스크립트
+
+`prisma/` 에는 스크립트가 40개 있는데 대부분은 **지나간 일회성 보정**이다.
+기존 데이터를 전제하므로 빈 DB 에서는 의미가 없고, 일부는 **지운다.**
+
+| 스크립트 | 무엇이었나 | 근거 |
+|---|---|---|
+| `migrate-camping-to-hiking` | 캠핑 도감 중 배낭·등반장비를 등산으로 이관 | D-260 |
+| `fix-camping-apparel` | 캠핑 도감에 섞인 의류·신발 제거 | D-216 |
+| `fix-subtype-keys` | 종류 키로 만들어졌어야 할 `normalizedKey` 재생성 | D-270 |
+| `detach-camping-brands` | 캠핑에 잘못 붙은 브랜드 연결 해제 | D-284 |
+| `prune-part-brand-common-scope` | 종류 전용 브랜드의 카테고리 공통 행 제거 | D-283 |
+| `purge-unclassified-codex` | 미분류 도감 **삭제** | D-261·D-265 |
+| `cleanup-workout-items` | 옛 운동 아이템·도감 **삭제** | D-230 |
+| `backfill-match-keys` | `normalizedKey` → `CodexMatchKey` PRIMARY 백필 | D-197 |
+| `backfill-display-names` | 언어별 명칭 백필 | D-276 |
+| `localize-codex` | 도감 표시명 한국어·일본어 채우기 | D-279 |
+| `research-codex` | AI 로 도감 대량 시딩 | D-185 |
+
+> `backfill-*`·`localize-codex` 는 새 환경에서 **필요하지 않다.**
+> `export-codex` 가 `displayName`·`descriptions`·`matchKeys` 를 다 담고
+> `import-codex`(4-1 N) 가 그대로 복원한다 — 백필할 대상이 없다.
+>
+> `research-codex` 대신 **`import-codex` 를 쓴다.** AI 로 다시 만들면 값이
+> 달라지고, 이미 A-05 에서 검수한 결과가 버려진다.
+
+**⚠️ 도감을 import 하면 종류(subtype)가 비어 있다.** `export-codex`·
+`import-codex` 는 **종류를 담지 않는다** (양쪽 다 `subtype` 을 다루지 않는다 —
+2026-09-03 확인). 그래서 import 뒤에 분류가 필요하다:
+
+```bash
+pnpm db:classify-codex     # 기존 도감을 종류로 분류 (D-257)
+```
+
+**자전거는 종류가 필수다** (`subtypeRequired`, D-253·D-257). 분류하지 않으면
+그 카테고리에서 등록이 막힌다.
+
+**개발 도구** (배포 순서와 무관): `which-db` · `seed-dev`(로컬 전용, D-097) ·
+`export-brands` · `export-codex` · `storage-init` · `add-admin`
 
 ## 5. 마이그레이션을 빌드에서 돌리지 않는다
 
