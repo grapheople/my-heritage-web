@@ -121,7 +121,9 @@ pnpm db:generate        # 클라이언트 재생성 (스키마 변경 후 필수
 pnpm prisma db seed     # 시드 (멱등)
 ```
 
-`.env`는 `.env.example`을 복사해 채운다.
+`.env.local`은 `.env.example`을 복사해 채운다. **로컬 env 파일은 하나로 유지한다** —
+`.env`와 `.env.local`에 같은 키가 있으면 `.env.local`이 이겨서 `.env` 쪽은 고쳐도
+반영되지 않는다 (2026-09-03에 `DATABASE_URL`·`AUTH_SECRET`이 그 상태였다).
 
 ---
 

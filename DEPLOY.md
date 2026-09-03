@@ -44,13 +44,16 @@ pnpm db:which
 ```
 
 런타임/마이그레이션이 각각 어느 호스트·포트를 보는지 낸다. 풀링 여부가 잘못되면
-경고한다. **`.env.local` 과 `.env` 가 다른 DB 를 가리키면 앱과 Prisma CLI 가
-서로 다른 DB 를 보는데**, 증상이 "마이그레이션했는데 화면에 반영이 안 된다" 로
-나타나 원인을 찾기 어렵다. 그래서 이 스크립트를 만들었다.
+경고한다. **런타임과 마이그레이션이 다른 DB 를 가리키면**, 증상이 "마이그레이션했는데
+화면에 반영이 안 된다" 로 나타나 원인을 찾기 어렵다. 그래서 이 스크립트를 만들었다.
 
-> `.env.local` → `.env` 순으로 읽고 **앞의 것이 이긴다** (Next.js 와 같은 순서).
-> 스크립트도 같게 맞췄다 (`prisma/env.ts`) — `dotenv/config` 는 `.env` 만 읽어서
-> 그 차이가 위의 사고를 만들었다.
+> **로컬 env 파일은 `.env.local` 하나다** (2026-09-03 통합). 예전에는 `.env` 와
+> 둘로 나뉘어 있었는데 `DATABASE_URL`·`AUTH_SECRET` 이 양쪽에 중복 정의돼 있었다.
+> `.env.local` → `.env` 순으로 읽고 **앞의 것이 이기므로** `.env` 쪽 값은 죽은
+> 값이었다 — 고쳐도 반영되지 않는 함정이라 합쳤다.
+>
+> 로딩 순서는 `prisma/env.ts` 가 Next.js 와 맞춘다. `dotenv/config` 는 `.env` 만
+> 읽어서, 그 차이가 앱과 CLI 가 다른 DB 를 보는 사고를 만들었다.
 
 ### ⚠️ 사내 네트워크가 Postgres 포트를 막을 수 있다
 
@@ -171,19 +174,24 @@ curl -s https://<도메인>/sitemap.xml | grep -c '<url>'
 
 ## 8. 로컬 개발 — Supabase 와 docker 를 오간다
 
-기본값은 **Supabase** 다. `.env` 의 `DATABASE_URL` 은 주석 처리돼 있고,
-`.env.local` 의 `POSTGRES_PRISMA_URL`(풀링) 이 쓰인다.
+기본값은 **docker(5434)** 다. `.env.local` 에 `DATABASE_URL`(런타임)·`DIRECT_URL`
+(마이그레이션) 이 명시돼 있다.
+
+> 이 문서는 오래 "기본값은 Supabase" 라고 적혀 있었지만 실제 파일은 docker 를
+> 가리키고 있었다 (2026-09-03 확인). `pnpm db:which` 가 사실이고 문서는 참고다.
 
 ```bash
 pnpm db:which     # 지금 어느 DB 를 보는지 — 앱과 CLI 를 둘 다 찍는다
-pnpm dev          # Supabase 를 본다
+pnpm dev          # .env.local 의 DATABASE_URL — 기본은 docker
 pnpm dev:docker   # 이번 실행만 docker 를 본다
 ```
 
 > **VPN 을 끄고 써야 한다** (§2). 사내 네트워크는 5432·6543 을 막는다.
 > 스토리지는 HTTPS 443 이라 VPN 과 무관하게 항상 동작한다.
 
-docker 로 되돌리려면 `.env` 의 `DATABASE_URL` 주석을 살린다.
+Supabase 를 상시로 보려면 `.env.local` 의 `DATABASE_URL` 을 주석 처리한다 — 그러면
+`POSTGRES_PRISMA_URL`(풀링) 이 이긴다. ⚠️ `DIRECT_URL` 은 그대로 둔다. 비우면
+`POSTGRES_URL_NON_POOLING` 이 이겨서 `pnpm db:migrate` 가 **운영 DB** 에 걸린다.
 
 ### ⚠️ Supabase 를 볼 때 달라지는 것 3가지
 

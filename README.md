@@ -9,7 +9,7 @@
 
 ```bash
 pnpm install
-cp .env.example .env      # DATABASE_URL 등을 채운다
+cp .env.example .env.local   # DATABASE_URL 등을 채운다 (.env 로 만들지 말 것)
 
 pnpm db:local             # 로컬 Postgres (별도 터미널)
 pnpm db:migrate           # 마이그레이션 적용
