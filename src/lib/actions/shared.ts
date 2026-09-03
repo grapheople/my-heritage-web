@@ -101,6 +101,8 @@ export async function ownItem(
   subtypeId: string | null;
   /** D-211 — 부모 아이템. 값이 있으면 **이 아이템은 부품**이다 */
   parentId: string | null;
+  /** D-296 — 추억함. 값이 있으면 보관 중이다 */
+  archivedAt: Date | null;
   saleStatus: string;
   visibility: string;
   /** 이 카테고리를 마켓에 올릴 수 있는가 (D-173) */
@@ -118,6 +120,7 @@ export async function ownItem(
       categoryId: true,
       subtypeId: true,
       parentId: true,
+      archivedAt: true,
       saleStatus: true,
       visibility: true,
       category: { select: { sellable: true, key: true } },

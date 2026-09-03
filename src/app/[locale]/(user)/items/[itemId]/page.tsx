@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { ItemArchiveActions } from "@/components/domain/item-archive-actions";
 import { ItemVisibilityToggle } from "@/components/domain/item-visibility-toggle";
+import { DeleteButton } from "@/components/domain/delete-button";
 import { SaleStatusActions } from "@/components/domain/sale-status-actions";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { ExternalLinkWarning } from "@/components/common/external-link-warning";
@@ -10,6 +12,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { getViewer } from "@/lib/auth/viewer";
 import { getItemDetail, getRoutineFieldLabels, isItemIndexable } from "@/lib/data/item";
+import { deleteItem } from "@/lib/actions/item";
 import { formatRest, summarizeReps } from "@/lib/routine-entry";
 import { getItemWearShots } from "@/lib/data/wear-shot";
 import { todaysWearShot } from "@/lib/actions/wear-shot";
@@ -157,7 +160,15 @@ export default async function ItemDetailPage({
 
       <header className="px-4 py-5 lg:px-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          {item.saleStatus === "ON_SALE" && <StatusBadge variant="sale" />}
+          {/*
+            ⚠️ 보관된 아이템은 마켓에 없다 (D-296) — 판매중 배지를 함께 내면
+            누를 수 없는 상태를 광고하는 셈이다. 추억함 배지가 이긴다
+          */}
+          {item.archived ? (
+            <StatusBadge variant="archived" />
+          ) : (
+            item.saleStatus === "ON_SALE" && <StatusBadge variant="sale" />
+          )}
           {isOwner && item.visibility === "PRIVATE" && (
             <StatusBadge variant="private" />
           )}
@@ -366,21 +377,55 @@ export default async function ItemDetailPage({
           )}
 
           {/*
-            오늘의 하루기록 (D-148). **아이템당 하루 1장**이므로 오늘 이미
-            남겼으면 수정 모드로 열린다 — 새로 만들려 하면 유니크 제약에
-            막히는데, 화면이 미리 알고 헛수고를 막는다
+            오늘의 기록 (D-148). **아이템당 하루 1장**이다.
+
+            ⚠️ **수정은 여기서 하지 않는다** (D-297). 오늘 이미 남겼으면
+            폼 대신 **하루기록 상세로 가는 길**을 낸다 — 수정·삭제·댓글이
+            전부 그 화면에 있다. 두 곳에서 고칠 수 있으면 어느 쪽이 최신인지
+            유저가 판단해야 한다
           */}
-          <WearShotForm
+          {today ? (
+            <Link
+              href={`/wear/${today.id}`}
+              className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
+            >
+              {t("wear.todayDone")}
+            </Link>
+          ) : (
+            <WearShotForm
+              itemId={item.id}
+              labels={{
+                title: t("wear.title"),
+                save: t("wear.save"),
+                cancel: t("wear.cancel"),
+                notePlaceholder: t("wear.notePlaceholder"),
+              }}
+            />
+          )}
+
+          {/*
+            ⚠️ **치우는 방법이 두 가지다** (D-296). 보관은 되돌릴 수 있고
+            하루기록이 남는다. 삭제는 되돌릴 수 없고 하루기록도 함께
+            사라진다 — 확인 창이 그 차이를 말한다
+          */}
+          <ItemArchiveActions
             itemId={item.id}
-            existing={today ? { id: today.id, note: today.note } : undefined}
+            archived={item.archived}
+            isPart={item.parent !== undefined}
             labels={{
-              title: t("wear.title"),
-              edit: t("wear.edit"),
-              save: t("wear.save"),
-              cancel: t("wear.cancel"),
-              notePlaceholder: t("wear.notePlaceholder"),
+              archive: t("item.archive"),
+              archiveConfirm: t("item.archiveConfirm"),
+              unarchive: t("item.unarchive"),
             }}
           />
+          <div className="flex justify-center">
+            <DeleteButton
+              action={deleteItem.bind(null, item.id)}
+              confirmText={t("item.deleteConfirm", { count: wearShots.length })}
+              label={t("item.delete")}
+              redirectTo="/me"
+            />
+          </div>
         </section>
       )}
 

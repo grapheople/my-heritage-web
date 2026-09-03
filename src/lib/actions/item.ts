@@ -625,6 +625,146 @@ export async function setItemVisibility(
 }
 
 /* ────────────────────────────────────────────
+   추억함 · 삭제 (D-296)
+   ──────────────────────────────────────────── */
+
+/**
+ * 아이템을 **추억함에 보관한다** (S-28, D-296).
+ *
+ * ## ⚠️ 삭제와 다른 것을 고른 것이다
+ * 유저 앞에 놓인 선택지는 둘이다 — **삭제**는 하루기록까지 없애고 되돌릴 수
+ * 없다. **보관**은 진열에서만 내리고 언제든 꺼낸다. 화면은 이 차이를 확인
+ * 창에서 말해야 한다.
+ *
+ * ## ⚠️ 판매중이어도 막지 않는다
+ * 보관하면 조회 계층이 마켓에서 빼준다 (`DISPLAYABLE_ITEM`). 제재가 판매중
+ * 아이템을 마켓에서 내리는 방식과 같다 (FR-07-B-05) — **별도 로직을 두지
+ * 않는다.** 꺼내면 판매 상태 그대로 마켓에 돌아온다.
+ *
+ * ## ⚠️ 부품은 보관하지 않는다
+ * 부품은 이미 전시 단위가 아니라(D-211) 진열에 없다. 보관하면 추억함에만
+ * 뜨는데 **자전거에는 여전히 달려 있어** 두 화면이 서로 다른 말을 한다.
+ * 떼어낸 뒤 보관한다.
+ */
+export async function archiveItem(itemId: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  return archiveItemAs(viewer, itemId);
+}
+
+/** 본체 — 뷰어를 주입받는다 (스크립트로 검증 가능하게) */
+export async function archiveItemAs(
+  viewer: Viewer,
+  itemId: string,
+): Promise<ActionResult> {
+  const owned = await ownItem(viewer, itemId);
+  if (!owned) return fail({}, "아이템을 찾을 수 없습니다");
+  if (owned.parentId) {
+    return fail({}, "부품은 먼저 떼어낸 뒤 보관할 수 있어요");
+  }
+
+  await prisma.item.update({
+    where: { id: owned.id },
+    data: { archivedAt: new Date() },
+  });
+  revalidate(
+    "/[locale]/items/[itemId]",
+    "/[locale]/me",
+    "/[locale]/me/archive",
+    "/[locale]/rooms/[roomId]",
+    "/[locale]/rooms/[roomId]/archive",
+    "/[locale]/market",
+    "/[locale]",
+  );
+  return { ok: true };
+}
+
+/**
+ * 추억함에서 **꺼낸다** — 진열로 돌아간다 (D-296).
+ *
+ * ## ⚠️ NEW 피드 정렬 시각은 갱신하지 않는다
+ * `createdAt` 을 건드리지 않는다. 비공개→공개 전환으로도 갱신하지 않기로 한
+ * 것과 같은 규칙이다 (D-070, FR-03-A-09) — 꺼내기로 갱신하면 **넣었다 꺼내는
+ * 것만으로 피드 맨 앞을 살 수 있다.**
+ */
+export async function unarchiveItem(itemId: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  return unarchiveItemAs(viewer, itemId);
+}
+
+/** 본체 — 뷰어를 주입받는다 */
+export async function unarchiveItemAs(
+  viewer: Viewer,
+  itemId: string,
+): Promise<ActionResult> {
+  const owned = await ownItem(viewer, itemId);
+  if (!owned) return fail({}, "아이템을 찾을 수 없습니다");
+
+  await prisma.item.update({
+    where: { id: owned.id },
+    data: { archivedAt: null },
+  });
+  revalidate(
+    "/[locale]/items/[itemId]",
+    "/[locale]/me",
+    "/[locale]/me/archive",
+    "/[locale]/rooms/[roomId]",
+    "/[locale]/rooms/[roomId]/archive",
+    "/[locale]/market",
+    "/[locale]",
+  );
+  return { ok: true };
+}
+
+/**
+ * 아이템을 **지운다** — 되돌릴 수 없다 (D-296).
+ *
+ * ## ⚠️ 함께 사라지는 것
+ * | 대상 | 처리 | 근거 |
+ * |---|---|---|
+ * | **하루기록 · 그 댓글** | 함께 삭제 (`Cascade`) | D-296 — 물건을 치우면 흔적도 치운다 |
+ * | 사진 · 속성값 · 루틴 구성 | 함께 삭제 (`Cascade`) | |
+ * | **일기** | **남는다.** 연결만 끊긴다 | M-03, D-054 |
+ * | **부품** | **남는다.** 독립 아이템으로 승격 (`SetNull`) | D-211 Q5 |
+ *
+ * ## ⚠️ 스토리지 파일은 지우지 않는다
+ * 하루기록 삭제와 같은 태도다 — 되돌릴 수 없고, 정리는 미참조 blob 배치의
+ * 몫이다 (OI-66).
+ *
+ * ## ⚠️ 이 아이템을 가리키던 알림·신고는 남는다
+ * `Notification.targetId`·`Report.targetId` 는 FK 가 아니라(모델 주석 참조)
+ * 끊어진 링크가 된다. 하루기록 삭제(D-180)가 이미 같은 자리에 있다 —
+ * **이번 결정이 만든 문제가 아니고, 여기서 풀지도 않는다** (OI-90).
+ */
+export async function deleteItem(itemId: string): Promise<ActionResult> {
+  const viewer = await getViewer();
+  if (!viewer) return fail({}, "로그인이 필요합니다");
+  return deleteItemAs(viewer, itemId);
+}
+
+/** 본체 — 뷰어를 주입받는다 */
+export async function deleteItemAs(
+  viewer: Viewer,
+  itemId: string,
+): Promise<ActionResult> {
+  const owned = await ownItem(viewer, itemId);
+  if (!owned) return fail({}, "아이템을 찾을 수 없습니다");
+
+  await prisma.item.delete({ where: { id: owned.id } });
+  revalidate(
+    "/[locale]/me",
+    "/[locale]/me/wear",
+    "/[locale]/me/archive",
+    "/[locale]/rooms/[roomId]",
+    "/[locale]/rooms/[roomId]/archive",
+    "/[locale]/market",
+    "/[locale]",
+  );
+  return { ok: true };
+}
+
+/* ────────────────────────────────────────────
    구성 관계 — 부품 (D-211)
    ──────────────────────────────────────────── */
 
@@ -666,6 +806,15 @@ export async function attachPart(input: {
   */
   if (part.saleStatus !== "DISPLAYED") {
     return fail({}, "판매중이거나 판매완료된 아이템은 부품으로 넣을 수 없습니다");
+  }
+
+  /*
+    ⚠️ **보관된 아이템은 부품이 될 수 없다** (D-296). 부품은 추억함 목록에서
+    빠지므로(전시 단위가 아니다) 편입하는 순간 **진열에도 추억함에도 없는
+    아이템**이 된다 — 상세 URL 을 아는 사람만 닿을 수 있다.
+  */
+  if (part.archivedAt) {
+    return fail({}, "추억함에 보관된 아이템은 먼저 꺼내야 부품으로 넣을 수 있어요");
   }
 
   await prisma.item.update({ where: { id: part.id }, data: { parentId: parent.id } });

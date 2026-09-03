@@ -28,7 +28,10 @@
     "emptyRecordsTitle": "まだ記録がありません",
     "emptyRecordsDesc": "アイテムにまつわる話を残しておくと、後でそれが裏づけになります",
     "addFirstRecord": "最初の記録を書く",
-    "addRecord": "記録を書く"
+    "addRecord": "記録を書く",
+    "archive": "思い出箱",
+    "archiveEmpty": "思い出箱は空です",
+    "archiveEmptyDesc": "アイテム詳細から思い出箱にしまえます"
   },
   "category": {
     "watch": "時計",
@@ -50,7 +53,8 @@
     "status": {
       "displayed": "展示中",
       "onSale": "販売中",
-      "sold": "売却済み"
+      "sold": "売却済み",
+      "archived": "思い出箱"
     },
     "visibility": {
       "public": "公開",
@@ -94,7 +98,12 @@
     "routineRepsPerSet": "セットごとの回数",
     "routineSetNo": "{n}セット",
     "routineAddSet": "セット",
-    "routineRemoveSet": "セット"
+    "routineRemoveSet": "セット",
+    "archive": "思い出箱にしまう",
+    "archiveConfirm": "思い出箱にしまいますか？ 展示からは消えますが1日の記録はそのまま残り、いつでも取り出せます。",
+    "unarchive": "思い出箱から取り出す",
+    "delete": "アイテムを削除",
+    "deleteConfirm": "このアイテムを削除しますか？ 1日の記録 {count}件も一緒に消え、元に戻せません。残すなら思い出箱にしまってください。"
   },
   "diary": {
     "visibility": {
@@ -432,10 +441,9 @@
     "listTitle": "1日の記録",
     "count": "1日の記録 {count}",
     "emptyDesc": "アイテム詳細から今日の記録を残せます",
-    "goToItem": "アイテム詳細で編集する",
-    "goToItemRoutine": "ルーティン詳細で編集する",
     "deleteWearShot": "1日の記録を削除",
-    "deleteWearShotConfirm": "この1日の記録を削除しますか？元に戻せません。"
+    "deleteWearShotConfirm": "この1日の記録を削除しますか？元に戻せません。",
+    "todayDone": "今日は記録済み · 見る"
   },
   "follow": {
     "follow": "フォロー",

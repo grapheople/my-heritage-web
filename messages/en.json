@@ -28,7 +28,10 @@
     "emptyRecordsTitle": "No records yet",
     "emptyRecordsDesc": "Write down the story behind your things — it becomes proof later",
     "addFirstRecord": "Write your first record",
-    "addRecord": "Write a record"
+    "addRecord": "Write a record",
+    "archive": "Memory box",
+    "archiveEmpty": "Your memory box is empty",
+    "archiveEmptyDesc": "You can put items away from an item page"
   },
   "category": {
     "watch": "Watches",
@@ -50,7 +53,8 @@
     "status": {
       "displayed": "On display",
       "onSale": "For sale",
-      "sold": "Sold"
+      "sold": "Sold",
+      "archived": "Put away"
     },
     "visibility": {
       "public": "Public",
@@ -94,7 +98,12 @@
     "routineRepsPerSet": "Reps per set",
     "routineSetNo": "Set {n}",
     "routineAddSet": "set",
-    "routineRemoveSet": "set"
+    "routineRemoveSet": "set",
+    "archive": "Put in memory box",
+    "archiveConfirm": "Put this in your memory box? It leaves your display, but the daily logs stay and you can take it back out anytime.",
+    "unarchive": "Take out of memory box",
+    "delete": "Delete item",
+    "deleteConfirm": "Delete this item? Its {count} daily logs go with it and this cannot be undone. To keep them, put it in your memory box instead."
   },
   "diary": {
     "visibility": {
@@ -432,10 +441,9 @@
     "listTitle": "Daily log",
     "count": "Daily logs {count}",
     "emptyDesc": "Leave today's log from an item page",
-    "goToItem": "Edit from the item page",
-    "goToItemRoutine": "Edit from the routine page",
     "deleteWearShot": "Delete daily log",
-    "deleteWearShotConfirm": "Delete this daily log? This cannot be undone."
+    "deleteWearShotConfirm": "Delete this daily log? This cannot be undone.",
+    "todayDone": "Logged today · View"
   },
   "follow": {
     "follow": "Follow",

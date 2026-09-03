@@ -28,7 +28,10 @@
     "emptyRecordsTitle": "아직 기록이 없어요",
     "emptyRecordsDesc": "물건에 얽힌 이야기를 남겨두면 나중에 그게 근거가 돼요",
     "addFirstRecord": "첫 기록 쓰기",
-    "addRecord": "기록 쓰기"
+    "addRecord": "기록 쓰기",
+    "archive": "추억함",
+    "archiveEmpty": "추억함이 비어 있어요",
+    "archiveEmptyDesc": "아이템 상세에서 추억함에 보관할 수 있어요"
   },
   "category": {
     "watch": "시계",
@@ -50,7 +53,8 @@
     "status": {
       "displayed": "전시중",
       "onSale": "판매중",
-      "sold": "판매완료"
+      "sold": "판매완료",
+      "archived": "추억함"
     },
     "visibility": {
       "public": "공개",
@@ -94,7 +98,12 @@
     "routineRepsPerSet": "세트별 횟수",
     "routineSetNo": "{n}세트",
     "routineAddSet": "세트",
-    "routineRemoveSet": "세트"
+    "routineRemoveSet": "세트",
+    "archive": "추억함에 보관하기",
+    "archiveConfirm": "추억함에 보관할까요? 진열에서는 사라지지만 하루기록은 그대로 남고, 언제든 다시 꺼낼 수 있어요.",
+    "unarchive": "추억함에서 꺼내기",
+    "delete": "아이템 삭제",
+    "deleteConfirm": "이 아이템을 삭제할까요? 하루기록 {count}개도 함께 사라지고 되돌릴 수 없어요. 남겨두려면 추억함에 보관하세요."
   },
   "diary": {
     "visibility": {
@@ -432,10 +441,9 @@
     "listTitle": "하루기록",
     "count": "하루기록 {count}",
     "emptyDesc": "아이템 상세에서 오늘의 기록을 남길 수 있어요",
-    "goToItem": "아이템 상세에서 수정하기",
-    "goToItemRoutine": "루틴 상세에서 수정하기",
     "deleteWearShot": "하루기록 삭제",
-    "deleteWearShotConfirm": "이 하루기록을 삭제할까요? 되돌릴 수 없습니다."
+    "deleteWearShotConfirm": "이 하루기록을 삭제할까요? 되돌릴 수 없습니다.",
+    "todayDone": "오늘 기록함 · 보러가기"
   },
   "follow": {
     "follow": "팔로우",

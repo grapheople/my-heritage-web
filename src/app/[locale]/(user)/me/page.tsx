@@ -62,6 +62,7 @@ export default async function MyRoomPage({
       <RoomDisplay
           sections={sections}
           goneItems={room.gone}
+          archivedCount={room.archivedCount}
           basePath="/me"
           owner
         />

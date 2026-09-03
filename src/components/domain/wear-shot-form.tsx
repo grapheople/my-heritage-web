@@ -12,9 +12,14 @@ import { PhotoUploader } from "@/components/domain/photo-uploader";
  * ## ⚠️ 사진이 필수다
  * 하루기록의 본질이 사진이다. 노트만 남기려면 일기를 쓰는 것이 맞다 (D-054).
  *
- * ## ⚠️ 하루 1장이므로 "오늘 이미 있으면 수정"이다
- * 새로 만들려 하면 서버가 유니크 제약으로 막는다. 화면이 미리 알고 **수정
- * 모드로 열어** 유저가 헛수고하지 않게 한다.
+ * ## ⚠️ 두 화면이 같은 폼을 쓴다 (D-297)
+ * | 화면 | 모드 | 왜 |
+ * |---|---|---|
+ * | 아이템 상세 | **작성만** | 오늘 이미 남겼으면 폼을 내지 않고 상세로 보낸다 |
+ * | 하루기록 상세 | **수정만** | 수정·삭제·댓글이 한 화면에 모인다 |
+ *
+ * 작성과 수정이 한 컴포넌트인 것은 **입력이 같기 때문**이다(사진 1장 + 노트).
+ * 갈라 두면 글자 수 제한·사진 필수 판정이 두 벌이 된다.
  */
 export function WearShotForm({
   itemId,
@@ -24,7 +29,14 @@ export function WearShotForm({
   itemId: string;
   /** 오늘 이미 남긴 것 — 있으면 수정 모드 */
   existing?: { id: string; note?: string; photoUrl?: string };
-  labels: { title: string; edit: string; save: string; cancel: string; notePlaceholder: string };
+  /** `edit` 는 수정 모드에서만 쓴다 — 작성 화면은 넘기지 않는다 (D-297) */
+  labels: {
+    title: string;
+    edit?: string;
+    save: string;
+    cancel: string;
+    notePlaceholder: string;
+  };
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -42,7 +54,7 @@ export function WearShotForm({
         onClick={() => setOpen(true)}
         className="block w-full rounded-lg border py-3 text-center text-sm font-semibold hover:bg-accent"
       >
-        {existing ? labels.edit : labels.title}
+        {existing ? (labels.edit ?? labels.title) : labels.title}
       </button>
     );
   }
@@ -52,7 +64,7 @@ export function WearShotForm({
   return (
     <div className="rounded-lg border p-4">
       <h2 className="text-sm font-bold">
-        {existing ? labels.edit : labels.title}
+        {existing ? (labels.edit ?? labels.title) : labels.title}
       </h2>
 
       <div className="mt-3">

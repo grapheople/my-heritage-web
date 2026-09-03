@@ -126,6 +126,13 @@ export type ItemDetail = {
   sellable: boolean;
   /** 방 공개 상태 — 공개 판정은 Room AND Item (M-06, D-019) */
   roomPublic: boolean;
+  /**
+   * 추억함에 보관돼 있는가 (D-296).
+   *
+   * ⚠️ **보관돼도 이 화면은 열린다.** 진열·피드·마켓·색인에서만 빠진다 —
+   * 추억함에서 눌러 들어오는 곳이 여기이기 때문이다.
+   */
+  archived: boolean;
   /** 도감 연결. 없으면 "같은 물건 가진 사람"에 나타나지 않는다 (D-032) */
   codexId?: string;
   /**

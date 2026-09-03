@@ -1166,6 +1166,26 @@ model Item {
   onSaleAt    DateTime?
   soldAt      DateTime?
 
+  /**
+   * D-296 — **추억함.** `null` 이면 진열 중, 값이 있으면 보관됨(= 그 시각).
+   *
+   * ## ⚠️ 삭제가 아니다
+   * 보관해도 아이템·사진·속성·하루기록은 **전부 남는다.** 진열·NEW 피드·
+   * 마켓·사이트맵에서만 빠지고 추억함에서 보이며, 언제든 꺼낼 수 있다.
+   * 판정은 `DISPLAYABLE_ITEM` 한 곳에서 한다 — 조회부마다 적으면 한 곳이
+   * 빠져 그 화면에만 샌다 (D-211 이 겪은 유형).
+   *
+   * ## ⚠️ 판매완료(`SOLD`)와 다른 축이다
+   * 떠난 아이템은 **소유권이 넘어간** 것이고(D-023) 보관은 **여전히 내
+   * 것**이다. 그래서 도감 보유자 수에는 **계속 잡힌다.** 두 상태는 함께
+   * 성립한다 — 판 물건을 추억함에 넣을 수 있다.
+   *
+   * ## ⚠️ 하루기록은 따라 숨지 않는다 (D-296)
+   * 방 하루기록 탭·도감 하루기록 목록에 그대로 남는다. 기록을 지우는 것은
+   * **삭제**뿐이다 (`onDelete: Cascade`).
+   */
+  archivedAt DateTime?
+
   /// FR-03-A-01/09 — NEW 피드 정렬 기준. 비공개→공개 전환으로 갱신하지 않는다 (D-070)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1184,6 +1204,8 @@ model Item {
   /// 마켓 기본 정렬 (D-048) — 판매중만 훑는다
   @@index([saleStatus, onSaleAt])
   @@index([roomId, categoryId])
+  /// 추억함 목록·진열 제외 판정 (D-296)
+  @@index([roomId, archivedAt])
   @@index([codexItemId])
 }
 

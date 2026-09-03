@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DeleteButton } from "@/components/domain/delete-button";
 import { deleteWearShot } from "@/lib/actions/wear-shot";
 import { CommentSection } from "@/components/domain/comment-section";
+import { WearShotForm } from "@/components/domain/wear-shot-form";
 import { Link } from "@/i18n/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { getWearShotDetail } from "@/lib/data/comment";
@@ -79,15 +80,38 @@ export default async function WearShotPage({
         loggedIn={viewer !== null}
       />
 
-      {/* 하루기록 수정은 아이템 상세에서 한다 (D-148 — 하루 1장 판정이 거기 있다) */}
+      {/*
+        ⚠️ **수정이 여기로 왔다** (D-297). D-148 은 "수정은 아이템 상세에서"
+        였는데, 그러면 이 화면에서 자기 기록을 보다가 **고치려면 아이템으로
+        나갔다 돌아와야** 했다. 수정·삭제·댓글은 한 화면에 있는 것이 맞다.
+        아이템 상세는 이제 **오늘 것을 새로 남기는 자리**만 맡는다.
+
+        ⚠️ **링크가 아니라 버튼이다.** 둘 다 이 화면에서 상태를 바꾸는
+        동작이고, 링크로 보이면 "어딘가로 이동한다"로 읽힌다.
+      */}
       {shot.owner && (
-        <section className="flex items-center gap-4 border-t px-4 py-4 lg:px-0">
-          <Link
-            href={`/items/${shot.itemId}`}
-            className="text-sm text-muted-foreground underline"
-          >
-            {t(shot.isRoutine ? "wear.goToItemRoutine" : "wear.goToItem")}
-          </Link>
+        <section className="space-y-2 border-t px-4 py-4 lg:px-0">
+          <WearShotForm
+            itemId={shot.itemId}
+            existing={{
+              id: shot.id,
+              note: shot.note,
+              /*
+                ⚠️ 플레이스홀더는 **없는 사진으로 다룬다** (`realPhotoUrl`,
+                OI-47). 아이템 수정 폼(`getItemForEdit`)과 같은 규칙이다 —
+                스토리지가 붙기 전에는 사진을 다시 올려야 저장된다.
+                여기서만 원본을 넘기면 `next/image` 가 없는 호스트를 받는다
+              */
+              photoUrl: shot.photoUrl,
+            }}
+            labels={{
+              title: t("wear.edit"),
+              edit: t("wear.edit"),
+              save: t("wear.save"),
+              cancel: t("wear.cancel"),
+              notePlaceholder: t("wear.notePlaceholder"),
+            }}
+          />
           {/*
             ⚠️ **삭제 진입점이 없었다** (D-180). `deleteWearShot` 은 처음부터
             있었는데 부르는 화면이 없었다 — 하루 1장 제약(D-148) 때문에 잘못 올린
@@ -98,6 +122,7 @@ export default async function WearShotPage({
             confirmText={t("wear.deleteWearShotConfirm")}
             label={t("wear.deleteWearShot")}
             redirectTo="/me/wear"
+            variant="button"
           />
         </section>
       )}

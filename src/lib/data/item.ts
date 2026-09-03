@@ -111,6 +111,8 @@ export async function getItemDetail(
       id: true,
       visibility: true,
       saleStatus: true,
+      /// 추억함 (D-296) — 보관돼 있으면 상세에 안내를 내고 색인하지 않는다
+      archivedAt: true,
       price: true,
       currency: true,
       externalUrl: true,
@@ -364,6 +366,7 @@ export async function getItemDetail(
     saleStatus: item.saleStatus,
     sellable: item.category.sellable,
     roomPublic: item.room.visibility === "PUBLIC",
+    archived: item.archivedAt !== null,
     codexId: item.codexItemId ?? undefined,
     // 스토리지 전 플레이스홀더는 없는 것으로 다룬다 (OI-47 잔재)
     photos: item.photos.map((p) => realPhotoUrl(p.url)).filter((u): u is string => !!u),
@@ -483,11 +486,20 @@ export function isItemIndexable(item: {
   saleStatus: string;
   visibility: string;
   roomPublic: boolean;
+  /** 추억함에 보관됐는가 (D-296) */
+  archived: boolean;
 }): boolean {
   return (
     item.saleStatus === "ON_SALE" &&
     item.visibility === "PUBLIC" &&
-    item.roomPublic
+    item.roomPublic &&
+    /*
+      ⚠️ **보관된 아이템은 색인하지 않는다** (D-296). 마켓 조회에서 이미
+      빠지므로 색인만 남으면 **검색 결과에서만 살아 있는 매물**이 된다 —
+      눌러 들어오면 살 수 없는 물건이다. 사이트맵은 `DISPLAYABLE_ITEM` 이
+      막지만 상세 페이지의 `robots` 는 이 함수가 정한다 (D-093)
+    */
+    !item.archived
   );
 }
 

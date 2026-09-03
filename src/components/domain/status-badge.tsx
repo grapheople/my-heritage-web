@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * ⚠️ **색만으로 상태를 전달하지 않는다** — 색 + 텍스트를 함께 낸다
  * (design-system.md §8). 명도 대비는 배지 배경 위 기준 전부 AA 통과.
  */
-type Variant = "sale" | "private" | "unverified";
+type Variant = "sale" | "private" | "unverified" | "archived";
 
 const VARIANT: Record<Variant, { className: string; messageKey: string }> = {
   /** 판매중 — 유일하게 눈에 띄어야 하는 상태다. 마켓 유입 진입점 (D-046) */
@@ -27,6 +27,15 @@ const VARIANT: Record<Variant, { className: string; messageKey: string }> = {
   private: {
     className: "bg-priv-bg text-priv ring-priv/25",
     messageKey: "item.visibility.private",
+  },
+  /**
+   * 추억함에 보관됨 (D-296) — **무채색이다.** 비공개와 같은 이유로 색을 주지
+   * 않는다. 보관은 경고가 아니라 상태이고, 눈에 띄게 만들면 진열에서 내린
+   * 물건이 오히려 더 도드라진다.
+   */
+  archived: {
+    className: "bg-priv-bg text-priv ring-priv/25",
+    messageKey: "item.status.archived",
   },
   /** 미검증 도감 (D-033) */
   unverified: {

@@ -73,7 +73,7 @@ export default async function OtherRoomPage({
         }
       />
       <RoomTabs active="items" basePath={`/rooms/${room.id}`} />
-      {publicCount === 0 ? (
+      {publicCount === 0 && room.archivedCount === 0 ? (
         <div className="lg:min-w-0">
           <EmptyState title={t("empty.items")} />
         </div>
@@ -81,6 +81,7 @@ export default async function OtherRoomPage({
         <RoomDisplay
           sections={sections}
           goneItems={room.gone}
+          archivedCount={room.archivedCount}
           basePath={`/rooms/${room.id}`}
         />
       )}

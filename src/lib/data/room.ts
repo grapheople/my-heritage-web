@@ -20,6 +20,7 @@ import {
  * |---|---|
  * | 카테고리 섹션은 **개수 내림차순** | D-075, FR-01-A-10 |
  * | 판매완료(떠난 아이템)는 섹션·집계에서 제외하고 별도 섹션 | D-023, FR-01-A-07 |
+ * | 보관된 아이템(추억함)은 **진열에서 빠진다** — 판정은 `DISPLAYABLE_ITEM` | D-296 |
  * | 본인 방에서는 비공개 아이템도 **표식과 함께** 노출 | D-019, FR-01-B-01 |
  * | 타인 방에서는 비공개 아이템을 **응답에서 제외** | D-083, FR-01-B-06·07 |
  * | 방이 비공개면 타인에게 방 자체가 안 보인다 | D-019, M-06 |
@@ -36,6 +37,13 @@ export type RoomView = {
   isPublic: boolean;
   sections: RoomSection[];
   gone: ItemThumbData[];
+  /**
+   * 추억함에 보관된 아이템 수 (D-296) — 진열 맨 아래 진입 링크에 쓴다.
+   *
+   * ⚠️ **뷰어 기준으로 센다.** 타인에게는 공개 아이템만 세야 한다 —
+   * 전체 개수를 내면 "비공개가 몇 개 있다"가 새어나간다 (D-083).
+   */
+  archivedCount: number;
 };
 
 /**
@@ -158,6 +166,20 @@ export async function getRoom(
     .sort((a, b) => b.items.length - a.items.length || a.order - b.order)
     .map(({ categoryKey, slug, items }) => ({ categoryKey, slug, items }));
 
+  /*
+    추억함 개수 (D-296) — 진열 맨 아래 진입 링크용. **뷰어 기준**이라
+    타인에게는 공개 아이템만 센다 (D-083). 부품은 전시 단위가 아니므로
+    `parentId: null` 을 그대로 건다 — 진열과 같은 기준이어야 개수가 맞는다
+  */
+  const archivedCount = await prisma.item.count({
+    where: {
+      roomId,
+      parentId: null,
+      archivedAt: { not: null },
+      ...(owner ? {} : { visibility: "PUBLIC" as const }),
+    },
+  });
+
   return {
     status: "ok",
     room: {
@@ -170,6 +192,7 @@ export async function getRoom(
       isPublic: room.visibility === "PUBLIC",
       sections,
       gone,
+      archivedCount,
     },
   };
 }
@@ -190,4 +213,67 @@ export async function getRoomCategory(
   const section = access.room.sections.find((s) => s.slug === slug);
   if (!section) return null;
   return { room: access.room, section };
+}
+
+/**
+ * 추억함 목록 (S-28, D-296) — 방 하나의 **보관된** 아이템.
+ *
+ * ## ⚠️ 진열과 정반대 조건 하나만 다르다
+ * `DISPLAYABLE_ITEM` 을 쓸 수 없다 — 그 상수는 `archivedAt: null` 을 걸기
+ * 때문이다. 나머지 조건(`parentId: null`, 뷰어별 공개 판정)은 **진열과 같게**
+ * 유지한다. 여기서만 기준이 갈리면 진열에서 사라진 것이 추억함에도 없는
+ * 상태가 생긴다.
+ *
+ * ## ⚠️ 타인에게도 보인다
+ * 추억함은 방의 일부다 (D-296). 비공개 아이템은 **응답에서 뺀다** — 화면에서
+ * 숨기지 않는다 (D-083).
+ *
+ * 정렬은 **보관한 순서 역순**이다. 진열의 `createdAt` 역순과 다르다 —
+ * 추억함에서 알고 싶은 것은 "언제 등록했나"가 아니라 "언제 넣었나"다.
+ */
+export async function getArchivedItems(
+  roomId: string,
+  viewer: Viewer | null,
+): Promise<{ room: RoomView; items: ItemThumbData[] } | null> {
+  const access = await getRoom(roomId, viewer);
+  // 비공개 방·차단·탈퇴는 방 조회가 이미 걸렀다. 안내는 방에서 낸다
+  if (access.status !== "ok") return null;
+
+  const owner = isOwner(viewer, roomId);
+  const rows = await prisma.item.findMany({
+    where: {
+      roomId,
+      parentId: null,
+      archivedAt: { not: null },
+      ...(owner ? {} : { visibility: "PUBLIC" as const }),
+    },
+    select: {
+      id: true,
+      visibility: true,
+      saleStatus: true,
+      category: { select: { key: true } },
+      photos: { select: { url: true }, orderBy: { displayOrder: "asc" }, take: 1 },
+      ...ROUTINE_MUSCLE_SELECT,
+      ...NAME_SELECT,
+    },
+    orderBy: { archivedAt: "desc" },
+  });
+
+  const muscleOrderMap = await muscleOrder();
+  const items: ItemThumbData[] = rows.map((i) => ({
+    id: i.id,
+    name: deriveItemName(i),
+    photoUrl: realPhotoUrl(i.photos[0]?.url),
+    muscles: musclesOfRoutine(i.routineEntries, muscleOrderMap),
+    categoryKey: i.category.key,
+    /*
+      ⚠️ 보관된 아이템은 마켓에 없다 — `saleStatus` 가 `ON_SALE` 이어도
+      조회에서 빠진다 (D-296). 판매중 배지를 그대로 내면 누를 수 없는
+      상태를 광고하는 셈이라 **끈다**
+    */
+    onSale: false,
+    isPrivate: i.visibility === "PRIVATE",
+  }));
+
+  return { room: access.room, items };
 }
