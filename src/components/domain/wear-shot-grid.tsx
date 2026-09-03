@@ -4,28 +4,19 @@ import { Link } from "@/i18n/navigation";
 import type { WearShotCard } from "@/lib/data/wear-shot";
 
 /**
- * 착용샷 그리드 (S-25, D-148).
+ * 하루기록 그리드 (S-25, D-148).
  *
  * ⚠️ **아이템 진열과 같은 리듬**을 쓴다 (D-144 §4-1-1). "아이템 리스트와 같은
  * 방식"이라는 요구이므로 열 수·간격을 따로 만들지 않는다 — 다르면 같은
  * 서비스로 안 보인다.
  *
- * 카드에 **날짜**를 낸다. 착용샷은 "언제 썼는가"가 핵심 정보다.
+ * 카드에 **날짜**를 낸다. 하루기록은 "언제 썼는가"가 핵심 정보다.
  */
 export function WearShotGrid({
   shots,
   showItemName = true,
-  shot,
 }: {
   shots: WearShotCard[];
-  /**
-   * 빈 상태에 쓰는 **샷 명칭** (D-244). 넘기지 않으면 `착용샷`.
-   *
-   * ⚠️ **선택인 이유** — 방 탭(`/me/wear`·`/rooms/[id]/wear`)은 여러 카테고리의
-   * 샷이 섞이므로 한 명칭을 고를 수 없다. 루틴 상세처럼 카테고리가 하나인
-   * 화면만 넘긴다.
-   */
-  shot?: string;
   /** 아이템 상세에서는 이름이 이미 위에 있다 */
   showItemName?: boolean;
 }) {
@@ -35,7 +26,7 @@ export function WearShotGrid({
     <ul className="grid grid-cols-3 gap-3">
       {shots.map((s) => (
         <li key={s.id}>
-          {/* 착용샷 상세로 (D-178). 예전에는 아이템 상세로 보냈다 (D-148) */}
+          {/* 하루기록 상세로 (D-178). 예전에는 아이템 상세로 보냈다 (D-148) */}
           <Link href={`/wear/${s.id}`} className="block">
             <span className="relative block aspect-square overflow-hidden rounded-md border bg-muted">
               {s.photoUrl && (
@@ -64,7 +55,7 @@ export function WearShotGrid({
       ))}
       {shots.length === 0 && (
         <li className="col-span-full py-10 text-center text-sm text-muted-foreground">
-          {t("wear.empty", { shot: shot ?? t("wear.shotNoun") })}
+          {t("wear.empty")}
         </li>
       )}
     </ul>

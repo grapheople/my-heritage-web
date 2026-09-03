@@ -72,21 +72,13 @@ export default async function ItemDetailPage({
   const item = await getItemDetail(itemId, viewer, locale as Locale);
   if (!item) notFound();
 
-  /*
-    ⚠️ **샷 명칭은 카테고리가 정한다** (D-244). 루틴은 `인증샷`, 나머지는 `착용샷`.
-    한 곳에서 정해 아래로 넘긴다 — 화면마다 따로 고르면 **한 자리가 빠져도
-    화면은 멀쩡하고 말만 갈린다** (D-243 이 겪은 유형).
-  */
-  const shot = t(item.isRoutine ? "wear.shotNounRoutine" : "wear.shotNoun");
-
-
   const isOwner = viewer?.roomId === item.roomId;
 
   const owned = item.owner.purchaseDate
     ? ownershipDuration(new Date(item.owner.purchaseDate))
     : null;
 
-  // 착용샷 (D-148). 공개 판정은 조회 계층이 끝낸다 — 타인에게는 공개
+  // 하루기록 (D-148). 공개 판정은 조회 계층이 끝낸다 — 타인에게는 공개
   // 아이템의 것만 온다
   /*
     ⚠️ D-227 — **담을 수 있는 운동 목록을 미리 싣지 않는다.** 마스터는 전역이고
@@ -374,7 +366,7 @@ export default async function ItemDetailPage({
           )}
 
           {/*
-            오늘의 착용샷 (D-148). **아이템당 하루 1장**이므로 오늘 이미
+            오늘의 하루기록 (D-148). **아이템당 하루 1장**이므로 오늘 이미
             남겼으면 수정 모드로 열린다 — 새로 만들려 하면 유니크 제약에
             막히는데, 화면이 미리 알고 헛수고를 막는다
           */}
@@ -382,8 +374,8 @@ export default async function ItemDetailPage({
             itemId={item.id}
             existing={today ? { id: today.id, note: today.note } : undefined}
             labels={{
-              title: t("wear.title", { shot }),
-              edit: t("wear.edit", { shot }),
+              title: t("wear.title"),
+              edit: t("wear.edit"),
               save: t("wear.save"),
               cancel: t("wear.cancel"),
               notePlaceholder: t("wear.notePlaceholder"),
@@ -392,13 +384,13 @@ export default async function ItemDetailPage({
         </section>
       )}
 
-      {/* 착용샷 목록 — 이 아이템의 기록. 타인에게도 보인다 */}
+      {/* 하루기록 목록 — 이 아이템의 기록. 타인에게도 보인다 */}
       {wearShots.length > 0 && (
         <section className="border-t px-4 py-6 lg:px-0">
           <h2 className="mb-4 text-sm font-bold">
-            {t("wear.count", { count: wearShots.length, shot })}
+            {t("wear.count", { count: wearShots.length })}
           </h2>
-          <WearShotGrid shots={wearShots} showItemName={false} shot={shot} />
+          <WearShotGrid shots={wearShots} showItemName={false} />
         </section>
       )}
 

@@ -3,7 +3,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { getCodexWearShots } from "@/lib/data/wear-shot";
 
 /**
- * 도감 착용샷 목록 — **클라이언트 전용 엔드포인트** (D-162, D-078 상속).
+ * 도감 하루기록 목록 — **클라이언트 전용 엔드포인트** (D-162, D-078 상속).
  *
  * ## 왜 서버 컴포넌트에서 조회하지 않는가
  *
@@ -23,7 +23,7 @@ import { getCodexWearShots } from "@/lib/data/wear-shot";
  *
  * ## 캐시하지 않는 이유
  *
- * 차단 관계인 유저의 착용샷은 제외되므로 **결과가 조회 유저마다 다르다**
+ * 차단 관계인 유저의 하루기록은 제외되므로 **결과가 조회 유저마다 다르다**
  * (E-07-07, D-051). 유저별 결과라 애초에 캐시할 수 없다.
  */
 export async function GET(

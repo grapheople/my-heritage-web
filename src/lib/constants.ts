@@ -29,7 +29,7 @@ export type ReportTarget =
   | "room"
   | "codex"
   | "link"
-  // 착용샷 댓글 (D-179, OI-89 해소)
+  // 하루기록 댓글 (D-179, OI-89 해소)
   | "comment";
 
 /** 신고 가능 대상 (FR-05-A-01, D-029·D-035·D-040) */

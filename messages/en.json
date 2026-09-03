@@ -213,12 +213,9 @@
     "empty": "No codex entries in this category yet",
     "recent": "Recently added",
     "more": "Showing {shown} of {total}. Use search to find more",
-    "wearTitle": "Worn & used",
-    "wearTitleRoutine": "Shots",
-    "noWear": "No shots yet",
-    "noWearRoutine": "No shots yet",
-    "wearLoginRequired": "Log in to see the shots",
-    "wearLoginRequiredRoutine": "Log in to see the shots",
+    "wearTitle": "Daily log",
+    "noWear": "No daily logs yet",
+    "wearLoginRequired": "Log in to see the daily logs",
     "exerciseReference": "Watch form video"
   },
   "feed": {
@@ -366,7 +363,7 @@
       "WEAR_SHOT_COMMENT": "Comment"
     },
     "NEW_FOLLOWER": "{room} started following you",
-    "WEAR_SHOT_COMMENT": "{room} commented on your shot",
+    "WEAR_SHOT_COMMENT": "{room} commented on your daily log",
     "markAllRead": "Mark all read",
     "EXERCISE_REQUEST_RESULT": "The exercise “{exercise}” you requested {result, select, approved {was added. Try putting it in a routine.} other {was not added.}}"
   },
@@ -425,22 +422,20 @@
     "year": "yr"
   },
   "wear": {
-    "title": "Today's shot",
-    "shotNoun": "shot",
-    "shotNounRoutine": "shot",
-    "new": "New shot",
-    "edit": "Edit today's shot",
+    "title": "Today's log",
+    "new": "New daily log",
+    "edit": "Edit today's log",
     "save": "Save",
     "cancel": "Cancel",
     "notePlaceholder": "A line about today (optional)",
-    "empty": "No shots yet",
-    "listTitle": "Shots",
-    "count": "Shots {count}",
-    "emptyDesc": "Leave today's shot from an item page",
+    "empty": "No daily logs yet",
+    "listTitle": "Daily log",
+    "count": "Daily logs {count}",
+    "emptyDesc": "Leave today's log from an item page",
     "goToItem": "Edit from the item page",
     "goToItemRoutine": "Edit from the routine page",
-    "deleteWearShot": "Delete shot",
-    "deleteWearShotConfirm": "Delete this shot? This cannot be undone."
+    "deleteWearShot": "Delete daily log",
+    "deleteWearShotConfirm": "Delete this daily log? This cannot be undone."
   },
   "follow": {
     "follow": "Follow",

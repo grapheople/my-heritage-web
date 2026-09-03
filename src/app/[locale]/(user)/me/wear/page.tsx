@@ -10,12 +10,12 @@ import { getRoom } from "@/lib/data/room";
 import { getMyWearShots } from "@/lib/data/wear-shot";
 
 /**
- * 마이룸 "착용샷" 탭 (본인) — S-25, D-148.
+ * 마이룸 "하루기록" 탭 (본인) — S-25, D-148.
  *
  * ⚠️ **아이템 진열과 같은 그리드**를 쓴다 (D-144 §4-1-1). "아이템 리스트와
  * 같은 방식"이라는 요구다.
  *
- * ⚠️ **작성 진입점을 여기 두지 않는다.** 착용샷은 아이템에 종속되므로
+ * ⚠️ **작성 진입점을 여기 두지 않는다.** 하루기록은 아이템에 종속되므로
  * "어떤 아이템의 오늘"인지 정해져야 한다 — 아이템 상세에서만 남긴다.
  * 그래서 빈 화면은 **아이템으로 유도**한다.
  */
@@ -39,7 +39,7 @@ export default async function MyWearShotsPage({
   }
   const room = access.room;
 
-  // 본인이므로 비공개 아이템의 착용샷도 나온다
+  // 본인이므로 비공개 아이템의 하루기록도 나온다
   const shots = await getMyWearShots(viewer);
   const itemCount = room.sections.reduce((n, s) => n + s.items.length, 0);
 

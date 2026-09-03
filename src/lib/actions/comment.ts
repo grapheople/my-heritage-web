@@ -7,14 +7,14 @@ import { COMMENT_MAX } from "@/lib/profile";
 import { prisma } from "@/lib/prisma";
 
 /**
- * 착용샷 댓글 작성·삭제 (D-178).
+ * 하루기록 댓글 작성·삭제 (D-178).
  *
  * | 규칙 | 근거 |
  * |---|---|
  * | 로그인 필수 | FR-05-B-02 |
- * | 볼 수 없는 착용샷에는 달 수 없다 | D-019·D-083 |
+ * | 볼 수 없는 하루기록에는 달 수 없다 | D-019·D-083 |
  * | 차단 관계면 달 수 없다 | D-051 |
- * | 삭제는 **작성자 또는 착용샷 소유자** | 내 기록에 달린 글을 정리할 수단이 필요하다 |
+ * | 삭제는 **작성자 또는 하루기록 소유자** | 내 기록에 달린 글을 정리할 수단이 필요하다 |
  * | 경험치 없음 | D-026 — 경험치는 보상이 아니라 리듬이다 |
  *
  * ## ⚠️ 신고 대상이 아니다 (지금은)
@@ -45,7 +45,7 @@ export async function createComment(input: {
     },
     select: { id: true, item: { select: { room: { select: { userId: true } } } } },
   });
-  if (!shot) return fail({}, "착용샷을 찾을 수 없습니다");
+  if (!shot) return fail({}, "하루기록을 찾을 수 없습니다");
 
   const ownerId = shot.item.room.userId;
   const comment = await prisma.comment.create({
@@ -54,8 +54,8 @@ export async function createComment(input: {
   });
 
   /*
-    착용샷 소유자에게 알림 (D-178).
-    ⚠️ **자기 착용샷에 자기가 달면 알림을 만들지 않는다** — 자기 행동의 알림은 소음이다.
+    하루기록 소유자에게 알림 (D-178).
+    ⚠️ **자기 하루기록에 자기가 달면 알림을 만들지 않는다** — 자기 행동의 알림은 소음이다.
     ⚠️ 알림 생성이 실패해도 댓글은 남는다(try 로 감싸지 않고 순서를 뒤에 둔다) —
     반대로 두면 알림 장애가 댓글 작성을 막는다.
   */
@@ -68,7 +68,7 @@ export async function createComment(input: {
       data: {
         userId: ownerId,
         type: "WEAR_SHOT_COMMENT",
-        // 눌러서 착용샷으로 간다 (FR-08-A-06)
+        // 눌러서 하루기록으로 간다 (FR-08-A-06)
         targetId: shot.id,
         // 완성 문장을 저장하지 않는다 — 치환값만 (FR-08-A-09, D-003)
         params: { room: me?.name ?? "" },
@@ -94,7 +94,7 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   });
   if (!comment) return fail({}, "댓글을 찾을 수 없습니다");
 
-  // 작성자 또는 착용샷 소유자 (위 표 참조)
+  // 작성자 또는 하루기록 소유자 (위 표 참조)
   const mine = comment.userId === viewer.userId;
   const owner = viewer.roomId === comment.wearShot.item.roomId;
   if (!mine && !owner) return fail({}, "댓글을 찾을 수 없습니다");

@@ -8,7 +8,7 @@ import { formatNumber } from "@/lib/format";
 import type { WearShotCard } from "@/lib/data/wear-shot";
 
 /**
- * 도감 착용샷 목록 — **반드시 클라이언트 컴포넌트여야 한다** (D-162, D-078 상속).
+ * 도감 하루기록 목록 — **반드시 클라이언트 컴포넌트여야 한다** (D-162, D-078 상속).
  *
  * ## ⚠️ 이 컴포넌트를 서버 컴포넌트로 바꾸면 D-078 이 깨진다
  * 도감 상세는 색인 대상이다. 이 목록이 서버 렌더 결과에 들어가면 크롤러가
@@ -16,13 +16,13 @@ import type { WearShotCard } from "@/lib/data/wear-shot";
  * 나간다. 그러면 D-031 에서 수용한 절도 리스크가 검색엔진 규모로 커진다.
  *
  * ## ⚠️ 옛 `CodexOwners` 를 대체한다
- * "이 물건을 가진 사람" 목록 대신 **착용샷·사용샷**을 보여준다 (D-162).
+ * "이 물건을 가진 사람" 목록 대신 **하루기록**을 보여준다 (D-162).
  * 로그인 게이트·차단 제외·판매완료 제외는 **그대로 물려받는다** — 이 섹션도
  * 결국 누가 가졌는지를 드러내기 때문이다.
  *
  * ⚠️ 제목은 **카테고리 이름을 넣지 않는다** (D-172). 한국어에서 `이 {category}을`
  * 은 종성에 따라 을/를 이 갈리고 ICU 가 맞춰주지 못한다("이 운동를"). 그래서
- * 제목은 중립어(`착용샷 · 사용샷`)로 두고, **`의` 조사만 쓰는 문장**(로그인 안내)에서만
+ * 제목은 명칭(`하루기록`)만 두고, **`의` 조사만 쓰는 문장**(로그인 안내)에서만
  * 카테고리를 끼워 넣는다.
  */
 type State =
@@ -35,7 +35,7 @@ export function CodexWearShots({
   codexId,
   /**
    * `category.workout` 형태의 메시지 키 (D-172). 로그인 안내 문구에 카테고리
-   * 이름을 끼워 넣는다 — "이 물건의 착용샷"은 소유물 전제라 운동에서 어색하다.
+   * 이름을 끼워 넣는다 — "이 물건의 하루기록"은 소유물 전제라 운동에서 어색하다.
    */
   categoryKey,
 }: {
@@ -44,12 +44,6 @@ export function CodexWearShots({
 }) {
   const t = useTranslations();
   const [state, setState] = useState<State>({ status: "loading" });
-  /*
-    ⚠️ **운동 도감은 `인증샷`이다** (D-244). `categoryKey` 는 `category.workout`
-    형태이므로 접두를 포함해 비교한다 — `getItemDetail` 과 `getItemForEdit` 이
-    서로 다른 형태를 내므로(전자는 접두 있음) 형태를 추측하면 조용히 안 맞는다
-  */
-  const routine = categoryKey === "category.workout";
 
   useEffect(() => {
     let alive = true;
@@ -73,7 +67,7 @@ export function CodexWearShots({
   return (
     <section className="border-t px-4 py-5 lg:px-0">
       <h2 className="text-base font-bold tracking-tight">
-        {t(routine ? "codex.wearTitleRoutine" : "codex.wearTitle")}
+        {t("codex.wearTitle")}
         {state.status === "ready" && (
           <span className="ml-2 text-sm font-semibold text-muted-foreground">
             {formatNumber(state.count)}
@@ -91,7 +85,7 @@ export function CodexWearShots({
       {state.status === "unauthorized" && (
         <div className="mt-3 rounded-lg border bg-muted/40 p-4">
           <p className="text-sm text-muted-foreground">
-            {t(routine ? "codex.wearLoginRequiredRoutine" : "codex.wearLoginRequired", { category: t(categoryKey) })}
+            {t("codex.wearLoginRequired", { category: t(categoryKey) })}
           </p>
           <Link
             href="/login"
@@ -110,7 +104,7 @@ export function CodexWearShots({
 
       {state.status === "ready" && state.shots.length === 0 && (
         <p className="mt-3 text-sm text-muted-foreground">
-          {t(routine ? "codex.noWearRoutine" : "codex.noWear")}
+          {t("codex.noWear")}
         </p>
       )}
 
@@ -118,7 +112,7 @@ export function CodexWearShots({
         <ul className="mt-3 grid grid-cols-3 gap-3">
           {state.shots.map((s) => (
             <li key={s.id}>
-              {/* 착용샷 상세로 (D-178 — D-148 의 "화면 없음"을 뒤집었다) */}
+              {/* 하루기록 상세로 (D-178 — D-148 의 "화면 없음"을 뒤집었다) */}
               <Link href={`/wear/${s.id}`} className="group block">
                 <span className="relative block aspect-square overflow-hidden rounded-md bg-muted">
                   {s.photoUrl && (

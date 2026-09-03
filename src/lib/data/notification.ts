@@ -28,7 +28,7 @@ function hrefFor(type: NotificationKind, targetId: string | null): string | unde
       */
       return `/rooms/${targetId}/followers`;
     case "WEAR_SHOT_COMMENT":
-      // 댓글이 달린 착용샷으로 (D-178)
+      // 댓글이 달린 하루기록으로 (D-178)
       return `/wear/${targetId}`;
     case "SANCTION":
       // 제재는 전용 안내 화면으로 (S-21)

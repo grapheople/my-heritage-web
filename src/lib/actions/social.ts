@@ -20,7 +20,7 @@ const TARGET_TYPE: Record<
   room: "ROOM",
   codex: "CODEX",
   link: "EXTERNAL_LINK",
-  // 착용샷 댓글 (D-179, OI-89 해소)
+  // 하루기록 댓글 (D-179, OI-89 해소)
   comment: "COMMENT",
 };
 

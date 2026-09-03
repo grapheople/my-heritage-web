@@ -213,12 +213,9 @@
     "empty": "このカテゴリにはまだ図鑑がありません",
     "recent": "最近追加された図鑑",
     "more": "{shown}件表示 · 全{total}件。検索で探してください",
-    "wearTitle": "着用・使用ショット",
-    "wearTitleRoutine": "記録ショット",
-    "noWear": "まだ着用ショットがありません",
-    "noWearRoutine": "まだ記録ショットがありません",
-    "wearLoginRequired": "ログインするとこの{category}の着用・使用ショットを見られます",
-    "wearLoginRequiredRoutine": "ログインするとこの{category}の記録ショットを見られます",
+    "wearTitle": "1日の記録",
+    "noWear": "まだ1日の記録がありません",
+    "wearLoginRequired": "ログインするとこの{category}の1日の記録を見られます",
     "exerciseReference": "フォーム動画を見る"
   },
   "feed": {
@@ -366,7 +363,7 @@
       "WEAR_SHOT_COMMENT": "コメント"
     },
     "NEW_FOLLOWER": "「{room}」さんがフォローしました",
-    "WEAR_SHOT_COMMENT": "「{room}」さんが着用ショットにコメントしました",
+    "WEAR_SHOT_COMMENT": "「{room}」さんが1日の記録にコメントしました",
     "markAllRead": "すべて既読にする",
     "EXERCISE_REQUEST_RESULT": "リクエストされた「{exercise}」が{result, select, approved {追加されました。ルーティンに入れてみましょう。} other {追加されませんでした。}}"
   },
@@ -425,22 +422,20 @@
     "year": "年"
   },
   "wear": {
-    "title": "今日の{shot}",
-    "shotNoun": "着用ショット",
-    "shotNounRoutine": "記録ショット",
-    "new": "新しい{shot}",
-    "edit": "今日の{shot}を編集",
+    "title": "今日の記録",
+    "new": "新しい1日の記録",
+    "edit": "今日の記録を編集",
     "save": "残す",
     "cancel": "キャンセル",
     "notePlaceholder": "今日のひとこと（任意）",
-    "empty": "まだ{shot}がありません",
-    "listTitle": "{shot}",
-    "count": "{shot} {count}",
-    "emptyDesc": "アイテム詳細から今日の着用ショットを残せます",
+    "empty": "まだ1日の記録がありません",
+    "listTitle": "1日の記録",
+    "count": "1日の記録 {count}",
+    "emptyDesc": "アイテム詳細から今日の記録を残せます",
     "goToItem": "アイテム詳細で編集する",
     "goToItemRoutine": "ルーティン詳細で編集する",
-    "deleteWearShot": "{shot}を削除",
-    "deleteWearShotConfirm": "この{shot}を削除しますか？元に戻せません。"
+    "deleteWearShot": "1日の記録を削除",
+    "deleteWearShotConfirm": "この1日の記録を削除しますか？元に戻せません。"
   },
   "follow": {
     "follow": "フォロー",

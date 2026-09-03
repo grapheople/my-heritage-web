@@ -9,12 +9,12 @@ import { getViewer } from "@/lib/auth/viewer";
 import { getWearShotDetail } from "@/lib/data/comment";
 
 /**
- * S-27 착용샷 상세 (D-178).
+ * S-27 하루기록 상세 (D-178).
  *
  * ## ⚠️ D-148 을 뒤집는다
- * D-148 은 "착용샷 자체 화면은 없다 — 아이템 상세로 보낸다"였다. **댓글이 붙으면서
- * 착용샷 하나가 대화의 단위**가 되었고, 그러면 고유 주소가 있어야 한다 —
- * 알림에서 그 착용샷으로 보낼 곳도 필요하다 (FR-08-A-06).
+ * D-148 은 "하루기록 자체 화면은 없다 — 아이템 상세로 보낸다"였다. **댓글이 붙으면서
+ * 하루기록 하나가 대화의 단위**가 되었고, 그러면 고유 주소가 있어야 한다 —
+ * 알림에서 그 하루기록으로 보낼 곳도 필요하다 (FR-08-A-06).
  *
  * ## ⚠️ 색인하지 않는다
  * **사진 + 방 이름 + 날짜**다. 방 상세(S-02·S-03)가 `noindex` 인데 이걸 색인하면
@@ -22,7 +22,7 @@ import { getWearShotDetail } from "@/lib/data/comment";
  * noindex** 이므로 여기서 켜지 않는 것으로 충분하다 — `robots` 를 건드리지 않는다.
  *
  * ## 공개 판정은 물려받는다
- * 착용샷은 아이템의 공개 판정을(D-148), 댓글은 그 착용샷을 물려받는다. 조회 계층이
+ * 하루기록은 아이템의 공개 판정을(D-148), 댓글은 그 하루기록을 물려받는다. 조회 계층이
  * 판정하고 화면은 없으면 404 다 (D-083 — 없는 것과 볼 수 없는 것을 구분하지 않는다).
  */
 export default async function WearShotPage({
@@ -34,9 +34,6 @@ export default async function WearShotPage({
 
   const shot = await getWearShotDetail(wearShotId, viewer);
   if (!shot) notFound();
-
-  // ⚠️ 루틴의 샷은 `인증샷`이다 (D-244). 조회가 낸 `isRoutine` 을 그대로 쓴다
-  const shotNoun = t(shot.isRoutine ? "wear.shotNounRoutine" : "wear.shotNoun");
 
   return (
     <div>
@@ -82,7 +79,7 @@ export default async function WearShotPage({
         loggedIn={viewer !== null}
       />
 
-      {/* 착용샷 수정은 아이템 상세에서 한다 (D-148 — 하루 1장 판정이 거기 있다) */}
+      {/* 하루기록 수정은 아이템 상세에서 한다 (D-148 — 하루 1장 판정이 거기 있다) */}
       {shot.owner && (
         <section className="flex items-center gap-4 border-t px-4 py-4 lg:px-0">
           <Link
@@ -94,12 +91,12 @@ export default async function WearShotPage({
           {/*
             ⚠️ **삭제 진입점이 없었다** (D-180). `deleteWearShot` 은 처음부터
             있었는데 부르는 화면이 없었다 — 하루 1장 제약(D-148) 때문에 잘못 올린
-            착용샷을 **그날 안에는 지울 수도 바꿀 수도 없는** 상태였다
+            하루기록을 **그날 안에는 지울 수도 바꿀 수도 없는** 상태였다
           */}
           <DeleteButton
             action={deleteWearShot.bind(null, shot.id)}
-            confirmText={t("wear.deleteWearShotConfirm", { shot: shotNoun })}
-            label={t("wear.deleteWearShot", { shot: shotNoun })}
+            confirmText={t("wear.deleteWearShotConfirm")}
+            label={t("wear.deleteWearShot")}
             redirectTo="/me/wear"
           />
         </section>

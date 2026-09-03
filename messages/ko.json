@@ -213,12 +213,9 @@
     "empty": "이 카테고리에 아직 도감이 없어요",
     "recent": "최근 추가된 도감",
     "more": "{shown}개 표시 · 전체 {total}개. 검색으로 찾아보세요",
-    "wearTitle": "착용샷 · 사용샷",
-    "wearTitleRoutine": "인증샷",
-    "noWear": "아직 착용샷이 없어요",
-    "noWearRoutine": "아직 인증샷이 없어요",
-    "wearLoginRequired": "로그인하면 이 {category}의 착용샷·사용샷을 볼 수 있어요",
-    "wearLoginRequiredRoutine": "로그인하면 이 {category}의 인증샷을 볼 수 있어요",
+    "wearTitle": "하루기록",
+    "noWear": "아직 하루기록이 없어요",
+    "wearLoginRequired": "로그인하면 이 {category}의 하루기록을 볼 수 있어요",
     "exerciseReference": "폼 시연 영상 보기"
   },
   "feed": {
@@ -366,7 +363,7 @@
       "WEAR_SHOT_COMMENT": "댓글"
     },
     "NEW_FOLLOWER": "‘{room}’ 님이 팔로우했어요",
-    "WEAR_SHOT_COMMENT": "‘{room}’ 님이 착용샷에 댓글을 남겼어요",
+    "WEAR_SHOT_COMMENT": "‘{room}’ 님이 하루기록에 댓글을 남겼어요",
     "markAllRead": "모두 읽음",
     "EXERCISE_REQUEST_RESULT": "요청한 \"{exercise}\" 운동이 {result, select, approved {추가됐어요. 루틴에 담아보세요.} other {추가되지 않았어요.}}"
   },
@@ -425,22 +422,20 @@
     "year": "년"
   },
   "wear": {
-    "title": "오늘의 {shot}",
-    "shotNoun": "착용샷",
-    "shotNounRoutine": "인증샷",
-    "new": "새 {shot}",
-    "edit": "오늘의 {shot} 수정",
+    "title": "오늘의 기록",
+    "new": "새 하루기록",
+    "edit": "오늘의 기록 수정",
     "save": "남기기",
     "cancel": "취소",
     "notePlaceholder": "오늘 한마디",
-    "empty": "아직 {shot}이 없어요",
-    "listTitle": "{shot}",
-    "count": "{shot} {count}",
-    "emptyDesc": "아이템 상세에서 오늘의 착용샷을 남길 수 있어요",
+    "empty": "아직 하루기록이 없어요",
+    "listTitle": "하루기록",
+    "count": "하루기록 {count}",
+    "emptyDesc": "아이템 상세에서 오늘의 기록을 남길 수 있어요",
     "goToItem": "아이템 상세에서 수정하기",
     "goToItemRoutine": "루틴 상세에서 수정하기",
-    "deleteWearShot": "{shot} 삭제",
-    "deleteWearShotConfirm": "이 {shot}을 삭제할까요? 되돌릴 수 없습니다."
+    "deleteWearShot": "하루기록 삭제",
+    "deleteWearShotConfirm": "이 하루기록을 삭제할까요? 되돌릴 수 없습니다."
   },
   "follow": {
     "follow": "팔로우",
