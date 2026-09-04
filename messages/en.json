@@ -103,7 +103,9 @@
     "archiveConfirm": "Put this in your memory box? It leaves your display, but the daily logs stay and you can take it back out anytime.",
     "unarchive": "Take out of memory box",
     "delete": "Delete item",
-    "deleteConfirm": "Delete this item? Its {count} daily logs go with it and this cannot be undone. To keep them, put it in your memory box instead."
+    "deleteConfirm": "Delete this item? Its {count} daily logs go with it and this cannot be undone. To keep them, put it in your memory box instead.",
+    "muscleFront": "Front",
+    "muscleBack": "Back"
   },
   "diary": {
     "visibility": {

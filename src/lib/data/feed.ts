@@ -5,6 +5,11 @@ import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
 import { prisma } from "@/lib/prisma";
 import { DISPLAYABLE_ITEM } from "@/lib/item-display";
+import {
+  muscleOrder,
+  musclesOfRoutine,
+  ROUTINE_MUSCLE_SELECT,
+} from "@/lib/data/muscles";
 import { allLanguages } from "@/lib/language-scope";
 
 /**
@@ -104,16 +109,30 @@ export async function getFeed(
       category: { select: { key: true } },
       room: { select: { id: true, name: true } },
       photos: { select: { url: true }, orderBy: { displayOrder: "asc" as const }, take: 1 },
+      /*
+        ⚠️ **운동은 사진이 없을 수 있다** (D-224). 그때 대표 이미지는 근육맵이고
+        (D-222·D-223) 그 값은 담긴 운동의 마스터에서 온다 — 진열 카드가 이미
+        그렇게 그린다(`FR-07-A-14`·`FR-10-D-04`). 피드만 빼면 **같은 아이템이
+        화면마다 다르게 보인다** (D-299)
+      */
+      ...ROUTINE_MUSCLE_SELECT,
       ...NAME_SELECT,
     },
     orderBy: { createdAt: "desc" },
     take: filter.limit ?? 60,
   });
 
+  /*
+    자극부위 표시 순서 (`FR-10-D-03`) — **화면당 한 번.** 카드마다 읽으면
+    피드 한 화면에 쿼리가 수십 개 붙는다 (진열과 같은 이유)
+  */
+  const muscleOrderMap = await muscleOrder();
+
   return items.map((i) => ({
     id: i.id,
     name: deriveItemName(i),
     categoryKey: `category.${i.category.key}`,
+    muscles: musclesOfRoutine(i.routineEntries, muscleOrderMap),
     roomId: i.room.id,
     roomName: i.room.name,
     onSale: i.saleStatus === "ON_SALE",

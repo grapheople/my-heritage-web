@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { isWorkoutKey } from "@/lib/categories";
 import { MuscleMap } from "./muscle-map";
 import { StatusBadge } from "./status-badge";
 
@@ -76,7 +77,7 @@ export function ItemThumb({
             sizes="(min-width:1024px) 224px, (min-width:640px) 25vw, 33vw"
             className="object-cover transition-transform group-hover:scale-[1.03]"
           />
-        ) : item.categoryKey === "workout" ? (
+        ) : isWorkoutKey(item.categoryKey) ? (
           /*
             ⚠️ **운동은 사진이 없을 수 있다** (D-224). 그때 대표 이미지는
             **근육맵**이다 — 그라디언트를 쓰지 않는다. 그 경로는 주석이

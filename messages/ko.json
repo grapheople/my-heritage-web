@@ -103,7 +103,9 @@
     "archiveConfirm": "추억함에 보관할까요? 진열에서는 사라지지만 하루기록은 그대로 남고, 언제든 다시 꺼낼 수 있어요.",
     "unarchive": "추억함에서 꺼내기",
     "delete": "아이템 삭제",
-    "deleteConfirm": "이 아이템을 삭제할까요? 하루기록 {count}개도 함께 사라지고 되돌릴 수 없어요. 남겨두려면 추억함에 보관하세요."
+    "deleteConfirm": "이 아이템을 삭제할까요? 하루기록 {count}개도 함께 사라지고 되돌릴 수 없어요. 남겨두려면 추억함에 보관하세요.",
+    "muscleFront": "앞",
+    "muscleBack": "뒤"
   },
   "diary": {
     "visibility": {

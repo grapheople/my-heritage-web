@@ -735,7 +735,7 @@ export async function unarchiveItemAs(
  * ## ⚠️ 이 아이템을 가리키던 알림·신고는 남는다
  * `Notification.targetId`·`Report.targetId` 는 FK 가 아니라(모델 주석 참조)
  * 끊어진 링크가 된다. 하루기록 삭제(D-180)가 이미 같은 자리에 있다 —
- * **이번 결정이 만든 문제가 아니고, 여기서 풀지도 않는다** (OI-90).
+ * **이번 결정이 만든 문제가 아니고, 여기서 풀지도 않는다** (OI-108).
  */
 export async function deleteItem(itemId: string): Promise<ActionResult> {
   const viewer = await getViewer();

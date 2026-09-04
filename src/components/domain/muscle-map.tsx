@@ -98,6 +98,8 @@
  * `MUSCLE_KEYS` 를 내보내고 시드 스크립트가 이것과 대조한다.
  */
 
+import { useTranslations } from "next-intl";
+
 /** D-166 `targetMuscle` 옵션 14개. 시드와 **대조되는 값**이다 */
 export const MUSCLE_KEYS = [
   "chest", "lats", "middleBack", "lowerBack", "shoulders", "traps",
@@ -582,6 +584,18 @@ function Figure({
  *
  * ⚠️ `muscles` 는 **`targetMuscle` 옵션 키**다. 라벨(가슴/胸/Chest)이 아니다 —
  * 라벨을 받으면 언어마다 다른 그림이 나온다.
+ *
+ * ## ⚠️ 앞·뒤 표기 (D-300)
+ * 두 실루엣은 **A포즈라 앞뒤가 거의 대칭**이다. 활성 부위가 없거나 한쪽만
+ * 켜지면 어느 쪽이 앞인지 알 수 없다 — 가슴과 등, 이두와 삼두가 같은 자리에
+ * 칠해지기 때문이다. 각 그림 **아래에 한 글자**를 둔다.
+ *
+ * ⚠️ **`viewBox` 높이를 112 → 126 으로 늘렸다.** 발 밑단이 y107.4 라 글자
+ * 자리가 없었다. 소비처는 전부 `h-full w-full` + 정방형 컨테이너라
+ * `preserveAspectRatio` 기본값(`xMidYMid meet`)이 여백을 나눠 갖는다 —
+ * 잘리지 않는다.
+ *
+ * ⚠️ 라벨은 **번역한다** (UI 문구다). `앞/뒤`·`前/後`·`Front/Back`.
  */
 export function MuscleMap({
   muscles,
@@ -593,16 +607,38 @@ export function MuscleMap({
   /** 스크린리더용. 카드에서는 근육군 라벨을 이어 붙여 넘긴다 */
   title?: string;
 }) {
+  const t = useTranslations();
   const active = new Set(muscles);
   return (
     <svg
-      viewBox="0 0 168 112"
+      viewBox="0 0 168 126"
       className={className}
       role="img"
-      aria-label={title ?? "자극부위"}
+      aria-label={title ?? t("item.muscles")}
     >
       <Figure view="front" active={active} dx={0} />
       <Figure view="back" active={active} dx={88} />
+      {/*
+        ⚠️ 실루엣과 **같은 톤이 아니다.** `border` 로 두면 글자가 배경에 묻는다
+        — 라벨은 읽으라고 있는 것이므로 `muted-foreground` 를 쓴다.
+        시맨틱 토큰이라 다크 모드에서 함께 반전된다 (D-080)
+      */}
+      <text
+        x={40}
+        y={121}
+        textAnchor="middle"
+        className="fill-muted-foreground text-[12px] font-semibold"
+      >
+        {t("item.muscleFront")}
+      </text>
+      <text
+        x={128}
+        y={121}
+        textAnchor="middle"
+        className="fill-muted-foreground text-[12px] font-semibold"
+      >
+        {t("item.muscleBack")}
+      </text>
     </svg>
   );
 }

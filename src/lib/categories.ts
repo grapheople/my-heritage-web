@@ -55,3 +55,22 @@ export const BRANDED_CATEGORY_KEYS = CATEGORY_KEYS.filter(
  */
 export const WORKOUT_CATEGORY = "workout" satisfies CategoryKey;
 
+/**
+ * 이 카테고리가 **운동인가** — `key` 와 i18n 키(`category.workout`) **둘 다** 받는다.
+ *
+ * ## ⚠️ 왜 두 형태를 다 받나
+ * 조회 계층이 화면마다 다른 형태를 낸다. `ItemThumbData.categoryKey` 는 **접두
+ * 없는 `key`** 이고 `FeedItem.categoryKey`·`ItemDetail.categoryKey` 는 **접두가
+ * 붙은 i18n 키**다(`t()` 에 그대로 넘기려고). 그래서 화면이 각자 비교하면
+ * **한쪽만 조용히 안 맞는다** — 카드가 근육맵 대신 그라디언트를 그려도
+ * 화면은 멀쩡해서 눈에 띄지 않는다 (D-299 가 실제로 그렇게 났다).
+ *
+ * 형태를 통일하는 것이 더 낫지만 그건 조회 계층 전체를 건드리는 일이다.
+ * **비교를 한 곳으로 모으는 것**이 지금 할 수 있는 최소한이다.
+ */
+export function isWorkoutKey(categoryKey: string | undefined): boolean {
+  return (
+    categoryKey === WORKOUT_CATEGORY || categoryKey === `category.${WORKOUT_CATEGORY}`
+  );
+}
+
