@@ -81,6 +81,55 @@ export function formatDate(
   }).format(date);
 }
 
+/** `Locale` → BCP-47. `Intl` 은 지역까지 있어야 요일 표기가 맞는다 */
+const BCP47: Record<Locale, string> = { ko: "ko-KR", ja: "ja-JP", en: "en-US" };
+
+/**
+ * 날짜 타일 — **사진 없는 일기 카드**의 썸네일 자리에 쓴다 (D-308).
+ *
+ * | | ko | ja | en |
+ * |---|---|---|---|
+ * | `head` | `2026. 9` | `2026年9月` | `Sep 2026` |
+ * | `day` | `6` | `6` | `6` |
+ * | `weekday` | `토` | `土` | `Sat` |
+ *
+ * ## ⚠️ `YYYY-MM-DD` 를 **UTC 로** 읽는다
+ * `DiaryEntry.createdAt` 은 `toISOString().slice(0, 10)` 으로 만든 UTC 날짜다.
+ * 이것을 `new Date("2026-09-06")` 로 파싱하면 UTC 자정이 되고, 브라우저
+ * 타임존이 UTC 서쪽이면 **하루 밀려 요일이 어긋난다.** 날짜를 그려놓고 요일만
+ * 틀리면 유저는 어느 쪽이 맞는지 알 수 없다.
+ *
+ * ⚠️ 요일은 **직접 배열로 갖지 않는다.** `["일","월",…]` 을 코드에 두면 언어가
+ * 늘 때마다 배열이 늘고, `Intl` 이 이미 3개 언어를 다 안다 (D-010 과 같은 태도).
+ */
+export function dateTileParts(
+  ymd: string,
+  locale: Locale,
+): { head: string; day: string; weekday: string } {
+  const [y, m, d] = ymd.split("-").map(Number);
+  // 형식이 어긋나면 원문을 그대로 낸다 — 화면이 깨지는 것보다 낫다
+  if (!y || !m || !d) return { head: ymd, day: "", weekday: "" };
+
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const weekday = new Intl.DateTimeFormat(BCP47[locale], {
+    timeZone: "UTC",
+    weekday: "short",
+  }).format(date);
+
+  const head =
+    locale === "ko"
+      ? `${y}. ${m}`
+      : locale === "ja"
+        ? `${y}年${m}月`
+        : new Intl.DateTimeFormat("en-US", {
+            timeZone: "UTC",
+            year: "numeric",
+            month: "short",
+          }).format(date);
+
+  return { head, day: String(d), weekday };
+}
+
 /**
  * 소유 기간 — 타인에게는 구매일 대신 이것만 노출한다 (FR-01-B-03).
  * 결과는 `item.ownedFor` 메시지에 넣어 언어별 복수형 규칙을 라이브러리에 맡긴다
