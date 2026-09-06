@@ -1,6 +1,12 @@
 import "./env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  describeDatabase,
+  migrationDatabaseUrl,
+  pgSslConfig,
+  stripSslMode,
+} from "../src/lib/db-url";
 
 /**
  * **종류 전용 브랜드의 카테고리 공통 행을 지운다** (D-283).
@@ -32,14 +38,27 @@ import { PrismaClient } from "../src/generated/prisma/client";
  * ```
  */
 
+/*
+  ⚠️ raw `DATABASE_URL` 로 어댑터를 만들면 **운영에 못 붙는다** — Supabase 는
+  자체 서명 체인이라 `Error opening a TLS connection: self-signed certificate
+  in certificate chain` 으로 죽는다 (2026-09-06 전수 확인, D-306).
+
+  `migrationDatabaseUrl()` 은 `DIRECT_URL || POSTGRES_URL_NON_POOLING ||
+  DATABASE_URL` 순으로 고르고, `sslmode` 는 문자열에서 떼어 `ssl` 옵션으로
+  넘긴다. **마이그레이션과 같은 대상을 본다**는 뜻이기도 하다.
+*/
+const scriptDbUrl = migrationDatabaseUrl();
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: stripSslMode(scriptDbUrl),
+    ssl: pgSslConfig(scriptDbUrl),
+  }),
 });
 const APPLY = process.argv.includes("--apply");
 const CATEGORY = process.argv.find((a) => a.startsWith("--category="))?.split("=")[1] ?? "bicycle";
 
 async function main() {
-  console.log(`대상 DB: ${process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":***@")}`);
+  console.log(`대상 DB — ${describeDatabase(scriptDbUrl)}`);
   console.log(APPLY ? "모드: 적용" : "모드: 미리보기 (--apply 로 적용)");
 
   const cat = await prisma.category.findUnique({

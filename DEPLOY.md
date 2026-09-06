@@ -153,6 +153,12 @@ pnpm admin:add <이메일> "<이름>"
 | N | `pnpm db:import-codex <파일>` | 도감 마스터 | D-183 |
 | O | `pnpm tsx prisma/apply-brand-priority.ts` | 브랜드 노출 우선순위 | D-285 |
 
+**⚠️ 4-1 스크립트는 `DIRECT_URL` 을 본다** — ① 마이그레이션과 **같은 대상**이다.
+`migrationDatabaseUrl()`(`DIRECT_URL || POSTGRES_URL_NON_POOLING || DATABASE_URL`)
+을 쓰고 `sslmode` 를 `ssl` 옵션으로 넘긴다. 2026-09-06 이전에는 13개가 raw
+`DATABASE_URL` 로 어댑터를 만들어 **Supabase 에 아예 붙지 못했다** (자체 서명
+체인, D-306) — 이 문서대로 새 환경을 세울 수 없는 상태였다.
+
 **⚠️ 새 카테고리가 옛 정책을 되살릴 수 있다.** 등산(F)은 캠핑의 공통 속성 목록을
 베꼈는데 그 목록이 **D-163(구매가 비활성) 이전 것**이라, C 를 먼저 돌려도 F 가
 구매가를 다시 붙였다 (D-301, 2026-09-06 발견). **스크립트에서 뺐으므로 지금은

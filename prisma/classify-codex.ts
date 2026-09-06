@@ -4,7 +4,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { classifyCodexItems } from "../src/lib/bot/claude";
 import { categoryLabelKo } from "../src/lib/category-label";
-import { describeDatabase, migrationDatabaseUrl } from "../src/lib/db-url";
+import {
+  describeDatabase,
+  migrationDatabaseUrl,
+  pgSslConfig,
+  stripSslMode,
+} from "../src/lib/db-url";
 
 /**
  * 기존 도감을 **종류로 분류한다** (D-257).
@@ -29,8 +34,21 @@ import { describeDatabase, migrationDatabaseUrl } from "../src/lib/db-url";
  * 못 찾는다 (D-256 에서 확인한 함정).
  */
 
+/*
+  ⚠️ raw `DATABASE_URL` 로 어댑터를 만들면 **운영에 못 붙는다** — Supabase 는
+  자체 서명 체인이라 `Error opening a TLS connection: self-signed certificate
+  in certificate chain` 으로 죽는다 (2026-09-06 전수 확인, D-306).
+
+  `migrationDatabaseUrl()` 은 `DIRECT_URL || POSTGRES_URL_NON_POOLING ||
+  DATABASE_URL` 순으로 고르고, `sslmode` 는 문자열에서 떼어 `ssl` 옵션으로
+  넘긴다. **마이그레이션과 같은 대상을 본다**는 뜻이기도 하다.
+*/
+const scriptDbUrl = migrationDatabaseUrl();
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: stripSslMode(scriptDbUrl),
+    ssl: pgSslConfig(scriptDbUrl),
+  }),
 });
 
 /** 한 번에 모델에게 주는 건수. 너무 크면 응답이 잘리고 작으면 호출이 잦다 */
