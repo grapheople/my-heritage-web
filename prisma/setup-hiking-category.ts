@@ -56,7 +56,10 @@ const COMMON: { key: string; required?: boolean }[] = [
   { key: "accessories" },
   { key: "purchaseDate" },
   { key: "purchasedFrom" },
-  { key: "purchasePrice" },
+  // ⚠️ `purchasePrice` 를 넣지 않는다 — D-163 이 전 카테고리에서 뺀 속성이다.
+  //    D-163(비활성) 이 D-259(이 스크립트)보다 먼저였는데 여기서 다시 붙여서,
+  //    **등산에만 구매가가 살아 있었다** (2026-09-06 확인, 7개 중 1개 활성).
+  //    캠핑과 같은 골격이라 캠핑 목록을 베꼈는데 그 목록이 D-163 이전 것이었다.
   { key: "referenceUrl" },
   { key: "note" },
 ];

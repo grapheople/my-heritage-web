@@ -136,6 +136,8 @@ pnpm admin:add <이메일> "<이름>"
 | D | `pnpm attrs:scope-options` | 카테고리 전용 선택지(시계 `여분 링크`) 스코프 | D-209 |
 | E | `pnpm tsx prisma/add-watch-attributes.ts` | 시계 스펙 속성 7종 | D-291 |
 | F | `pnpm tsx prisma/setup-hiking-category.ts` | **등산 카테고리 신설** (+`backpack`·`climbing`) | D-259 |
+| F2 | `pnpm tsx prisma/setup-hiking-subtypes.ts --apply` | 등산 종류 확장 — 스틱·등산화·의상 4레이어·바지 | D-302 |
+| F3 | `pnpm tsx prisma/migrate-outdoor-to-hiking.ts --apply` | 옷·신발의 등산 장비 42건 이관 + 브랜드 연결 | D-302 |
 | G | `pnpm attrs:camping` | 캠핑에 `조리도구`·`물병` 종류 | D-258 |
 | H | `pnpm attrs:bicycle-parts` | 자전거 부품 매칭 키 + 부품 브랜드 | D-263 |
 | I | `pnpm tsx prisma/setup-bicycle-complete.ts` | 자전거 `완성차` 종류 | D-256 |
@@ -145,6 +147,12 @@ pnpm admin:add <이메일> "<이름>"
 | M | `pnpm db:seed-exercises` | 운동 마스터 본시드 (미검증으로 들어가 A-05 에서 검수) | D-241 |
 | N | `pnpm db:import-codex <파일>` | 도감 마스터 | D-183 |
 | O | `pnpm tsx prisma/apply-brand-priority.ts` | 브랜드 노출 우선순위 | D-285 |
+
+**⚠️ 새 카테고리가 옛 정책을 되살릴 수 있다.** 등산(F)은 캠핑의 공통 속성 목록을
+베꼈는데 그 목록이 **D-163(구매가 비활성) 이전 것**이라, C 를 먼저 돌려도 F 가
+구매가를 다시 붙였다 (D-301, 2026-09-06 발견). **스크립트에서 뺐으므로 지금은
+순서와 무관하지만**, 카테고리를 새로 만들 때마다 같은 함정이 있다 — 공통 속성
+목록을 베낄 때 그 사이에 죽은 속성이 없는지 본다.
 
 **⚠️ K → L 순서를 뒤집지 마라.** L 이 K 가 만든 분류 속성 12종을 비활성화하고
 매칭 키를 비운다 (D-227). L 만 돌리면 속성이 만들어지지 않고, K 만 돌리면
