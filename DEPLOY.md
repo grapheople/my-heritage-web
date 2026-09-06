@@ -115,8 +115,13 @@ pnpm db:deploy
 #       별도 스크립트로 붙는다 — 지금 운영은 8개다
 pnpm prisma db seed
 
-# ③ 브랜드 마스터 290건 (D-044·D-045)
-pnpm db:import-brands ../my-heritage-planning/projects/item-catalog/drafts/brand-seed.csv
+# ③ 브랜드 마스터 349건 · alias 1,086개 (D-044·D-045·D-183)
+#    ⚠️ SoT 는 **이 저장소의 `prisma/brands.csv`** 다. `db:export-brands` 가
+#       운영 DB 에서 굽고 커밋한다 (D-183).
+#    ⚠️ planning 의 `brand-seed.csv` 를 넣지 마라 — 2026-08-08 원본 시드라
+#       **등산이 없다.** import 는 CSV 에 없는 카테고리 연결을 지우므로
+#       (`deleteMany … categoryId notIn`) 등산 연결 71건이 통째로 날아간다
+pnpm db:import-brands prisma/brands.csv
 
 # ④ 최초 어드민 (D-104 — 화면으로 만들 수 없다)
 pnpm admin:add <이메일> "<이름>"

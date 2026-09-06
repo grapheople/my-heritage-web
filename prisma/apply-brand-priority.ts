@@ -3,6 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { buildBrandIndex, inferCodexBrand } from "../src/lib/codex-brand";
 import { normalizeBrandToken } from "../src/lib/brand-search";
+import {
+  describeDatabase,
+  migrationDatabaseUrl,
+  pgSslConfig,
+  stripSslMode,
+} from "../src/lib/db-url";
 
 /**
  * 브랜드 **노출 우선순위**를 지정하고 도감에 복사한다 (D-285).
@@ -61,8 +67,18 @@ import { normalizeBrandToken } from "../src/lib/brand-search";
  * ```
  */
 
+/*
+  ⚠️ **어댑터를 raw `DATABASE_URL` 로 만들면 운영에 못 붙는다** (2026-09-06 확인).
+  Supabase 는 자체 서명 체인이라 `Error opening a TLS connection: self-signed
+  certificate in certificate chain` 으로 죽는다. 즉 이 스크립트는 그동안 **로컬
+  docker 에서만** 돌았다 — D-285 우선순위를 운영에 적용할 수단이 없었다.
+
+  다른 스크립트와 같은 경로를 쓴다: `DIRECT_URL || POSTGRES_URL_NON_POOLING ||
+  DATABASE_URL` 을 고르고, `sslmode` 를 떼어 `ssl` 옵션으로 넘긴다.
+*/
+const url = migrationDatabaseUrl();
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: stripSslMode(url), ssl: pgSslConfig(url) }),
 });
 const APPLY = process.argv.includes("--apply");
 const SEP = String.fromCharCode(31);
@@ -74,7 +90,9 @@ const TIER1: Record<string, string[]> = {
   apparel: ["Uniqlo", "Nike", "Adidas", "The North Face", "Patagonia", "Arc'teryx", "Carhartt", "Levi's"],
   bicycle: ["Shimano", "Trek", "Specialized", "Giant", "SRAM", "Brompton", "Cannondale", "Bianchi"],
   camping: ["Snow Peak", "Coleman", "Helinox", "Kovea", "MSR", "Jetboil", "Nordisk", "YETI"],
-  hiking: ["Arc'teryx", "Osprey", "Gregory", "Deuter", "Mammut"],
+  // D-303 — 브랜드가 15 → 71 개가 되어 목록을 넓혔다. 한국·일본 대중 인지도를
+  //          기준에 넣는다 (ko/ja 가 1급 언어다, D-003)
+  hiking: ["Arc'teryx", "The North Face", "Columbia", "Osprey", "Gregory", "Deuter", "Mammut", "Salomon", "Black Yak", "K2", "Kolon Sport", "Merrell", "Montbell", "Black Diamond"],
   deskterior: ["Apple", "Logitech", "Samsung", "LG", "Herman Miller", "Dell", "Keychron"],
 };
 
@@ -85,12 +103,13 @@ const TIER2: Record<string, string[]> = {
   apparel: ["Ralph Lauren", "Lacoste", "Champion", "Burberry", "Stone Island", "Montbell", "Snow Peak", "Gucci", "Prada", "Louis Vuitton", "Muji", "Gap", "Zara", "H&M", "Descente", "Goldwin"],
   bicycle: ["Pinarello", "Colnago", "Canyon", "Cervélo", "Scott", "Merida", "Santa Cruz", "Campagnolo", "Maxxis", "Continental", "Bontrager", "Zipp", "DT Swiss", "Brooks", "Fizik"],
   camping: ["DOD", "Logos", "Captain Stag", "Iwatani", "SOTO", "Primus", "Big Agnes", "Nemo", "Therm-a-Rest", "Stanley", "Hydro Flask", "Hilleberg", "Sea to Summit", "Montbell"],
-  hiking: ["Fjällräven", "Patagonia", "Hyperlite Mountain Gear", "Zpacks"],
+  hiking: ["Fjällräven", "Patagonia", "Hyperlite Mountain Gear", "Zpacks", "Petzl", "La Sportiva", "Scarpa", "Lowa", "Keen", "Hoka", "Millet", "Marmot", "Mountain Hardwear", "Jack Wolfskin", "Helly Hansen", "Icebreaker", "Smartwool", "Leki", "Mystery Ranch", "Karrimor", "Haglöfs", "Norrøna", "Salewa", "Rab", "Nepa", "Eider", "Treksta"],
   deskterior: ["Anker", "Razer", "SteelSeries", "Belkin", "BenQ", "Steelcase", "HHKB", "Realforce", "Leopold", "Satechi", "Elgato"],
 };
 
 async function main() {
-  console.log(`대상 DB: ${process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":***@")}`);
+  // 비밀번호를 출력하지 않는다 — host:port/db 만 (D-116)
+  console.log(`대상 DB — ${describeDatabase(url)}`);
   console.log(APPLY ? "모드: 적용\n" : "모드: 미리보기 (--apply 로 적용)\n");
 
   /*
