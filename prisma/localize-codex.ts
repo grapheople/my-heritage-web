@@ -3,6 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { localizeCodexNames } from "../src/lib/bot/claude";
 import { categoryLabelKo } from "../src/lib/category-label";
+import {
+  describeDatabase,
+  migrationDatabaseUrl,
+  pgSslConfig,
+  stripSslMode,
+} from "../src/lib/db-url";
 
 /**
  * 기존 도감의 표시명을 **한국어·일본어로 채운다** (D-279).
@@ -41,8 +47,17 @@ import { categoryLabelKo } from "../src/lib/category-label";
  * ```
  */
 
+/*
+  ⚠️ raw `DATABASE_URL` 로 어댑터를 만들면 **운영에 못 붙는다** — Supabase 자체
+  서명 체인에서 `self-signed certificate in certificate chain` 으로 죽는다
+  (2026-09-06 확인). 다른 스크립트와 같은 경로를 쓴다.
+*/
+const scriptDbUrl = migrationDatabaseUrl();
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: stripSslMode(scriptDbUrl),
+    ssl: pgSslConfig(scriptDbUrl),
+  }),
 });
 
 const APPLY = process.argv.includes("--apply");
@@ -169,7 +184,8 @@ async function runCategory(categoryKey: string, rows: Row[]) {
 }
 
 async function main() {
-  console.log(`대상 DB: ${process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":***@")}`);
+  // 비밀번호를 출력하지 않는다 — host:port/db 만 (D-116)
+  console.log(`대상 DB — ${describeDatabase(scriptDbUrl)}`);
   console.log(APPLY ? "모드: 적용" : "모드: 미리보기 (--apply 로 적용)");
 
   const all = await prisma.codexItem.findMany({
