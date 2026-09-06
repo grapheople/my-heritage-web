@@ -50,7 +50,15 @@ import { prisma } from "../src/lib/prisma";
 const OUT = join(process.cwd(), "prisma", "codex.json");
 
 /** 파일 형식 버전. 임포터가 이 값을 확인한다 */
-const VERSION = 1;
+/**
+ * 1 → 2 (2026-09-06, D-309): 항목에 `subtype` 과 `names`(표시명)를 싣는다.
+ *
+ * ⚠️ **v1 은 종류를 담지 않아 복원이 무손실이 아니었다.** 종류가 필수인
+ * 카테고리(자전거·캠핑·등산, D-253·D-257)에서는 복원 직후 그 카테고리 등록이
+ * 막힌다 — 도감이 종류 없이 들어와 유저 아이템(종류 스코프)과 **영원히 만나지
+ * 않기** 때문이다. 임포터는 v1 도 계속 읽는다(그때는 종류 없음).
+ */
+const VERSION = 2;
 
 function langList(v: unknown, lang: "ko" | "ja" | "en"): string[] {
   if (!v || typeof v !== "object") return [];
@@ -90,7 +98,13 @@ async function main() {
       description: true,
       descriptions: true,
       verification: true,
+      // D-276 — 언어별 표시명. alias(검색 토큰)와 **다른 값**이다
+      nameKo: true,
+      nameJa: true,
+      nameEn: true,
       category: { select: { key: true } },
+      // D-309 — 종류를 함께 싣는다. 없으면 카테고리 스코프다
+      subtype: { select: { key: true } },
       matchKeys: {
         orderBy: [{ kind: "asc" }, { value: "asc" }],
         select: { value: true, kind: true, source: true, approvedBy: true },
@@ -121,6 +135,14 @@ async function main() {
     return {
       // ⚠️ 카테고리는 **`key`** 로 참조한다 — `id` 는 DB 마다 다르다
       category: c.category.key,
+      // 같은 이유로 종류도 `key` 다. `null` 이면 카테고리 스코프 (D-309)
+      subtype: c.subtype?.key ?? null,
+      /*
+        ⚠️ **표시명은 `aliases` 와 다른 것이다** (D-276). alias 는 검색 토큰이고
+        이것은 화면에 뜨는 이름이다. v1 이 이걸 빼먹어서, 복원하면 ko/ja 유저가
+        영문 원문을 보게 됐다 — 한국 출시 기준으로는 치명적이다 (D-305).
+      */
+      names: { ko: c.nameKo, ja: c.nameJa, en: c.nameEn },
       displayName: c.displayName,
       uniqueId: c.uniqueId,
       normalizedKey: c.normalizedKey,

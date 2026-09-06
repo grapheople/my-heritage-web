@@ -45,7 +45,14 @@ import { prisma } from "../src/lib/prisma";
  */
 
 /** `export-codex.ts` 와 같아야 한다 */
-const VERSION = 1;
+/**
+ * 읽을 수 있는 형식 버전.
+ *
+ * ⚠️ **v1 도 계속 읽는다** (D-309). v1 은 `subtype` 이 없어 전부 카테고리
+ * 스코프로 들어간다 — 옛 백업을 못 읽게 만들면 그 시점 데이터를 복구할 길이
+ * 사라진다. 새 파일은 v2 로 나온다.
+ */
+const SUPPORTED_VERSIONS = new Set([1, 2]);
 
 /**
  * `verifiedBy`·`approvedBy` 에 넣는 표식.
@@ -65,6 +72,10 @@ type KeyRow = {
 
 type ItemRow = {
   category: string;
+  /** D-309 — `null` 이면 카테고리 스코프. v1 파일에는 없다 */
+  subtype: string | null;
+  /** D-276 표시명. v1 파일에는 없다 */
+  names: { ko: string | null; ja: string | null; en: string | null };
   displayName: string;
   uniqueId: string | null;
   normalizedKey: string;
@@ -87,7 +98,12 @@ const SOURCES = new Set(["SYSTEM", "MERGE", "ADMIN", "AI_APPROVED"]);
  * 걸리면 그 시점까지 넣은 것만 들어간 절반 상태가 된다 — 어디까지 들어갔는지
  * 모르는 상태가 가장 나쁘다.
  */
-function validate(raw: unknown, validCategories: Set<string>): {
+function validate(
+  raw: unknown,
+  validCategories: Set<string>,
+  /** `카테고리key/종류key` 조합 — 이 DB 에 실재하는 것만 (D-309) */
+  validSubtypes: Set<string>,
+): {
   items: ItemRow[];
   errors: string[];
 } {
@@ -95,16 +111,24 @@ function validate(raw: unknown, validCategories: Set<string>): {
   if (!raw || typeof raw !== "object") return { items: [], errors: ["JSON 최상위가 객체가 아닙니다"] };
 
   const doc = raw as { version?: unknown; items?: unknown };
-  if (doc.version !== VERSION) {
-    errors.push(`형식 버전이 다릅니다. 기대 ${VERSION} / 실제 ${String(doc.version)}`);
+  if (typeof doc.version !== "number" || !SUPPORTED_VERSIONS.has(doc.version)) {
+    errors.push(
+      `형식 버전이 다릅니다. 지원 ${[...SUPPORTED_VERSIONS].join("·")} / 실제 ${String(doc.version)}`,
+    );
     return { items: [], errors };
   }
   if (!Array.isArray(doc.items)) return { items: [], errors: ["`items` 가 배열이 아닙니다"] };
 
   const items: ItemRow[] = [];
-  /** `카테고리key` → 그 값을 이미 쓴 도감 명칭 */
+  /*
+    ⚠️ **스코프 단위로 본다** (D-254·D-309). 유니크가 `(scopeId, normalizedKey)`
+    이고 `scopeId` 는 종류가 있으면 종류다 — 카테고리 단위로 세면 자전거
+    `프레임`과 `휠셋`이 같은 키를 쓰는 **정상 상태를 중복으로 잘못 막는다.**
+  */
+  const scopeOf = (cat: string, sub: string | null) => `${cat}/${sub ?? "-"}`;
+  /** `스코프값` → 그 값을 이미 쓴 도감 명칭 */
   const seenKey = new Map<string, string>();
-  /** `카테고리normalizedKey` → 중복 도감 검출 */
+  /** `스코프normalizedKey` → 중복 도감 검출 */
   const seenItem = new Map<string, string>();
 
   (doc.items as unknown[]).forEach((r, i) => {
@@ -115,6 +139,13 @@ function validate(raw: unknown, validCategories: Set<string>): {
       errors.push(`${at}: 카테고리 '${String(o.category)}' 가 이 DB 에 없습니다`);
       return;
     }
+    // D-309 — v1 파일에는 없다. 있으면 이 DB 에 실재하는 조합이어야 한다
+    const subtype = typeof o.subtype === "string" && o.subtype ? o.subtype : null;
+    if (subtype && !validSubtypes.has(`${o.category}/${subtype}`)) {
+      errors.push(`${at}: 종류 '${o.category}/${subtype}' 가 이 DB 에 없습니다`);
+      return;
+    }
+
     if (typeof o.displayName !== "string" || !o.displayName.trim()) {
       errors.push(`${at}: displayName 이 비어 있습니다`);
       return;
@@ -129,7 +160,7 @@ function validate(raw: unknown, validCategories: Set<string>): {
       return;
     }
 
-    const itemKey = `${o.category}${o.normalizedKey}`;
+    const itemKey = `${scopeOf(o.category, subtype)}${o.normalizedKey}`;
     const dupItem = seenItem.get(itemKey);
     if (dupItem) {
       errors.push(`${at}: '${o.displayName}' 이 '${dupItem}' 과 같은 normalizedKey 입니다`);
@@ -158,7 +189,7 @@ function validate(raw: unknown, validCategories: Set<string>): {
         errors.push(`${at}: '${o.displayName}' 의 매칭 키 '${k.value}' 의 kind/source 가 이상합니다`);
         continue;
       }
-      const vk = `${o.category}${k.value}`;
+      const vk = `${scopeOf(o.category, subtype)}${k.value}`;
       const owner = seenKey.get(vk);
       if (owner && owner !== o.displayName) {
         // 한 값이 두 도감을 가리키면 어느 쪽으로 매칭될지가 파일 순서에 달린다
@@ -172,6 +203,12 @@ function validate(raw: unknown, validCategories: Set<string>): {
 
     items.push({
       category: o.category,
+      subtype,
+      names: {
+        ko: typeof o.names?.ko === "string" && o.names.ko ? o.names.ko : null,
+        ja: typeof o.names?.ja === "string" && o.names.ja ? o.names.ja : null,
+        en: typeof o.names?.en === "string" && o.names.en ? o.names.en : null,
+      },
       displayName: o.displayName.trim(),
       uniqueId: typeof o.uniqueId === "string" ? o.uniqueId : null,
       normalizedKey: o.normalizedKey,
@@ -204,9 +241,16 @@ async function main() {
   const categories = await prisma.category.findMany({ select: { id: true, key: true } });
   const categoryId = new Map(categories.map((c) => [c.key, c.id]));
 
+  // D-309 — `카테고리key/종류key` → 종류 id
+  const subtypes = await prisma.categorySubtype.findMany({
+    select: { id: true, key: true, category: { select: { key: true } } },
+  });
+  const subtypeId = new Map(subtypes.map((s) => [`${s.category.key}/${s.key}`, s.id]));
+
   const { items, errors } = validate(
     JSON.parse(readFileSync(path, "utf-8")),
     new Set(categoryId.keys()),
+    new Set(subtypeId.keys()),
   );
 
   if (errors.length > 0) {
@@ -233,16 +277,32 @@ async function main() {
 
   for (const row of items) {
     const catId = categoryId.get(row.category)!;
+    const subId = row.subtype ? subtypeId.get(`${row.category}/${row.subtype}`)! : null;
+    /*
+      ⚠️ **유니크·조회는 전부 스코프 기준이다** (D-254). 종류가 있으면 종류가
+      스코프고, 없으면 카테고리다. 여기서 카테고리로 고정하면 종류가 필수인
+      카테고리의 도감이 **유저 아이템과 영원히 만나지 않는다** (D-309).
+    */
+    const scopeId = subId ?? catId;
 
     await prisma.$transaction(async (tx) => {
       const existing = await tx.codexItem.findUnique({
-        // D-254 — 임포트는 종류를 지정하지 않으므로 scopeId 가 catId 와 같다
-        where: { scopeId_normalizedKey: { scopeId: catId, normalizedKey: row.normalizedKey } },
+        where: { scopeId_normalizedKey: { scopeId, normalizedKey: row.normalizedKey } },
         select: { id: true, verification: true },
       });
 
       const verified = row.verification === "VERIFIED";
       const common = {
+        // 파일이 SoT 다 — 종류가 바뀌었으면 따라간다 (D-309)
+        subtypeId: subId,
+        /*
+          ⚠️ **빈 값으로 덮지 않는다** — `import-brands` 와 같은 규칙이다.
+          파일에 표시명이 없다고 해서 대상 DB 에서 누가 채워둔 것을 지우면
+          안 된다. 값이 있을 때만 쓴다.
+        */
+        ...(row.names.ko ? { nameKo: row.names.ko } : {}),
+        ...(row.names.ja ? { nameJa: row.names.ja } : {}),
+        ...(row.names.en ? { nameEn: row.names.en } : {}),
         displayName: row.displayName,
         uniqueId: row.uniqueId,
         aliases: row.aliases,
@@ -286,19 +346,21 @@ async function main() {
         "신규 0" 으로 찍히면 정식 값이 안 들어간 것과 구분되지 않는다
       */
       const hadPrimary = await tx.codexMatchKey.findUnique({
-        where: { scopeId_value: { scopeId: catId, value: row.normalizedKey } },
+        where: { scopeId_value: { scopeId, value: row.normalizedKey } },
         select: { id: true },
       });
       await syncPrimaryMatchKey(tx, {
         codexItemId: codexId,
         categoryId: catId,
+        // ⚠️ 도감의 종류와 **반드시 같아야 한다** — 다르면 도감과 키의 스코프가 갈린다
+        subtypeId: subId,
         normalizedKey: row.normalizedKey,
       });
       if (!hadPrimary) primaryCreated++;
 
       for (const k of row.matchKeys) {
         const has = await tx.codexMatchKey.findUnique({
-          where: { scopeId_value: { scopeId: catId, value: k.value } },
+          where: { scopeId_value: { scopeId, value: k.value } },
           select: { codexItemId: true },
         });
         if (has) {
@@ -315,6 +377,7 @@ async function main() {
         await tx.codexMatchKey.create({
           data: {
             categoryId: catId,
+            subtypeId: subId,
             codexItemId: codexId,
             value: k.value,
             kind: k.kind,
