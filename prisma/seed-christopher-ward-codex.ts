@@ -81,6 +81,13 @@ const ENTRIES: Entry[] = [
   { name: "C12 The Twelve 40mm Astral Blue Titanium", ref: "C12-40ADC1-T00B0-B0" },
   { name: "C12 The Twelve 40mm Aurora Green Titanium", ref: "C12-40ADC1-T00V0-B0" },
   { name: "C12 The Twelve 41mm Black", ref: "C12-41A5D1-T00K0-B0" },
+  /*
+    The Dial Artist(Chris Alexander) 협업 **150개 한정** — 무브먼트 부품 8개를
+    손으로 칠해 **개체마다 다르다.** 그래도 도감은 한 칸이다: 도감은 제품 원형이고
+    개체차는 유저 아이템 쪽 이야기다 (D-005). 41mm Grade 2·5 티타늄 · CW-001.
+    출처 — christopherward.com 제품 URL · minutesandbeyond.com 리뷰 (2026-09-08 조회)
+  */
+  { name: "C12 The Twelve Xander 41mm Titanium", ref: "C12-41A5D1-THPDA-B0" },
 
   // ── C1 Bel Canto (차임 · 37/40.5/41mm)
   { name: "C1 Bel Canto 37mm Midnight Blue", ref: "C01-37AMP2-S00B0-B1" },
