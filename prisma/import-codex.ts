@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describeDatabase, runtimeDatabaseUrl } from "../src/lib/db-url";
 import { syncPrimaryMatchKey } from "../src/lib/codex-match-key";
 import { prisma } from "../src/lib/prisma";
+import { getCodexSpecEditor, writeCodexSpecs } from "../src/lib/data/codex-spec";
 
 /**
  * 도감 마스터 JSON 일괄 import — `export-codex.ts` 의 짝.
@@ -48,11 +49,11 @@ import { prisma } from "../src/lib/prisma";
 /**
  * 읽을 수 있는 형식 버전.
  *
- * ⚠️ **v1 도 계속 읽는다** (D-309). v1 은 `subtype` 이 없어 전부 카테고리
- * 스코프로 들어간다 — 옛 백업을 못 읽게 만들면 그 시점 데이터를 복구할 길이
- * 사라진다. 새 파일은 v2 로 나온다.
+ * ⚠️ **v1·v2 도 계속 읽는다** (D-309·D-312). v1 은 `subtype` 이, v2 는 `specs`
+ * 가 없어 그 층이 비어 들어간다 — 옛 백업을 못 읽게 만들면 그 시점 데이터를
+ * 복구할 길이 사라진다. 새 파일은 v3 로 나온다.
  */
-const SUPPORTED_VERSIONS = new Set([1, 2]);
+const SUPPORTED_VERSIONS = new Set([1, 2, 3]);
 
 /**
  * `verifiedBy`·`approvedBy` 에 넣는 표식.
@@ -84,7 +85,20 @@ type ItemRow = {
   description: string | null;
   descriptions: Record<string, string> | null;
   matchKeys: KeyRow[];
+  /** D-312 — 제품 스펙. v1·v2 파일에는 없다 (빈 배열로 들어온다) */
+  specs: SpecRow[];
 };
+
+/** D-312 — 스펙 한 줄. `key` 는 `AttributeDefinition.key` 다 (id 는 DB 마다 다르다) */
+type SpecRow = {
+  key: string;
+  value: unknown;
+  source: "ADMIN" | "RESEARCH" | "DERIVED";
+  sampleSize: number | null;
+  agreement: number | null;
+};
+
+const SPEC_SOURCES = new Set(["ADMIN", "RESEARCH", "DERIVED"]);
 
 const KINDS = new Set(["PRIMARY", "ALIAS"]);
 const SOURCES = new Set(["SYSTEM", "MERGE", "ADMIN", "AI_APPROVED"]);
@@ -222,6 +236,18 @@ function validate(
       descriptions:
         o.descriptions && typeof o.descriptions === "object" ? o.descriptions : null,
       matchKeys: keys.filter((k) => typeof k?.value === "string" && k.value.trim()),
+      /*
+        D-312 — 스펙. **모양만 본다.** 값이 그 카테고리의 스펙인지, 형식이 맞는지는
+        저장 계층(`writeCodexSpecs`)이 판정한다 — 규칙을 두 벌로 만들지 않는다.
+        ⚠️ 스펙이 이상해도 **도감은 들여보낸다.** 도감이 없으면 아무것도 못 하지만
+        스펙은 나중에 채울 수 있다 (`insertCodex` 와 같은 태도)
+      */
+      specs: (Array.isArray(o.specs) ? (o.specs as SpecRow[]) : []).filter((sp) => {
+        const ok =
+          sp && typeof sp.key === "string" && sp.key.trim() && SPEC_SOURCES.has(sp.source);
+        if (!ok) errors.push(`${at}: '${o.displayName}' 의 스펙 항목이 이상합니다`);
+        return ok;
+      }),
     });
   });
 
@@ -274,6 +300,14 @@ async function main() {
   let upgraded = 0;
   /** ⚠️ 조용히 넘기지 않는다 — 왜 건너뛰었는지 모르면 D-188 을 반복한다 */
   const conflicts: string[] = [];
+  /**
+   * D-312 — 도감별 스펙 반영 대기열.
+   *
+   * ⚠️ **트랜잭션 안에서 쓰지 않는다.** 규칙(`writeCodexSpecs`)이 전역 클라이언트를
+   * 쓰고, 무엇보다 **스펙이 이상해도 도감은 들어가야 한다** — 도감이 없으면
+   * 아무것도 못 하지만 스펙은 나중에 채울 수 있다 (`insertCodex` 와 같은 태도)
+   */
+  const specJobs: { codexId: string; specs: SpecRow[] }[] = [];
 
   for (const row of items) {
     const catId = categoryId.get(row.category)!;
@@ -358,6 +392,9 @@ async function main() {
       });
       if (!hadPrimary) primaryCreated++;
 
+      // D-312 — 스펙은 **트랜잭션 밖**에서 쓴다 (아래 참조). 여기서는 짝만 모은다
+      if (row.specs.length > 0) specJobs.push({ codexId, specs: row.specs });
+
       for (const k of row.matchKeys) {
         const has = await tx.codexMatchKey.findUnique({
           where: { scopeId_value: { scopeId, value: k.value } },
@@ -391,8 +428,54 @@ async function main() {
     });
   }
 
+  /*
+    D-312 — 스펙 반영. **출처 우선순위를 그대로 지킨다**: 파일의 `RESEARCH` 가
+    대상 DB 의 `ADMIN` 을 덮지 않는다. 복원(대상이 비어 있음)에서는 차이가 없고,
+    동기화에서는 사람이 확인한 값이 옛 덤프에 밀리지 않는다.
+
+    ⚠️ `DERIVED` 는 **표본 수를 함께** 옮긴다 — 화면이 "보유자 N명 기준" 으로
+    그 숫자를 말한다. 값마다 표본이 다르므로 한 건씩 쓴다
+  */
+  let specWritten = 0;
+  const specSkipped: string[] = [];
+  for (const job of specJobs) {
+    const { fields } = await getCodexSpecEditor(job.codexId);
+    if (fields.length === 0) continue;
+
+    const strong = job.specs.filter((sp) => sp.source !== "DERIVED");
+    for (const source of ["ADMIN", "RESEARCH"] as const) {
+      const mine = strong.filter((sp) => sp.source === source);
+      if (mine.length === 0) continue;
+      const res = await writeCodexSpecs({
+        codexItemId: job.codexId,
+        fields,
+        values: Object.fromEntries(mine.map((sp) => [sp.key, sp.value])),
+        source,
+      });
+      specWritten += res.written;
+      specSkipped.push(...res.skipped);
+    }
+    for (const sp of job.specs.filter((s) => s.source === "DERIVED")) {
+      const res = await writeCodexSpecs({
+        codexItemId: job.codexId,
+        fields,
+        values: { [sp.key]: sp.value },
+        source: "DERIVED",
+        derived: { sampleSize: sp.sampleSize ?? 0, agreement: sp.agreement ?? 0 },
+      });
+      specWritten += res.written;
+      specSkipped.push(...res.skipped);
+    }
+  }
+
   console.log(`도감    : 신규 ${created} · 갱신 ${updated}${upgraded > 0 ? ` (검증 승격 ${upgraded})` : ""}`);
   console.log(`매칭 키 : 정식 값 ${primaryCreated} · 키 alias ${aliasCreated} 신규`);
+  console.log(`스펙    : ${specWritten}개 반영${specSkipped.length > 0 ? ` · 건너뜀 ${specSkipped.length}` : ""}`);
+  if (specSkipped.length > 0) {
+    // ⚠️ 조용히 버리지 않는다 — 대상 DB 에 그 속성이 스펙으로 안 켜져 있을 수 있다
+    for (const sk of specSkipped.slice(0, 10)) console.log(`   - ${sk}`);
+    if (specSkipped.length > 10) console.log(`   … 외 ${specSkipped.length - 10}건`);
+  }
   if (conflicts.length > 0) {
     console.log(`\n⚠️ 키 충돌 ${conflicts.length}건 — 기존 소유를 유지했습니다`);
     for (const c of conflicts.slice(0, 20)) console.log(`   - ${c}`);

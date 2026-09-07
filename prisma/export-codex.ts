@@ -51,6 +51,12 @@ const OUT = join(process.cwd(), "prisma", "codex.json");
 
 /** 파일 형식 버전. 임포터가 이 값을 확인한다 */
 /**
+ * 2 → 3 (2026-09-07, D-312): 항목에 **`specs`**(제품 스펙)를 싣는다.
+ *
+ * ⚠️ **v2 도 같은 이유로 무손실이 아니었다.** 스펙은 조사 결과와 유저 데이터
+ * 추정이 쌓인 값이라 잃으면 다시 만드는 데 CLI 호출과 표본이 다시 필요하다 —
+ * D-309 가 종류·표시명에서 막은 것과 **같은 구멍**이다.
+ *
  * 1 → 2 (2026-09-06, D-309): 항목에 `subtype` 과 `names`(표시명)를 싣는다.
  *
  * ⚠️ **v1 은 종류를 담지 않아 복원이 무손실이 아니었다.** 종류가 필수인
@@ -58,7 +64,7 @@ const OUT = join(process.cwd(), "prisma", "codex.json");
  * 막힌다 — 도감이 종류 없이 들어와 유저 아이템(종류 스코프)과 **영원히 만나지
  * 않기** 때문이다. 임포터는 v1 도 계속 읽는다(그때는 종류 없음).
  */
-const VERSION = 2;
+const VERSION = 3;
 
 function langList(v: unknown, lang: "ko" | "ja" | "en"): string[] {
   if (!v || typeof v !== "object") return [];
@@ -108,6 +114,17 @@ async function main() {
       matchKeys: {
         orderBy: [{ kind: "asc" }, { value: "asc" }],
         select: { value: true, kind: true, source: true, approvedBy: true },
+      },
+      // D-312 — 제품 스펙. **키로 참조한다** (정의 id 는 DB 마다 다르다)
+      specValues: {
+        orderBy: { attributeDefinition: { key: "asc" } },
+        select: {
+          value: true,
+          source: true,
+          sampleSize: true,
+          agreement: true,
+          attributeDefinition: { select: { key: true } },
+        },
       },
     },
   });
@@ -165,6 +182,18 @@ async function main() {
         */
         approved: k.approvedBy !== null,
       })),
+      /*
+        D-312 — 스펙. `source` 를 함께 옮긴다: 우선순위가 값의 의미이고,
+        `RESEARCH` 를 `ADMIN` 으로 복원하면 다음 추정 배치가 못 고친다.
+        `DERIVED` 의 표본 수도 옮긴다 — 화면이 그 숫자를 말한다
+      */
+      specs: c.specValues.map((v) => ({
+        key: v.attributeDefinition.key,
+        value: v.value,
+        source: v.source,
+        sampleSize: v.sampleSize,
+        agreement: v.agreement,
+      })),
     };
   });
 
@@ -176,7 +205,10 @@ async function main() {
   );
 
   const totalKeys = out.reduce((n, c) => n + c.matchKeys.length, 0);
-  console.log(`도감 ${out.length}건 · 매칭 키 ${totalKeys}건(키 alias ${aliasKeys}) → ${OUT}`);
+  const totalSpecs = out.reduce((n, c) => n + c.specs.length, 0);
+  console.log(
+    `도감 ${out.length}건 · 매칭 키 ${totalKeys}건(키 alias ${aliasKeys}) · 스펙 ${totalSpecs}개 → ${OUT}`,
+  );
   console.log(
     `  카테고리별 — ${[...byCategory].map(([k, n]) => `${k} ${n}`).join(" · ")}`,
   );

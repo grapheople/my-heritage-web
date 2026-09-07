@@ -152,6 +152,7 @@ pnpm admin:add <이메일> "<이름>"
 | M | `pnpm db:seed-exercises` | 운동 마스터 본시드 (미검증으로 들어가 A-05 에서 검수) | D-241 |
 | N | `pnpm db:import-codex <파일>` | 도감 마스터 | D-183 |
 | O | `pnpm tsx prisma/apply-brand-priority.ts` | 브랜드 노출 우선순위 | D-285 |
+| P | `pnpm tsx prisma/mark-spec-attributes.ts --apply` | **도감 스펙 판정**(`isSpec`) 백필 — 56종 | D-312 |
 
 **⚠️ 4-1 스크립트는 `DIRECT_URL` 을 본다** — ① 마이그레이션과 **같은 대상**이다.
 `migrationDatabaseUrl()`(`DIRECT_URL || POSTGRES_URL_NON_POOLING || DATABASE_URL`)
