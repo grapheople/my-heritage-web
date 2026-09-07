@@ -196,6 +196,48 @@ export async function researchCodexEntries(input: {
   return sanitizeCodexCandidates(input.fields, parseJsonArray(text));
 }
 
+/**
+ * **이미 있는 도감의 스펙을 채운다** (D-313).
+ *
+ * ## ⚠️ `researchCodexEntries` 와 목적이 반대다
+ * 저기는 없는 제품을 찾아오고, 여기는 **주어진 제품의 값을 채운다.** 그래서
+ * 규칙도 반대다 — 저기는 식별 값이 불확실하면 후보를 통째로 버리고, 여기는
+ * **칸 단위로 비운다.** 이미 존재하는 도감이라 스펙이 비어도 멀쩡하다.
+ *
+ * ## ⚠️ 이름으로 되짚는다
+ * 응답의 `name` 을 요청한 목록과 맞춰 도감을 찾는다. 모델이 이름을 바꾸면
+ * **그 행은 버린다** — 엉뚱한 도감에 남의 스펙을 넣는 것보다 빠뜨리는 게 낫다
+ * (`classifyCodexItems` 가 id 에 취한 태도와 같다).
+ */
+export async function researchCodexSpecs(input: {
+  categoryLabel: string;
+  scopeLabel: string;
+  specParts: string;
+  products: string[];
+}): Promise<{ name: string; specs: Record<string, unknown> }[]> {
+  const prompt = await loadPrompt("codex-spec-research", {
+    categoryLabel: input.categoryLabel,
+    scopeLabel: input.scopeLabel,
+    specParts: input.specParts,
+    products: input.products.map((p) => `- ${p}`).join("\n"),
+  });
+
+  const text = await ask(prompt, RESEARCH_TIMEOUT_MS);
+  const asked = new Set(input.products);
+
+  return parseJsonArray(text).flatMap((r) => {
+    const row = r as Record<string, unknown>;
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    // ⚠️ 지어낸 이름은 버린다 — 위 주석 참조
+    if (!asked.has(name)) return [];
+    const specs =
+      row.specs && typeof row.specs === "object" && !Array.isArray(row.specs)
+        ? (row.specs as Record<string, unknown>)
+        : {};
+    return [{ name, specs }];
+  });
+}
+
 export type CodexClassification = {
   id: string;
   /** 종류 키 또는 `unknown` */
