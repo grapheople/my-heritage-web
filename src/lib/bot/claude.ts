@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import {
   codexJsonSkeleton,
   codexKeyList,
+  codexSpecList,
   fieldsTable,
   jsonSkeleton,
   sanitize,
@@ -186,6 +187,8 @@ export async function researchCodexEntries(input: {
     hint: input.hint || "(없음 — 이 카테고리의 대표적인 제품을 고르세요)",
     count: String(input.count),
     keyParts: codexKeyList(input.fields),
+    // D-312 — 스펙. 없는 카테고리면 그 사실을 말한다 (빈 값을 주면 표가 깨진다)
+    specParts: codexSpecList(input.fields) || "(이 카테고리에는 스펙 항목이 없습니다)",
     jsonSkeleton: codexJsonSkeleton(input.fields),
   });
 

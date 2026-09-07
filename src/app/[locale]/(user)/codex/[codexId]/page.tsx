@@ -160,7 +160,20 @@ export default async function CodexDetailPage({
             <div key={a.key} className="col-span-2 grid grid-cols-subgrid">
               <dt className="text-sm text-muted-foreground">{a.label}</dt>
               {/* 속성값은 번역하지 않는다 (policies/i18n) */}
-              <dd className="text-sm font-semibold">{a.value}</dd>
+              <dd className="text-sm font-semibold">
+                {a.value}
+                {/*
+                  ⚠️ **추정값이면 그렇다고 말한다** (D-312). 유저 아이템에서
+                  뽑아낸 값이라 틀릴 수 있는데, 조사값과 똑같이 보이면 유저는
+                  제조사 스펙으로 읽는다 — 절단·부재를 숨기지 않는 D-160·D-183
+                  과 같은 태도다
+                */}
+                {a.source === "DERIVED" && a.sampleSize !== undefined && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {t("codex.specDerived", { count: a.sampleSize })}
+                  </span>
+                )}
+              </dd>
             </div>
           ))}
         </dl>

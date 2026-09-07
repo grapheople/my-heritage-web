@@ -7,6 +7,7 @@ import { CodexDisplayNameEditor } from "@/components/admin/codex-display-name";
 import { CodexEditForm } from "@/components/admin/codex-edit-form";
 import { CodexKeyAliasEditor } from "@/components/admin/codex-key-alias-editor";
 import { CodexResearchAgain } from "@/components/admin/codex-research-again";
+import { CodexSpecEditor } from "@/components/admin/codex-spec-editor";
 import { CodexSubtypePicker } from "@/components/admin/codex-subtype";
 import { AdminPage, Pill } from "@/components/admin/ui";
 import { setCodexVerification } from "@/lib/actions/admin";
@@ -14,6 +15,7 @@ import { categoryLabelKo } from "@/lib/category-label";
 import { botEnabled, claudeConfigured } from "@/lib/bot/guard";
 import { categoryFields, matchingKeyFields } from "@/lib/bot/fields";
 import { getAdminCodexDetail, getAdminSubtypes } from "@/lib/data/admin";
+import { getCodexSpecEditor } from "@/lib/data/codex-spec";
 
 /**
  * 도감 상세 (A-04 하위, D-267).
@@ -39,9 +41,11 @@ export default async function AdminCodexDetailPage({
   const c = await getAdminCodexDetail(codexId);
   if (!c) notFound();
 
-  const [categoryLabel, allSubtypes] = await Promise.all([
+  const [categoryLabel, allSubtypes, specs] = await Promise.all([
     categoryLabelKo(c.categoryKey),
     getAdminSubtypes(),
+    // D-312 — 스펙 필드 + 현재 값·출처
+    getCodexSpecEditor(codexId),
   ]);
   const subtypes = allSubtypes
     .filter((s) => s.categoryKey === c.categoryKey && s.active)
@@ -184,6 +188,19 @@ export default async function AdminCodexDetailPage({
       </section>
 
       {/* ── 명칭 ── */}
+      {/*
+        D-312 — 제품 스펙. **재수집 바로 아래**에 둔다: 조사가 채우는 값이고,
+        비어 있으면 재수집·추정으로 채우는 흐름이 자연히 이어진다
+      */}
+      <section className="mt-8">
+        <h2 className="text-sm font-bold">스펙</h2>
+        <p className="mt-1 mb-3 text-xs text-muted-foreground">
+          제품 고유 값입니다. 조사가 채우고, 못 채우면 유저 아이템에서 추정합니다
+          (표본 3건 · 일치율 60% 이상). 개인 값(구매가·상태)은 여기 없습니다.
+        </p>
+        <CodexSpecEditor codexId={codexId} fields={specs.fields} values={specs.values} />
+      </section>
+
       <section className="mt-8">
         <h2 className="text-sm font-bold">명칭</h2>
         <p className="mt-1 mb-3 text-xs text-muted-foreground">

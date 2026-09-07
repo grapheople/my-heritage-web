@@ -604,7 +604,8 @@ export async function getAdminCategoryAttributes(key?: string) {
           required: true,
           active: true,
           labelKo: true, // 카테고리별 override (D-168)
-          attributeDefinition: { select: { key: true, type: true, labelKo: true } },
+          // D-312 — 도감 스펙 여부. **정의 단위 전역**이다 (카테고리별이 아니다)
+          attributeDefinition: { select: { key: true, type: true, labelKo: true, isSpec: true } },
         },
       },
     },
@@ -620,6 +621,7 @@ export async function getAdminCategoryAttributes(key?: string) {
         required: a.required,
         active: a.active,
         matchingKey: mk.has(a.attributeDefinition.key),
+        isSpec: a.attributeDefinition.isSpec,
       })),
     };
   });

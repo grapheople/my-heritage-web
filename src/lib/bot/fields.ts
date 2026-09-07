@@ -29,6 +29,13 @@ export type BotField = {
   options: { key: string; label: string }[];
   /** 매칭 키 구성 속성인가 — 지어내면 가짜 도감이 생긴다 (D-015) */
   isMatchingKey: boolean;
+  /**
+   * D-312 — **제품 고유 스펙인가.** 도감이 값을 가질 수 있는 속성이다.
+   *
+   * ⚠️ 매칭 키와 **다른 축**이다. 스펙은 도감을 가르지 않는다 (D-291) —
+   * 케이스 지름으로 도감을 나누면 같은 시계가 흩어진다
+   */
+  isSpec: boolean;
 };
 
 /** 카테고리의 활성 속성 + 매칭 키 구성 (표시 순서 그대로) */
@@ -45,6 +52,8 @@ const ATTRIBUTE_SELECT = {
       key: true,
       type: true,
       labelKo: true,
+      // D-312 — 도감 스펙 판정
+      isSpec: true,
       options: {
         where: { active: true },
         orderBy: { displayOrder: "asc" },
@@ -120,6 +129,7 @@ export async function categoryFields(
         .filter((o) => o.categoryId === null || o.categoryId === category.id)
         .map((o) => ({ key: o.key, label: o.labelKo })),
       isMatchingKey: keys.has(d.key),
+      isSpec: d.isSpec,
     };
   });
 }
@@ -192,6 +202,29 @@ export function matchingKeyFields(fields: BotField[]): BotField[] {
   return fields.filter((f) => f.isMatchingKey);
 }
 
+/**
+ * 도감이 가질 수 있는 **스펙 속성** (D-312).
+ *
+ * ⚠️ **매칭 키는 뺀다.** 브랜드·모델명·고유번호는 이미 식별 값으로 묻고 있다 —
+ * 두 번 물으면 모델이 같은 값을 두 자리에 넣고, 스펙 칸에 들어간 그 값이
+ * 도감 상세에 중복으로 뜬다.
+ */
+export function specFields(fields: BotField[]): BotField[] {
+  return fields.filter((f) => f.isSpec && !f.isMatchingKey);
+}
+
+/** 도감 프롬프트에 넣을 스펙 목록. 스펙이 없는 카테고리면 빈 문자열 */
+export function codexSpecList(fields: BotField[]): string {
+  const rows = specFields(fields).map((f) => {
+    const kind = TYPE_LABEL[f.type] ?? f.type;
+    const extra = f.options.length
+      ? ` — 허용 키: \`${f.options.map((o) => o.key).join("` `")}\``
+      : "";
+    return `- \`${f.key}\` — **${f.label}** (${kind})${extra}`;
+  });
+  return rows.join("\n");
+}
+
 /** 도감 프롬프트에 넣을 식별 값 목록 */
 export function codexKeyList(fields: BotField[]): string {
   return matchingKeyFields(fields)
@@ -210,7 +243,14 @@ export function codexKeyList(fields: BotField[]): string {
  */
 export function codexJsonSkeleton(fields: BotField[]): string {
   const entries = matchingKeyFields(fields).map((f) => `"${f.key}":""`);
-  return `{"displayName":"","names":{"en":"","ko":"","ja":""},${entries.join(",")}}`;
+  /*
+    D-312 — 스펙은 **`specs` 객체 안**에 둔다. 식별 값과 같은 층에 펼치면
+    모델이 둘을 같은 무게로 다루는데, **규칙이 정반대다**: 식별 값이 비면 행
+    전체를 버리고 스펙이 비면 그 칸만 비운다
+  */
+  const specs = specFields(fields).map((f) => `"${f.key}":${f.type === "multiselect" ? "[]" : '""'}`);
+  const specPart = specs.length > 0 ? `,"specs":{${specs.join(",")}}` : "";
+  return `{"displayName":"","names":{"en":"","ko":"","ja":""},${entries.join(",")}${specPart}}`;
 }
 
 /** 조사된 도감 후보 — 어드민이 화면에서 고치고 등록한다 */
@@ -224,6 +264,14 @@ export type CodexCandidate = {
    * ⚠️ **식별 값이 아니다.** 비어도 행을 버리지 않는다
    */
   names: { ko?: string; ja?: string; en?: string };
+  /**
+   * D-312 — 제품 스펙. **속성 key → 값**이고 검사는 저장 계층이 한다
+   * (`coerceSpecValue`). 여기서 형식까지 보면 규칙이 두 벌이 된다.
+   *
+   * ⚠️ **비는 것이 정상이다.** 모르는 스펙을 채우라고 압박하면 지어낸다 —
+   * 식별 값과 달리 **그 칸만** 비우고 행은 살린다
+   */
+  specs: Record<string, unknown>;
 };
 
 /**
@@ -242,6 +290,8 @@ export function sanitizeCodexCandidates(
   rows: unknown[],
 ): { candidates: CodexCandidate[]; dropped: string[] } {
   const parts = matchingKeyFields(fields);
+  // D-312 — 이 스코프의 스펙 키. 매칭 키는 이미 위에서 묻고 있어 뺀다
+  const specKeys = specFields(fields);
   const candidates: CodexCandidate[] = [];
   const dropped: string[] = [];
   const seen = new Set<string>();
@@ -325,7 +375,27 @@ export function sanitizeCodexCandidates(
       continue;
     }
     seen.add(dedupe);
-    candidates.push({ displayName: name, keyValues, names });
+
+    /*
+      D-312 — 스펙. **식별 값과 규칙이 정반대다**: 비었다고 행을 버리지 않고
+      그 칸만 비운다. 값 검사는 저장 계층(`coerceSpecValue`)이 하므로 여기서는
+      **스코프 밖 키만** 걷어낸다 — 형식까지 여기서 보면 규칙이 두 벌이 된다.
+    */
+    const rawSpecs = (r.specs ?? {}) as Record<string, unknown>;
+    const specs: Record<string, unknown> = {};
+    for (const f of specKeys) {
+      const v = rawSpecs[f.key];
+      if (v === undefined || v === null || v === "") continue;
+      specs[f.key] = v;
+    }
+    for (const k of Object.keys(rawSpecs)) {
+      // 모델이 없는 항목을 지어내면 알린다 — 조용히 버리면 프롬프트 문제를 못 본다
+      if (!specKeys.some((f) => f.key === k) && rawSpecs[k]) {
+        dropped.push(`${name} — 스펙 \`${k}\` 는 이 카테고리에 없습니다`);
+      }
+    }
+
+    candidates.push({ displayName: name, keyValues, names, specs });
   }
 
   return { candidates, dropped };

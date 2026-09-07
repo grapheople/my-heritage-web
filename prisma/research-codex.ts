@@ -3,6 +3,7 @@ import { categoryFields, matchingKeyFields } from "../src/lib/bot/fields";
 import { researchCodexEntries } from "../src/lib/bot/claude";
 import { categoryLabelKo } from "../src/lib/category-label";
 import { insertCodex } from "../src/lib/codex-insert";
+import { specFieldsFor, writeCodexSpecs } from "../src/lib/data/codex-spec";
 import { describeDatabase, migrationDatabaseUrl } from "../src/lib/db-url";
 import { prisma } from "../src/lib/prisma";
 
@@ -102,6 +103,8 @@ type Outcome = {
   brand: string;
   found: number;
   created: number;
+  /** D-312 — 조사가 함께 채운 스펙 값 수 */
+  specs: number;
   dup: number;
   failed: string[];
   /**
@@ -126,7 +129,7 @@ async function seedBrand(
    */
   subtype: { key: string; id: string } | null,
 ): Promise<Outcome> {
-  const out: Outcome = { brand, found: 0, created: 0, dup: 0, failed: [], dropped: [] };
+  const out: Outcome = { brand, found: 0, created: 0, specs: 0, dup: 0, failed: [], dropped: [] };
 
   const fields = await categoryFields(categoryKey, subtype?.key);
   let r;
@@ -156,13 +159,40 @@ async function seedBrand(
       subtypeId: subtype?.id ?? null,
       displayName: c.displayName,
       keyValues: c.keyValues,
+      // D-312 — 조사가 알아낸 스펙. 잘못된 칸만 버려지고 도감은 만들어진다
+      specs: c.specs,
       // ⚠️ 사람이 확인하지 않았다 (D-185). A-05 검수 대기 상태로 들어간다
       verification: "UNVERIFIED",
       actorId: "research-seed",
     });
-    if (res.ok) out.created++;
-    else if (res.error.startsWith("이미 있는 도감")) out.dup++;
-    else out.failed.push(`${c.displayName} — ${res.error}`);
+    if (res.ok) {
+      out.created++;
+      out.specs += Object.keys(c.specs).length;
+      // ⚠️ 스펙이 왜 안 들어갔는지 알린다 — 조용히 버리면 D-188 을 반복한다
+      for (const skip of res.specSkipped ?? []) out.dropped.push(`${c.displayName} — ${skip}`);
+    } else if (res.error.startsWith("이미 있는 도감")) {
+      out.dup++;
+      /*
+        ⚠️ **중복이어도 스펙은 채운다** (D-312). 이미 있는 도감 2,000여 건은
+        스펙이 비어 있는데, 중복을 실패로만 넘기면 재조사로 그 칸을 영원히 못
+        채운다. `RESEARCH` 는 운영·기존 조사값을 덮지 않으므로 안전하다
+      */
+      if (res.existingCodexId && Object.keys(c.specs).length > 0) {
+        const fields = await specFieldsFor({
+          categoryKey,
+          subtypeKey: subtype?.key ?? null,
+          locale: "ko",
+        });
+        const w = await writeCodexSpecs({
+          codexItemId: res.existingCodexId,
+          fields,
+          values: c.specs,
+          source: "RESEARCH",
+        });
+        out.specs += w.written;
+        for (const skip of w.skipped) out.dropped.push(`${c.displayName} — ${skip}`);
+      }
+    } else out.failed.push(`${c.displayName} — ${res.error}`);
   }
   return out;
 }
@@ -304,7 +334,7 @@ async function main() {
         (o.dropped.length ? ` · 제외 ${o.dropped.length}` : "") +
         (o.failed.length ? ` · 실패 ${o.failed.length}` : "");
       console.log(
-        `[${results.length}/${brands.length}] ${name} — 후보 ${o.found} · 등록 ${o.created} · 중복 ${o.dup}${tail}`,
+        `[${results.length}/${brands.length}] ${name} — 후보 ${o.found} · 등록 ${o.created} · 스펙 ${o.specs} · 중복 ${o.dup}${tail}`,
       );
       // 제외 사유를 남긴다 — 0건이 정상인지 프롬프트 문제인지 구분하는 유일한 단서
       for (const d of o.dropped) console.log(`      · 제외 ${d}`);
@@ -328,7 +358,10 @@ async function main() {
     .map((r) => r.brand);
 
   console.log(`\n=== ${categoryLabel} 완료 ===`);
-  console.log(`등록 ${created}건 (미검증) · 중복 ${dup}건 · 실패 ${failed}건`);
+  const specs = results.reduce((n, r) => n + r.specs, 0);
+  // D-312 — 스펙이 0 이면 프롬프트가 안 먹은 것인지 카테고리에 스펙이 없는 것인지 봐야 한다
+  // 중복분에 채운 스펙도 여기 포함된다 — "등록 0 · 스펙 12" 가 정상 결과다
+  console.log(`등록 ${created}건 (미검증) · 스펙 ${specs}개 · 중복 ${dup}건 · 실패 ${failed}건`);
   if (empty.length) {
     // ⚠️ 0건은 실패가 아니다 — 확실한 후보가 없었다는 뜻이고 그것이 정상이다 (D-185)
     console.log(`후보 0건 브랜드 ${empty.length}개 (정상): ${empty.join(", ")}`);

@@ -233,7 +233,8 @@
     "filterSubtypeAll": "전체 종류",
     "pickFilter": "브랜드 또는 종류를 선택해주세요",
     "pickBrand": "브랜드를 선택해주세요",
-    "pickFilterDesc": "도감이 많아 한 번에 다 보여드리지 않아요. 검색어로 바로 찾아도 됩니다"
+    "pickFilterDesc": "도감이 많아 한 번에 다 보여드리지 않아요. 검색어로 바로 찾아도 됩니다",
+    "specDerived": "보유자 {count}명 기준"
   },
   "feed": {
     "emptyByLang": "이 언어권에는 아직 전시된 아이템이 없어요.",

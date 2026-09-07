@@ -6,6 +6,7 @@ import { normalizeBrandToken } from "@/lib/brand-search";
 import { categoryLabelKo } from "@/lib/category-label";
 import { resolveMasterBrand } from "@/lib/brand-master";
 import { insertCodex } from "@/lib/codex-insert";
+import { getCodexSpecEditor, writeCodexSpecs } from "@/lib/data/codex-spec";
 import { migrateRoutinesToSurvivor } from "@/lib/exercise-insert";
 import { researchCodexEntries } from "@/lib/bot/claude";
 import { botEnabled, botTargetDb, claudeConfigured } from "@/lib/bot/guard";
@@ -102,6 +103,55 @@ export async function setCategorySellable(
  * ⚠️ **여기가 비어 있으면 유저가 아이템을 한 건도 등록할 수 없다** (D-097).
  * 출시 순서 3단계다.
  */
+/**
+ * 속성을 **도감 스펙으로 켜고 끈다** (D-312).
+ *
+ * ## ⚠️ 카테고리별이 아니라 **정의 단위 전역**이다
+ * `isSpec` 은 `AttributeDefinition` 에 있다. `caseDiameter` 가 시계에서 스펙이면
+ * 어디서든 스펙이다 — 같은 키가 카테고리마다 다른 성격을 갖는 일은 없다.
+ * 화면이 그 사실을 말해야 어드민이 "여기서만 켜진다"로 오해하지 않는다.
+ *
+ * ## ⚠️ 끄면 값이 사라지는 것이 아니다
+ * 이미 도감에 들어간 값은 남고 **표시에서 빠진다** (D-036 이 속성에 취한 태도와
+ * 같다). 다시 켜면 그대로 보인다 — 실수로 껐다고 데이터가 날아가면 안 된다.
+ *
+ * ## ⚠️ 매칭 키는 스펙이 될 수 없다
+ * 브랜드·모델명·고유번호는 **도감의 정체성**이고 이미 도감 상세가 따로 보여준다.
+ * 스펙으로 켜면 같은 값이 두 번 뜬다.
+ */
+export async function setAttributeIsSpec(
+  attributeKey: string,
+  isSpec: boolean,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const def = await prisma.attributeDefinition.findUnique({
+    where: { key: attributeKey },
+    select: { id: true },
+  });
+  if (!def) return fail({}, "속성을 찾을 수 없습니다");
+
+  if (isSpec) {
+    // 어느 카테고리에서든 매칭 키면 막는다 — 위 주석 참조
+    const asKey = await prisma.matchingKeyDefinition.findFirst({
+      where: { attributeKeys: { has: attributeKey } },
+      select: { id: true },
+    });
+    if (asKey) {
+      return fail({}, "매칭 키 구성 속성은 스펙으로 켤 수 없습니다 — 도감 정체성이라 이미 따로 표시됩니다");
+    }
+  }
+
+  await prisma.attributeDefinition.update({
+    where: { id: def.id },
+    data: { isSpec },
+  });
+
+  revalidate("/admin/categories/[key]", "/admin/categories/[key]/attributes", "/admin/codex/[codexId]");
+  return { ok: true };
+}
+
 export async function setCategoryAttribute(input: {
   categoryKey: string;
   attributeKey: string;
@@ -2001,7 +2051,12 @@ export async function researchCodexCandidates(input: {
  */
 export async function createCodexItemsFromResearch(input: {
   categoryKey: string;
-  rows: { displayName: string; keyValues: Record<string, string> }[];
+  /** D-312 — `specs` 는 **없어도 된다.** 스펙이 없는 카테고리·모르는 항목이 정상이다 */
+  rows: {
+    displayName: string;
+    keyValues: Record<string, string>;
+    specs?: Record<string, unknown>;
+  }[];
 }): Promise<
   ActionResult<{ results: { displayName: string; ok: boolean; error?: string }[] }>
 > {
@@ -2018,9 +2073,32 @@ export async function createCodexItemsFromResearch(input: {
       categoryKey: input.categoryKey,
       displayName: row.displayName,
       keyValues: row.keyValues,
+      // D-312 — 스펙. 잘못된 값은 그 칸만 버려지고 도감은 만들어진다
+      specs: row.specs,
       verification: "UNVERIFIED",
       actorId: ADMIN_ACTOR,
     });
+    /*
+      D-312 — **중복이어도 스펙은 채운다.** 이미 있는 도감은 스펙이 비어 있는데,
+      중복을 실패로만 돌려주면 재조사로 그 칸을 영원히 못 채운다
+    */
+    if (!res.ok && res.existingCodexId && row.specs && Object.keys(row.specs).length > 0) {
+      const { fields } = await getCodexSpecEditor(res.existingCodexId);
+      const w = await writeCodexSpecs({
+        codexItemId: res.existingCodexId,
+        fields,
+        values: row.specs,
+        source: "RESEARCH",
+      });
+      if (w.written > 0) {
+        results.push({
+          displayName: row.displayName,
+          ok: false,
+          error: `${res.error} — 스펙 ${w.written}개만 채웠습니다`,
+        });
+        continue;
+      }
+    }
     results.push(
       res.ok
         ? { displayName: row.displayName, ok: true }
@@ -2493,5 +2571,42 @@ export async function setCodexDescriptions(
   });
 
   revalidate("/admin/codex", "/admin/codex/[codexId]", "/admin/categories/[key]/codex", "/[locale]/codex/[codexId]");
+  return { ok: true };
+}
+
+/**
+ * 도감 스펙 편집 (A-04 상세, D-312).
+ *
+ * ## ⚠️ 어드민 값이 가장 세다
+ * `ADMIN` 은 조사·추정을 덮는다. 사람이 확인한 값이라 그것이 맞다 — 반대로
+ * 추정 배치가 이 값을 덮으면 확인한 값이 표본 몇 개에 밀린다.
+ *
+ * ## ⚠️ 빈 칸은 **지우라는 뜻이다** — 어드민 경로에서만
+ * 조사·추정이 보내는 빈 값은 "모른다" 이고 지우지 않는다. 사람이 폼에서
+ * 비운 것은 "이 값을 빼라" 이므로 지운다 (`writeCodexSpecs` 가 구분한다).
+ *
+ * ## ⚠️ 검증 상태를 건드리지 않는다 (D-269)
+ * 스펙을 채웠다고 검증됨이 되지 않는다. 검증은 사람이 따로 누른다.
+ */
+export async function setCodexSpecs(
+  codexId: string,
+  values: Record<string, string | string[]>,
+): Promise<ActionResult> {
+  const ADMIN_ACTOR = await actor();
+  if (!ADMIN_ACTOR) return fail({}, "권한이 없습니다");
+
+  const { fields } = await getCodexSpecEditor(codexId);
+  if (fields.length === 0) return fail({}, "이 카테고리에는 스펙 항목이 없습니다");
+
+  const res = await writeCodexSpecs({
+    codexItemId: codexId,
+    fields,
+    values,
+    source: "ADMIN",
+  });
+  // ⚠️ 조용히 버리지 않는다 — 어드민은 왜 안 들어갔는지 알아야 한다
+  if (res.skipped.length > 0) return fail({}, res.skipped.join(" · "));
+
+  revalidate("/admin/codex/[codexId]", "/codex/[codexId]");
   return { ok: true };
 }

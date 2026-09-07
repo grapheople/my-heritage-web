@@ -233,7 +233,8 @@
     "filterSubtypeAll": "All types",
     "pickFilter": "Please select a brand or type",
     "pickBrand": "Please select a brand",
-    "pickFilterDesc": "There are too many entries to list at once. You can also search directly"
+    "pickFilterDesc": "There are too many entries to list at once. You can also search directly",
+    "specDerived": "from {count} owners"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",

@@ -3,6 +3,7 @@ import type { Viewer } from "@/lib/auth/viewer";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { inferCodexBrand } from "@/lib/codex-brand";
 import { loadBrandIndex } from "@/lib/data/brand";
+import { getCodexSpecs } from "@/lib/data/codex-spec";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
@@ -560,6 +561,22 @@ export async function getCodexAttrs(
   });
   if (sample?.brand) {
     attrs.unshift({ key: "brand", label: labelOf("brand"), value: sample.brand.name });
+  }
+
+  /*
+    D-312 — **제품 스펙**을 뒤에 붙인다. 위의 고유값·브랜드는 매칭 키에서 파생된
+    **정체성**이고, 스펙은 도감이 따로 가진 값이라 출처가 다르다 — 그래서 순서를
+    고정한다(정체성 먼저). 규칙은 `data/codex-spec.ts` 하나에 있다
+  */
+  const specs = await getCodexSpecs(codexId, locale);
+  for (const s of specs) {
+    attrs.push({
+      key: s.key,
+      label: s.label,
+      value: s.value,
+      source: s.source,
+      sampleSize: s.sampleSize,
+    });
   }
   return attrs;
 }

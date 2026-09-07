@@ -4,7 +4,7 @@ import { AttributeCreateForm } from "@/components/admin/attribute-create-form";
 import { AttributeOptions } from "@/components/admin/attribute-options";
 import { SubtypeAttributes } from "@/components/admin/subtype-attributes";
 import { Pill, Table, Td } from "@/components/admin/ui";
-import { setCategoryAttribute } from "@/lib/actions/admin";
+import { setAttributeIsSpec, setCategoryAttribute } from "@/lib/actions/admin";
 import { adminCategoryOptions } from "@/lib/admin-categories";
 import {
   getAdminAttributeOptions,
@@ -72,11 +72,15 @@ export default async function CategoryAttributesPage({
       <div className="mb-4 flex items-start justify-between gap-4">
         <p className="text-sm text-muted-foreground">
           삭제는 없고 비활성화만 됩니다 (D-036). 필수 개수에 상한이 없습니다 (D-039).
+          <br />
+          <b>도감 스펙</b>은 제품 고유 값입니다 (D-312) — 도감이 값을 갖고, 조사가 못 채우면
+          유저 아이템에서 추정합니다. <b>정의 단위 전역</b>이라 다른 카테고리의 같은 키도 함께
+          바뀝니다. 구매가·상태처럼 <b>그 사람 값</b>은 켜지 마세요.
         </p>
         <AttributeCreateForm />
       </div>
 
-      <Table head={["순서", "속성명 (ko)", "key", "타입", "필수", "매칭 키", "조치"]}>
+      <Table head={["순서", "속성명 (ko)", "key", "타입", "필수", "매칭 키", "도감 스펙", "조치"]}>
         {attrs.map((a, i) => (
           <tr key={a.key}>
             <Td>{i + 1}</Td>
@@ -85,6 +89,11 @@ export default async function CategoryAttributesPage({
             <Td>{TYPE_LABEL[a.type]}</Td>
             <Td>{a.required ? <Pill tone="warn">필수</Pill> : "—"}</Td>
             <Td>{a.matchingKey ? <Pill tone="sale">매칭 키</Pill> : "—"}</Td>
+            {/*
+              D-312 — 도감이 값을 가질 수 있는 속성인가. **정의 단위 전역**이라
+              여기서 켜면 다른 카테고리의 같은 키도 함께 켜진다
+            */}
+            <Td>{a.isSpec ? <Pill tone="sale">스펙</Pill> : "—"}</Td>
             <Td>
               <span className="flex items-start gap-2 whitespace-nowrap">
                 <AdminActionButton
@@ -101,6 +110,18 @@ export default async function CategoryAttributesPage({
                     categoryKey: key, attributeKey: a.key, required: !a.required,
                   })}
                 />
+                {/* 매칭 키는 스펙이 될 수 없다 — 버튼 자체를 주지 않는다 (D-312) */}
+                {!a.matchingKey && (
+                  <AdminActionButton
+                    label={a.isSpec ? "스펙 해제" : "스펙으로"}
+                    confirm={
+                      a.isSpec
+                        ? "이미 도감에 들어간 값은 남고 표시에서만 빠집니다. 이 속성을 쓰는 모든 카테고리에 적용됩니다."
+                        : "이 속성을 쓰는 모든 카테고리에 적용됩니다 (정의 단위 전역)."
+                    }
+                    action={setAttributeIsSpec.bind(null, a.key, !a.isSpec)}
+                  />
+                )}
               </span>
             </Td>
           </tr>

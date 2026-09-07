@@ -233,7 +233,8 @@
     "filterSubtypeAll": "すべての種類",
     "pickFilter": "ブランドまたは種類を選択してください",
     "pickBrand": "ブランドを選択してください",
-    "pickFilterDesc": "図鑑が多いため一度にすべては表示しません。検索から直接探すこともできます"
+    "pickFilterDesc": "図鑑が多いため一度にすべては表示しません。検索から直接探すこともできます",
+    "specDerived": "所有者{count}人の記録から"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",

@@ -228,7 +228,7 @@ model User {
   /// `preferredCategories` 가 관계인 것은 `Category` 가 테이블이기 때문이다.
   ///
   /// ⚠️ **빈 배열은 "전체"** 다. "아무것도 안 본다" 가 아니다 (D-274)
-  preferredLanguages  Locale[]
+  preferredLanguages Locale[]
 
   /// ⚠️ **봇 계정인가** (D-146). 콘텐츠를 사람이 올린 것으로 오인하지 않기
   /// 위한 표식이다. 원칙 1("소유하는 동안 데이터가 쌓인다")과 마켓 신뢰
@@ -526,12 +526,28 @@ model AttributeDefinition {
   /// true = 서비스가 사전 번역을 보유한 공통 속성. false = 카테고리 전용 커스텀
   isCommon Boolean @default(false)
 
+  /// D-312 — **제품 고유 스펙인가.** 도감이 값을 가질 수 있는 속성을 가른다.
+  ///
+  /// ⚠️ **개인 값과 제품 값을 가르는 축이다.** 케이스 지름은 같은 레퍼런스면
+  /// 누구 것이든 같지만(제품 값), 구매가·구매처·상태는 **그 사람 것**이다.
+  /// 개인 값을 도감에 올리면 남의 구매가가 공용 사전에 박힌다 (D-099 가 검색에서
+  /// 막은 것과 같은 부류).
+  ///
+  /// ⚠️ **타입으로 대신 판정하지 않는다.** `number` 를 전부 스펙으로 보면
+  /// 구매가·사이즈가 딸려 들어온다 — 판정을 한 곳에 명시해 둔다.
+  ///
+  /// ⚠️ **매칭 키와 다른 축이다.** 스펙은 도감을 **가르지 않는다** (D-291) —
+  /// 케이스 지름으로 도감을 나누면 같은 시계가 흩어진다
+  isSpec Boolean @default(false)
+
   /// 타입별 검증 규칙 (최대 길이 / 소수점 자릿수 / 최소·최대 / 미래 날짜 허용 등)
   /// item-catalog "속성 타입별 검증 규칙" 표 참조
   validation Json?
 
   categoryAttributes CategoryAttribute[]
   options            AttributeOption[]
+  /// D-312 — 도감이 가진 스펙 값
+  codexValues        CodexAttributeValue[]
 }
 
 /// A-02 규칙 — `required`·`active`·`displayOrder`는 카테고리별로 관리한다
@@ -621,19 +637,19 @@ model AttributeOption {
 /// D-043 — 원문 1개 + 언어별 alias. 번역 컬럼을 두지 않는다 (A-04 규칙)
 /// 출시 전 시드 290건 + alias 약 900건 필요 (D-044, D-047)
 model Brand {
-  id      String  @id @default(cuid())
+  id      String @id @default(cuid())
   /// 원문 1개. CSV import는 이 값 기준 upsert — 멱등해야 한다 (FR-04-B-10)
   ///
   /// ⚠️ **표시명이 아니라 식별자다** (D-276). 화면에 무엇을 띄울지는 아래
   /// `nameKo`/`nameJa`/`nameEn` 이 정한다. 이 값을 바꾸면 CSV upsert 멱등성과
   /// `resolveMasterBrand` 매칭이 함께 움직이므로 **표시명 수정으로 건드리지 않는다**
-  name    String  @unique
+  name    String @unique
   /// { ko: string[], ja: string[], en: string[] } — **검색 인덱스 전용**, 화면 미표시
   ///
   /// ⚠️ **표시명 3필드가 생겨도 이것은 남는다** (D-276). alias 에는 3필드로
   /// 담기지 않는 **약어·이표기**가 89건 들어 있다 — `gs`→Grand Seiko,
   /// `ap`→Audemars Piguet, `jlc`→Jaeger-LeCoultre. 지우면 그 검색어가 죽는다
-  aliases Json    @default("{}")
+  aliases Json   @default("{}")
 
   /// 표시용 언어별 명칭 (D-276). **검색이 아니라 화면에 띄우는 값**이다.
   ///
@@ -643,9 +659,9 @@ model Brand {
   /// ⚠️ **nullable 이다.** 비면 `name`(원문)으로 떨어진다 — D-046 브랜드 요청
   /// 승인처럼 3개 언어를 당장 채울 수 없는 경로가 있고, 거기서 막히면
   /// 브랜드가 아예 안 만들어진다. 빈 이름을 띄우는 것보다 원문이 낫다
-  nameKo  String?
-  nameJa  String?
-  nameEn  String?
+  nameKo String?
+  nameJa String?
+  nameEn String?
 
   /// 노출 우선순위 — **높을수록 앞** (D-285). 같은 값이면 명칭 사전순.
   ///
@@ -669,7 +685,7 @@ model Brand {
   /// 목록에만 나타난다.
   displayOrder Int @default(0)
 
-  active  Boolean @default(true)
+  active Boolean @default(true)
 
   /// D-255 — 카테고리 **또는 그 하위 종류**에 연결된다 (종전 Category N:M).
   ///
@@ -793,15 +809,15 @@ model CodexItem {
   /// 없어지는 것이 아니다.** 도감은 유저 등록으로 자동 생성되므로(D-005)
   /// 3개 언어를 요구할 수 없다 — 그것이 D-009 선택지 B 가 탈락한 이유다.
   /// 언어별 명칭이 비면 **이 값으로 떨어진다**
-  displayName   String
+  displayName String
 
   /// 표시용 언어별 명칭 (D-276). **비어 있는 것이 정상이다** — 채워진 것만 쓴다.
   ///
   /// ⚠️ `aliases`(검색 전용)와 역할이 다르다. 운동 도감처럼 어드민이 만든
   /// 것에는 표시 품질의 영문명이 있지만, 유저가 만든 도감에는 없다
-  nameKo        String?
-  nameJa        String?
-  nameEn        String?
+  nameKo String?
+  nameJa String?
+  nameEn String?
 
   /// 노출 우선순위 — **높을수록 앞** (D-285). `Brand.displayOrder` 를 복사한 값이다.
   ///
@@ -812,7 +828,7 @@ model CodexItem {
   /// ⚠️ **복사본이라 갱신이 필요하다.** 브랜드 우선순위를 바꾸면 스크립트를
   /// 다시 돌려야 도감에 반영된다. 안 돌려도 **정렬만 옛 값일 뿐** 기능은
   /// 멀쩡하다 — 그래서 실시간 동기화를 만들지 않았다
-  displayOrder  Int @default(0)
+  displayOrder  Int     @default(0)
   /// 매칭 키가 단일 키인 카테고리의 고유값 (레퍼런스넘버·스타일코드 등)
   uniqueId      String?
   /// D-014 — 매칭 키를 정규화해 만든 키. **스코프 단위** 유일 (D-254)
@@ -865,6 +881,9 @@ model CodexItem {
 
   items Item[]
 
+  /// D-312 — 스펙 값 (케이스 지름·러그투러그 등). **매칭 키와 다른 축이다**
+  specValues CodexAttributeValue[]
+
   /// D-197 — 정식 값(PRIMARY) + 키 alias(ALIAS)
   matchKeys        CodexMatchKey[]
   /// D-196 — 이 도감이 survivor 였던 병합들
@@ -909,6 +928,59 @@ enum MatchKeySource {
 /// ⚠️ **`CodexItem.normalizedKey` 를 대체하지 않는다.** 무엇이 정식 값인지가
 /// D-186 가드(슬러그 차단)와 D-195(정식 값 정의)의 판정 기준이다. PRIMARY 행은
 /// 그 미러이고 삽입 규칙 한 곳(`lib/codex-insert.ts`)에서만 함께 쓴다.
+/// D-312 — 도감 스펙 값의 **출처**. 우선순위가 곧 이 순서다
+enum CodexSpecSource {
+  /// 어드민이 직접 넣었다 — 사람이 확인한 값이라 가장 세다
+  ADMIN
+  /// 자료 조사가 채웠다 (A-04 · `db:research-codex`)
+  RESEARCH
+  /// 유저 아이템에서 **추정**했다. 틀릴 수 있고 화면이 그렇게 말한다
+  DERIVED
+}
+
+/// D-312 — 도감이 가진 **제품 스펙 값**.
+///
+/// ## ⚠️ `ItemAttributeValue` 와 무엇이 다른가
+/// 저기는 **그 사람의 물건**의 값이고 여기는 **제품 원형**의 값이다. 같은
+/// 레퍼런스를 가진 시계 100개의 케이스 지름은 하나다 — 100번 저장할 이유가 없고,
+/// 아무도 안 적었을 때 보여줄 값도 필요하다.
+///
+/// ## ⚠️ `categoryAttributeId` 가 아니라 **정의 id** 를 가리킨다
+/// 도감은 종류가 바뀔 수 있다 (D-309 임포트가 종류를 따라간다). 스코프에 묶인
+/// `CategoryAttribute` 를 가리키면 종류가 바뀐 순간 값이 **스코프 밖**을 가리켜
+/// 조용히 사라진다. 라벨은 읽을 때 스코프로 푼다 (D-135·D-168).
+model CodexAttributeValue {
+  id String @id @default(cuid())
+
+  codexItemId String
+  codexItem   CodexItem @relation(fields: [codexItemId], references: [id], onDelete: Cascade)
+
+  attributeDefinitionId String
+  attributeDefinition   AttributeDefinition @relation(fields: [attributeDefinitionId], references: [id], onDelete: Restrict)
+
+  /// `ItemAttributeValue.value` 와 **같은 모양**이다 — number 는 문자열로 담아
+  /// 정밀도를 보존한다. 두 곳이 다른 모양이면 비교·집계가 조용히 어긋난다
+  value Json
+
+  source CodexSpecSource
+
+  /// `DERIVED` 일 때의 근거. 다른 출처에서는 `null`.
+  ///
+  /// ⚠️ **화면이 이 값을 말한다** — "보유자 N명 기준". 근거를 안 보여주면
+  /// 유저는 추정값을 제조사 스펙으로 읽는다
+  sampleSize Int?
+  /// 최빈값에 동의한 표본 수. `sampleSize` 와 함께 일치율이 된다
+  agreement  Int?
+  derivedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 한 도감의 한 속성은 **한 값**이다 — 출처가 경쟁하지 값이 경쟁하지 않는다
+  @@unique([codexItemId, attributeDefinitionId])
+  @@index([attributeDefinitionId])
+}
+
 model CodexMatchKey {
   id String @id @default(cuid())
 
@@ -1147,7 +1219,6 @@ model Item {
   /// 자유 텍스트. 도감이 갈라지는 잔여 리스크는 item-catalog R3로 수용됨
   model   String?
 
-
   /// M-01 — CodexItem 없이도 존재할 수 있다 (도감 미연결 등록, D-032)
   codexItemId String?
   codexItem   CodexItem? @relation(fields: [codexItemId], references: [id], onDelete: SetNull)
@@ -1168,18 +1239,15 @@ model Item {
 
   /**
    * D-296 — **추억함.** `null` 이면 진열 중, 값이 있으면 보관됨(= 그 시각).
-   *
    * ## ⚠️ 삭제가 아니다
    * 보관해도 아이템·사진·속성·하루기록은 **전부 남는다.** 진열·NEW 피드·
    * 마켓·사이트맵에서만 빠지고 추억함에서 보이며, 언제든 꺼낼 수 있다.
    * 판정은 `DISPLAYABLE_ITEM` 한 곳에서 한다 — 조회부마다 적으면 한 곳이
    * 빠져 그 화면에만 샌다 (D-211 이 겪은 유형).
-   *
    * ## ⚠️ 판매완료(`SOLD`)와 다른 축이다
    * 떠난 아이템은 **소유권이 넘어간** 것이고(D-023) 보관은 **여전히 내
    * 것**이다. 그래서 도감 보유자 수에는 **계속 잡힌다.** 두 상태는 함께
    * 성립한다 — 판 물건을 추억함에 넣을 수 있다.
-   *
    * ## ⚠️ 하루기록은 따라 숨지 않는다 (D-296)
    * 방 하루기록 탭·도감 하루기록 목록에 그대로 남는다. 기록을 지우는 것은
    * **삭제**뿐이다 (`onDelete: Cascade`).

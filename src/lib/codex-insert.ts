@@ -2,6 +2,7 @@ import { resolveMasterBrand } from "@/lib/brand-master";
 import { buildMatchingKey, uniqueIdForCodex } from "@/lib/codex-key";
 import { syncPrimaryMatchKey } from "@/lib/codex-match-key";
 import { prisma } from "@/lib/prisma";
+import { specFieldsFor, writeCodexSpecs } from "@/lib/data/codex-spec";
 import { scopeIdOf } from "@/lib/scope";
 import { resolveMatchingKeyOrder } from "@/lib/subtype";
 
@@ -22,9 +23,19 @@ import { resolveMatchingKeyOrder } from "@/lib/subtype";
  * 이 함수를 부른다.
  */
 export type InsertCodexResult =
-  | { ok: true; codexId: string }
-  /** `field` 는 실제 존재하는 입력칸 키 — 없는 칸에 붙이면 화면에 뜨지 않는다 */
-  | { ok: false; error: string; field?: string };
+  /**
+   * `specSkipped` — D-312. **스펙이 왜 안 들어갔는지**를 함께 낸다.
+   * 조용히 버리면 조사 프롬프트 문제와 정상 동작(모르는 스펙)을 구분할 수 없다
+   */
+  | { ok: true; codexId: string; specSkipped?: string[] }
+  /**
+   * `field` 는 실제 존재하는 입력칸 키 — 없는 칸에 붙이면 화면에 뜨지 않는다.
+   *
+   * `existingCodexId` — D-312. **중복일 때 그 도감의 id** 다. 호출부가 스펙만
+   * 채워 넣을 수 있게 알려준다: 이미 있는 도감 2,297건은 스펙이 비어 있는데,
+   * 중복을 "실패"로만 돌려주면 재조사로 그 칸을 영원히 못 채운다
+   */
+  | { ok: false; error: string; field?: string; existingCodexId?: string };
 
 export async function insertCodex(input: {
   categoryKey: string;
@@ -36,6 +47,14 @@ export async function insertCodex(input: {
    */
   subtypeId?: string | null;
   descriptions?: { ko?: string; ja?: string; en?: string };
+  /**
+   * D-312 — 제품 스펙 (속성 key → 값). **없어도 된다.**
+   *
+   * ⚠️ **도감 생성이 스펙 때문에 실패하지 않는다.** 값이 잘못됐으면 그 칸만
+   * 버리고 도감은 만든다 — 스펙은 표시용이고 매칭에 쓰이지 않는다 (D-291).
+   * 버린 사유는 `specSkipped` 로 돌려준다
+   */
+  specs?: Record<string, unknown>;
   /**
    * ⚠️ **호출부가 정한다 — 출처에 따라 갈린다.** 사람이 확인해서 넣었으면
    * `VERIFIED`(FR-04-A-02), AI 조사분이면 `UNVERIFIED`(A-05 검수 대기).
@@ -135,6 +154,7 @@ export async function insertCodex(input: {
   if (dup) {
     return {
       ok: false,
+      existingCodexId: dup.id,
       error: `이미 있는 도감입니다 — "${dup.displayName}"`,
       field: keyOrder[0],
     };
@@ -149,11 +169,13 @@ export async function insertCodex(input: {
     where: {
       scopeId_value: { scopeId, value: key.normalizedKey },
     },
-    select: { kind: true, codexItem: { select: { displayName: true } } },
+    select: { kind: true, codexItem: { select: { id: true, displayName: true } } },
   });
   if (taken) {
     return {
       ok: false,
+      // ⚠️ alias 로 잡힌 것도 **그 도감**이다 — 스펙은 거기 채워야 맞다
+      existingCodexId: taken.codexItem.id,
       error:
         taken.kind === "ALIAS"
           ? `다른 도감의 키 alias 로 쓰이는 값입니다 — "${taken.codexItem.displayName}"`
@@ -200,5 +222,28 @@ export async function insertCodex(input: {
     return made.id;
   });
 
-  return { ok: true, codexId };
+  /*
+    D-312 — 스펙은 **트랜잭션 밖**이다. 매칭 키와 달리 없어도 도감이 성립하므로
+    (표시용이고 매칭에 안 쓰인다) 스펙 하나가 잘못됐다고 도감 생성을 되돌리면
+    조사 결과가 통째로 날아간다. 규칙은 `data/codex-spec.ts` 하나에 있다
+  */
+  let specSkipped: string[] = [];
+  if (input.specs && Object.keys(input.specs).length > 0) {
+    const fields = await specFieldsFor({
+      categoryKey: input.categoryKey,
+      subtypeKey,
+      // 어드민·스크립트 경로다 — ko 단일 (D-030)
+      locale: "ko",
+    });
+    const res = await writeCodexSpecs({
+      codexItemId: codexId,
+      fields,
+      values: input.specs,
+      // 조사·어드민 등록이 이 경로를 쓴다. 추정은 별도 배치다
+      source: "RESEARCH",
+    });
+    specSkipped = res.skipped;
+  }
+
+  return { ok: true, codexId, specSkipped };
 }

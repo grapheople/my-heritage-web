@@ -26,6 +26,15 @@ export type CodexAttr = {
   key: string;
   label: string;
   value: string;
+  /**
+   * D-312 — 도감 스펙의 **출처**. 아이템 속성에는 없다(항상 그 사람이 적은 값).
+   *
+   * ⚠️ `DERIVED` 는 **유저 데이터에서 추정한 값**이라 틀릴 수 있다. 화면이
+   * 그 사실을 말해야 한다 — 근거를 숨기면 유저는 제조사 스펙으로 읽는다
+   */
+  source?: "ADMIN" | "RESEARCH" | "DERIVED";
+  /** `DERIVED` 일 때의 표본 수 — "보유자 N명 기준" */
+  sampleSize?: number;
 };
 
 export type CodexEntry = {
