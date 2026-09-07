@@ -15,6 +15,7 @@ import {
   getAdminSubtypes,
   getCodexKeyForms,
 } from "@/lib/data/admin";
+import { listBrandOptions } from "@/lib/data/brand";
 
 /**
  * 카테고리 상세 — 도감 (A-04 카테고리분 흡수, codex F-04 · D-246 · D-248).
@@ -40,9 +41,7 @@ export default async function CategoryCodexPage({
 }: PageProps<"/admin/categories/[key]/codex">) {
   const { key } = await params;
   const listParams = parseListParams(await searchParams);
-  const [list, keyForms, allSubtypes] = await Promise.all([
-    // ⚠️ URL 의 카테고리가 이긴다 — 쿼리의 category 는 덮어쓴다
-    getAdminCodexPage({ ...listParams, category: key }),
+  const [keyForms, allSubtypes] = await Promise.all([
     getCodexKeyForms(),
     getAdminSubtypes(),
   ]);
@@ -50,6 +49,28 @@ export default async function CategoryCodexPage({
   const subtypes = allSubtypes
     .filter((s) => s.categoryKey === key && s.active)
     .map((s) => ({ key: s.key, label: s.labels.ko }));
+  /*
+    D-310 — 종류·브랜드 필터. **목록에 없는 값은 버린다** — 옛 링크가 다른
+    카테고리의 값을 실어 오면 결과가 0건이 되고 "도감이 없다"로 읽힌다
+  */
+  const subtype = subtypes.some((s) => s.key === listParams.subtype)
+    ? listParams.subtype
+    : "";
+  const brands = await listBrandOptions({
+    categoryKey: key,
+    // D-255 — 종류를 주면 그 종류 전용 브랜드가 **더해진다**
+    subtypeKey: subtype || null,
+    // 어드민은 ko 단일이다 (D-030)
+    langOrder: ["ko"],
+  });
+  const brand = brands.some((b) => b.name === listParams.brand) ? listParams.brand : "";
+  const list = await getAdminCodexPage({
+    ...listParams,
+    // ⚠️ URL 의 카테고리가 이긴다 — 쿼리의 category 는 덮어쓴다
+    category: key,
+    subtype,
+    brand,
+  });
   /*
     ⚠️ **미분류 건수는 이 페이지 기준이 아니라 전체 기준이어야 한다.** 페이지
     기준으로 세면 2페이지에서 숫자가 줄어 "거의 끝났다"로 오인한다 (D-183 이
@@ -107,6 +128,12 @@ export default async function CategoryCodexPage({
 
       {/* categories 를 넘기지 않는다 — 카테고리는 URL 로 고정됐다 */}
       <AdminListControls
+        subtypes={subtypes}
+        brands={brands.map((b) => ({
+          name: b.name,
+          // 원문을 지우지 않는다 — 도감 명칭이 원문 표기다 (D-009)
+          label: b.label === b.name ? b.name : `${b.label} (${b.name})`,
+        }))}
         total={list.total}
         filtered={list.filtered}
         loadLimit={list.loadLimit}

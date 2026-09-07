@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { CategorySelect } from "@/components/domain/category-select";
+import { CodexFilters } from "@/components/domain/codex-filters";
+import type { BrandOption } from "@/lib/data/brand";
+import type { SubtypeOption } from "@/lib/subtype";
 
 /**
  * 도감 검색 입력 (D-165).
@@ -24,10 +27,19 @@ export function SearchBar({
   q,
   categoryKeys,
   category,
+  subtypes,
+  subtype,
+  brands,
+  brand,
 }: {
   categoryKeys: string[];
   category: string;
   q: string;
+  /** 좁히기 축 (D-310). 종류가 없는 카테고리면 빈 배열 */
+  subtypes: SubtypeOption[];
+  subtype: string;
+  brands: BrandOption[];
+  brand: string;
 }) {
   const t = useTranslations();
   const router = useRouter();
@@ -70,9 +82,18 @@ export function SearchBar({
       </form>
 
       {/* 카테고리 축 — 검색도 한 카테고리 안에서다 (D-137·D-138).
-          다른 화면과 같은 자리(우측)에 둔다 (D-141) */}
-      <div className="flex items-center justify-end gap-3 px-4 pb-3 pt-3 lg:px-0">
+          다른 화면과 같은 자리(우측)에 둔다 (D-141).
+
+          ⚠️ 종류·브랜드가 붙어 컨트롤이 최대 3개다 (D-310) — 좁은 화면에서
+          줄바꿈시킨다. 가로로 넘치면 브랜드가 화면 밖으로 나간다 */}
+      <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-3 pt-3 lg:gap-3 lg:px-0">
         <CategorySelect keys={categoryKeys} active={category} />
+        <CodexFilters
+          subtypes={subtypes}
+          subtype={subtype}
+          brands={brands}
+          brand={brand}
+        />
       </div>
     </div>
   );

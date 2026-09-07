@@ -227,7 +227,13 @@
     "wearTitle": "Daily log",
     "noWear": "No daily logs yet",
     "wearLoginRequired": "Log in to see the daily logs",
-    "exerciseReference": "Watch form video"
+    "exerciseReference": "Watch form video",
+    "filterBrand": "Brand",
+    "filterBrandAll": "All brands",
+    "filterSubtypeAll": "All types",
+    "pickFilter": "Please select a brand or type",
+    "pickBrand": "Please select a brand",
+    "pickFilterDesc": "There are too many entries to list at once. You can also search directly"
   },
   "feed": {
     "emptyByLang": "No items are on display in this language yet.",

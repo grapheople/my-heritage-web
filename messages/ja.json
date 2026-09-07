@@ -227,7 +227,13 @@
     "wearTitle": "1日の記録",
     "noWear": "まだ1日の記録がありません",
     "wearLoginRequired": "ログインするとこの{category}の1日の記録を見られます",
-    "exerciseReference": "フォーム動画を見る"
+    "exerciseReference": "フォーム動画を見る",
+    "filterBrand": "ブランド",
+    "filterBrandAll": "すべてのブランド",
+    "filterSubtypeAll": "すべての種類",
+    "pickFilter": "ブランドまたは種類を選択してください",
+    "pickBrand": "ブランドを選択してください",
+    "pickFilterDesc": "図鑑が多いため一度にすべては表示しません。検索から直接探すこともできます"
   },
   "feed": {
     "emptyByLang": "この言語圏にはまだ展示されたアイテムがありません。",

@@ -24,6 +24,13 @@ export const DEFAULT_PAGE_SIZE = 50;
 export type AdminListParams = {
   q: string;
   category: string;
+  /**
+   * `CategorySubtype.key` (D-310). **카테고리 안에서만 유일하다** — 카테고리가
+   * 안 걸린 목록에서 이 값만 쓰면 다른 카테고리의 같은 key 까지 걸린다
+   */
+  subtype: string;
+  /** 브랜드 **원문**(`Brand.name`). 표시명이 아니다 (D-276) */
+  brand: string;
   size: number;
   page: number;
 };
@@ -37,6 +44,8 @@ export function parseListParams(
   return {
     q: one("q").trim(),
     category: one("category"),
+    subtype: one("subtype"),
+    brand: one("brand"),
     // 임의의 size 를 허용하면 목록 전체를 한 번에 뽑는 주소가 만들어진다
     size: (PAGE_SIZES as readonly number[]).includes(size) ? size : DEFAULT_PAGE_SIZE,
     page: Number.isFinite(page) && page > 1 ? Math.floor(page) : 1,

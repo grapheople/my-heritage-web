@@ -1,6 +1,8 @@
 import type { CodexAttr, CodexEntry, MarketListing } from "@/lib/data/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import { normalizeBrandToken } from "@/lib/brand-search";
+import { inferCodexBrand } from "@/lib/codex-brand";
+import { loadBrandIndex } from "@/lib/data/brand";
 import { blockedUserIds, publicRoomWhere } from "@/lib/data/scope";
 import { deriveItemName, NAME_SELECT } from "@/lib/data/item-name";
 import { realPhotoUrl } from "@/lib/data/photo";
@@ -203,6 +205,73 @@ const CODEX_SELECT = {
 } as const;
 
 /**
+ * 도감 필터 축 — 카테고리 · **종류** · **브랜드** (D-310).
+ *
+ * ⚠️ 브랜드만 성격이 다르다. 종류는 컬럼(`subtypeId`)이라 DB 조건으로 걸리지만
+ * **브랜드는 링크가 없어**(D-289) 이름에서 추정해야 한다 — `where` 로 밀 수
+ * 없다. 그래서 아래 `codexIdsOfBrand` 가 id 집합을 미리 만들어 `id in` 으로
+ * 넘긴다.
+ */
+export type CodexFilter = {
+  category?: string;
+  /** `CategorySubtype.key`. 없는 카테고리가 있다 (시계·신발 — D-253) */
+  subtype?: string;
+  /** **원문**(`Brand.name`)이다. 표시명을 받으면 아무것도 안 걸린다 (D-276) */
+  brand?: string;
+};
+
+/** 종류 조건 — 카테고리 조건과 함께 쓴다 */
+function scopeWhere(f: CodexFilter) {
+  return {
+    ...(f.category ? { category: { key: f.category } } : {}),
+    ...(f.subtype ? { subtype: { key: f.subtype } } : {}),
+  };
+}
+
+/**
+ * 브랜드에 속한 도감 id — **추정으로 만든다** (D-289).
+ *
+ * ## ⚠️ `take` 보다 먼저 계산해야 한다
+ * 목록을 `CODEX_BROWSE_LIMIT` 로 자른 뒤 메모리에서 브랜드를 거르면 **60건 중
+ * 몇 건**만 남는다 — 유저에게는 "그 브랜드 도감이 3개뿐"으로 보인다. 카테고리
+ * 전건을 먼저 훑어 id 를 확정하고, 자르기는 그 뒤다.
+ *
+ * ⚠️ **브랜드를 못 찾으면 빈 배열**이고 호출부는 결과를 비운다. 조건을 무시하고
+ * 전체를 보여주면 유저는 필터가 걸린 줄 안다.
+ */
+async function codexIdsOfBrand(f: CodexFilter & { brand: string }): Promise<string[]> {
+  if (!f.category) return [];
+  const [index, rows] = await Promise.all([
+    loadBrandIndex(f.category),
+    prisma.codexItem.findMany({
+      where: { mergedIntoId: null, ...scopeWhere(f) },
+      select: { id: true, normalizedKey: true, displayName: true },
+    }),
+  ]);
+  return rows
+    .filter(
+      (r) =>
+        inferCodexBrand(
+          {
+            normalizedKey: r.normalizedKey,
+            displayName: r.displayName,
+            categoryKey: f.category!,
+          },
+          index,
+        ) === f.brand,
+    )
+    .map((r) => r.id);
+}
+
+/** 필터를 Prisma `where` 조각으로. 브랜드가 있으면 id 집합을 먼저 구한다 */
+async function filterWhere(f: CodexFilter) {
+  const base = scopeWhere(f);
+  if (!f.brand) return base;
+  const ids = await codexIdsOfBrand({ ...f, brand: f.brand });
+  return { ...base, id: { in: ids } };
+}
+
+/**
  * 도감 검색 (S-25 도감 탭 — 옛 S-08) — 원문 명칭·고유값·전 언어 alias 를 모두 매칭
  * (FR-06-B-01·02, D-009).
  *
@@ -214,10 +283,14 @@ const CODEX_SELECT = {
  */
 export async function searchCodex(
   query: string,
-  opts: { category?: string; viewer: Viewer | null; withOwnerCount: boolean },
+  opts: CodexFilter & { viewer: Viewer | null; withOwnerCount: boolean },
 ): Promise<{ entry: CodexPublic; ownerCount?: number; matchedAlias?: string }[]> {
   const nq = normalizeBrandToken(query);
   if (!nq) return [];
+
+  // 종류·브랜드 축도 검색에 걸린다 (D-310) — 필터를 켜 둔 채 검색했는데 다른
+  // 종류·브랜드가 섞여 나오면 유저는 필터가 풀린 것으로 읽는다
+  const scoped = await filterWhere(opts);
 
   /*
     ## ⚠️ 초판은 **필터 없이 `take: 300`** 이었다 — 도감이 그보다 많으면 조용히 샌다
@@ -253,7 +326,7 @@ export async function searchCodex(
     where: {
       // 병합으로 흡수된 도감은 결과에 내지 않는다 — survivor 를 보여줘야 한다 (D-016)
       mergedIntoId: null,
-      ...(opts.category ? { category: { key: opts.category } } : {}),
+      ...scoped,
       OR: [
         { normalizedKey: { contains: nq } },
         { displayName: { contains: query.trim(), mode: "insensitive" } },
@@ -344,18 +417,20 @@ export const CODEX_BROWSE_LIMIT = 60;
  * 브라우즈는 "무엇이 있는지 감을 준다"까지다 — 상한과 전체 개수를 함께 낸다
  * (OI-80).
  */
-export async function listCodex(opts: {
-  category?: string;
-  viewer: Viewer | null;
-  withOwnerCount: boolean;
-}): Promise<{
+export async function listCodex(
+  opts: CodexFilter & {
+    viewer: Viewer | null;
+    withOwnerCount: boolean;
+  },
+): Promise<{
   total: number;
   hits: { entry: CodexPublic; ownerCount?: number }[];
 }> {
   const where = {
     // 병합으로 흡수된 도감은 내지 않는다 — survivor 를 보여줘야 한다 (D-016)
     mergedIntoId: null,
-    ...(opts.category ? { category: { key: opts.category } } : {}),
+    // 종류·브랜드 축 (D-310). 브랜드는 추정이라 id 집합으로 온다
+    ...(await filterWhere(opts)),
   };
   const [total, rows] = await Promise.all([
     prisma.codexItem.count({ where }),

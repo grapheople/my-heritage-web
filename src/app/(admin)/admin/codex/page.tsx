@@ -7,6 +7,8 @@ import { AdminListControls } from "@/components/admin/list-controls";
 import { parseListParams } from "@/lib/admin-list-params";
 import { adminCategoryOptions } from "@/lib/admin-categories";
 import { getAdminCodexPage } from "@/lib/data/admin";
+import { listBrandOptions } from "@/lib/data/brand";
+import { getSubtypeOptions } from "@/lib/subtype";
 
 /**
  * A-04 도감 **전체 검색** (codex F-04).
@@ -25,13 +27,40 @@ import { getAdminCodexPage } from "@/lib/data/admin";
  *
  * 도감 명칭은 **원문 1개 고정**이고 번역하지 않는다 (D-009).
  * 설명은 검증본만 3개 언어다 (FR-07-A-05) — A-05 검증 큐에서 입력한다.
+ *
+ * ## ⚠️ 종류·브랜드 필터는 **카테고리를 고른 뒤에만** 뜬다 (D-310)
+ * 종류 key 는 카테고리 안에서만 유일하고(`@@unique[categoryId, key]`) 브랜드도
+ * 카테고리에 연결된다(D-044). 카테고리 없이 두면 무엇에 걸리는지 알 수 없다.
+ *
+ * ⚠️ **여기에는 게이트가 없다.** 유저 도감 탭은 종류·브랜드를 고르기 전까지
+ * 목록을 내지 않지만(D-310), 이 화면의 존재 이유가 **카테고리를 모르는 상태에서
+ * 횡단 검색**하는 것이다 (D-248) — 막으면 화면이 죽는다.
  */
 export default async function AdminCodexPage({
   searchParams,
 }: PageProps<"/admin/codex">) {
   const params = parseListParams(await searchParams);
+  /*
+    ⚠️ **종류를 먼저 확정하고 조회한다.** 다른 카테고리의 종류 key 가 URL 로
+    실려 오면 결과가 0건이 되고, 어드민은 그것을 "도감이 없다"로 읽는다 —
+    목록에 없는 값은 버린다 (유저 도감 탭과 같은 처리).
+  */
+  const subtypes = params.category
+    ? await getSubtypeOptions(params.category, "ko")
+    : [];
+  const subtype = subtypes.some((s) => s.key === params.subtype) ? params.subtype : "";
+  const brands = params.category
+    ? await listBrandOptions({
+        categoryKey: params.category,
+        // D-255 — 종류를 주면 그 종류 전용 브랜드가 **더해진다**
+        subtypeKey: subtype || null,
+        // 어드민은 ko 단일이다 (D-030). 표시명이 없으면 원문으로 떨어진다
+        langOrder: ["ko"],
+      })
+    : [];
+  const brand = brands.some((b) => b.name === params.brand) ? params.brand : "";
   const [list, categories] = await Promise.all([
-    getAdminCodexPage(params),
+    getAdminCodexPage({ ...params, subtype, brand }),
     adminCategoryOptions(),
   ]);
   const codex = list.rows;
@@ -44,6 +73,12 @@ export default async function AdminCodexPage({
 
       <AdminListControls
         categories={categories}
+        subtypes={subtypes}
+        brands={brands.map((b) => ({
+          name: b.name,
+          // 원문을 지우지 않는다 — 도감 명칭이 원문 표기다 (D-009)
+          label: b.label === b.name ? b.name : `${b.label} (${b.name})`,
+        }))}
         total={list.total}
         filtered={list.filtered}
         loadLimit={list.loadLimit}

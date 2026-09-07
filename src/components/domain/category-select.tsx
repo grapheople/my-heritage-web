@@ -50,6 +50,17 @@ export function CategorySelect({
           // 다른 조건(검색어·정렬·언어권)은 유지한다
           const p = new URLSearchParams(window.location.search);
           p.set("category", key);
+          /*
+            ⚠️ **종류·브랜드는 버린다** (D-310). 둘 다 카테고리 안에서만 뜻이
+            있는 값이다 — 종류 key 는 카테고리별로 따로 정의되고(`@@unique
+            [categoryId, key]`) 브랜드도 카테고리에 연결된다(D-044). 들고
+            넘어가면 조건이 아무것도 안 걸리거나 엉뚱한 것에 걸린다.
+
+            이 컴포넌트는 홈·마켓도 쓰지만 그 화면들은 두 값을 읽지 않아
+            지워도 아무 영향이 없다
+          */
+          p.delete("subtype");
+          p.delete("brand");
           startTransition(async () => {
             await setCategory(key);
             router.push(`${pathname}?${p.toString()}`);

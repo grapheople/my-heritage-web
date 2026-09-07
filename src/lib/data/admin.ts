@@ -1,7 +1,8 @@
 import { categoryLabelKo } from "@/lib/category-label";
 import { normalizeBrandToken } from "@/lib/brand-search";
 import { prisma } from "@/lib/prisma";
-import { buildBrandIndex, countCodexByBrand } from "@/lib/codex-brand";
+import { buildBrandIndex, countCodexByBrand, inferCodexBrand } from "@/lib/codex-brand";
+import { loadBrandIndex } from "@/lib/data/brand";
 
 /**
  * 어드민 조회 (A-01~A-13).
@@ -665,6 +666,10 @@ const ADMIN_LIST_LIMIT = 1000;
 export type AdminListQuery = {
   q?: string;
   category?: string;
+  /** D-310 — 도감 목록의 종류 축. `CategorySubtype.key` */
+  subtype?: string;
+  /** D-310 — 브랜드 **원문**(`Brand.name`) */
+  brand?: string;
   page?: number;
   size?: number;
 };
@@ -877,9 +882,26 @@ export async function getAdminCodexPage(
   q: AdminListQuery & { unverifiedOnly?: boolean } = {},
 ) {
   const all = await getAdminCodex({ unverifiedOnly: q.unverifiedOnly });
+  /*
+    ⚠️ **브랜드는 이름에서 추정한다** (D-289) — `CodexItem` 에 링크가 없어
+    `where` 로 밀 수 없다. 규칙의 단일 출처는 `lib/codex-brand.ts` 이고 여기는
+    후보표만 받아 쓴다. 필터가 안 걸렸으면 조회하지 않는다 — 목록을 열 때마다
+    브랜드 스코프 전건을 읽을 이유가 없다
+  */
+  const brandIndex = q.brand ? await loadBrandIndex(q.category || undefined) : null;
   const filtered = all.filter((c) => {
     // ⚠️ `categoryKey` 는 `category.watch` 형태다 — 접두를 떼고 비교한다
     if (q.category && c.categoryKey !== `category.${q.category}`) return false;
+    // D-310 — 종류. 미분류(`null`)는 어떤 종류에도 걸리지 않는다
+    if (q.subtype && c.subtypeKey !== q.subtype) return false;
+    if (brandIndex && q.brand) {
+      const categoryKey = c.categoryKey.replace(/^category\./, "");
+      const brand = inferCodexBrand(
+        { normalizedKey: c.normalizedKey, displayName: c.displayName, categoryKey },
+        brandIndex,
+      );
+      if (brand !== q.brand) return false;
+    }
     if (!q.q) return true;
     return matchesQuery(
       [c.displayName, c.uniqueId, c.normalizedKey, ...c.aliases, ...c.keyAliases.map((k) => k.value)],

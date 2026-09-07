@@ -22,6 +22,8 @@ import { PAGE_SIZES, parseListParams } from "@/lib/admin-list-params";
 
 export function AdminListControls({
   categories,
+  subtypes,
+  brands,
   total,
   filtered,
   loadLimit,
@@ -34,6 +36,20 @@ export function AdminListControls({
    * 없는 화면이 있다 — 빈 선택을 두면 어드민이 "왜 안 걸리지"를 묻게 된다
    */
   categories?: { key: string; label: string }[];
+  /**
+   * 종류 선택지 (D-310). **카테고리가 정해진 화면에서만 넘긴다** — 종류 key 는
+   * 카테고리 안에서만 유일해서, 전 카테고리 목록에 두면 무엇에 걸리는지
+   * 어드민이 알 수 없다.
+   *
+   * ⚠️ 비우면 그리지 않는다 — 종류가 없는 카테고리가 있다 (D-253)
+   */
+  subtypes?: { key: string; label: string }[];
+  /**
+   * 브랜드 선택지 (D-310). 값은 **원문**(`Brand.name`)이다 (D-276).
+   *
+   * ⚠️ 종류와 같은 이유로 **카테고리가 정해진 화면에서만** 넘긴다
+   */
+  brands?: { name: string; label: string }[];
   /** 필터 적용 **전** 전체 건수 */
   total: number;
   /** 필터 적용 **후** 건수 */
@@ -51,7 +67,16 @@ export function AdminListControls({
 
   const current = parseListParams(Object.fromEntries(sp.entries()));
 
-  function apply(next: Partial<{ q: string; category: string; size: string; page: string }>) {
+  function apply(
+    next: Partial<{
+      q: string;
+      category: string;
+      subtype: string;
+      brand: string;
+      size: string;
+      page: string;
+    }>,
+  ) {
     const params = new URLSearchParams(sp.toString());
     for (const [k, v] of Object.entries(next)) {
       if (v) params.set(k, v);
@@ -111,13 +136,50 @@ export function AdminListControls({
         {categories && categories.length > 0 && (
           <select
             value={current.category}
-            onChange={(e) => apply({ category: e.target.value })}
+            /*
+              ⚠️ **종류·브랜드를 함께 버린다** (D-310). 둘 다 카테고리 안에서만
+              뜻이 있는 값이라, 들고 넘어가면 결과가 0건이 되고 어드민은 그것을
+              "이 카테고리에 없다"로 읽는다
+            */
+            onChange={(e) => apply({ category: e.target.value, subtype: "", brand: "" })}
             className="rounded-md border px-2 py-1.5 text-sm"
           >
             <option value="">전체 카테고리</option>
             {categories.map((c) => (
               <option key={c.key} value={c.key}>
                 {c.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {subtypes && subtypes.length > 0 && (
+          <select
+            value={current.subtype}
+            /* 종류를 바꾸면 브랜드는 스코프 밖일 수 있다 (D-255) — 함께 비운다 */
+            onChange={(e) => apply({ subtype: e.target.value, brand: "" })}
+            className="rounded-md border px-2 py-1.5 text-sm"
+          >
+            <option value="">전체 종류</option>
+            {subtypes.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {brands && brands.length > 0 && (
+          <select
+            value={current.brand}
+            onChange={(e) => apply({ brand: e.target.value })}
+            className="max-w-48 rounded-md border px-2 py-1.5 text-sm"
+          >
+            <option value="">전체 브랜드</option>
+            {/* ⚠️ 값은 **원문**이다 — 표시명을 보내면 아무것도 안 걸린다 (D-276) */}
+            {brands.map((b) => (
+              <option key={b.name} value={b.name}>
+                {b.label}
               </option>
             ))}
           </select>
