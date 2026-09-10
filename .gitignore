@@ -26,6 +26,11 @@ yarn-error.log*
 
 # local env files
 .env*.local
+# ⚠️ `vercel env pull .env.vercel` 같은 파일도 **시크릿이다.** `.env*.local` 은
+#    이름이 `.local` 로 끝나야 걸려서 `.env.vercel`·`.env.local.bak` 이 새어나간다
+.env.vercel
+.env*.bak*
+!.env.example
 .env
 
 # vercel

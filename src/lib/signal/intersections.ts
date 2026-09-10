@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { fetchIntersectionMap } from "./tdata";
+import { fetchIntersectionMap } from "./providers";
 
 /**
  * 개방 대상 교차로 목록 — **수집은 어쩌다 한 번, 검색은 항상 로컬.**

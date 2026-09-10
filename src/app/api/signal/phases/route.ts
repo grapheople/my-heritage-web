@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth/viewer";
 import { parseKind } from "@/lib/signal/live-target";
 import { checkPortalQuota, recordPortalCalls } from "@/lib/signal/portal";
-import { isLiveConfigured, readPhases } from "@/lib/signal/tdata";
+import { isLiveConfigured, readPhases } from "@/lib/signal/providers";
 
 /**
  * 한 교차로의 **8방위 현시** — 방위를 눈으로 특정하기 위한 것.

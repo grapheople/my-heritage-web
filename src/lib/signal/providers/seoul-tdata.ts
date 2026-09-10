@@ -1,5 +1,12 @@
-import type { SignalState } from "./cycle";
-import type { Direction, LiveRef, SignalKind } from "./lights";
+import type { SignalState } from "../cycle";
+import type { Direction, LiveRef, SignalKind } from "../lights";
+import type {
+  IntersectionRow,
+  LiveReading,
+  LiveResult,
+  PhaseRow,
+  SignalProvider,
+} from "./types";
 
 /**
  * 서울 C-ITS 실시간 신호 — 서울교통 빅데이터 포털(T-Data) "신호제어기 신호 정보
@@ -59,19 +66,6 @@ const KIND_CODE: Record<SignalKind, string> = {
   bicycle: "Bcsg",
 };
 
-export type LiveReading = {
-  state: SignalState;
-  /** 초. 잔여시간 필드를 못 찾았으면 `null` */
-  secondsRemaining: number | null;
-  /** 진단용 — 어떤 필드를 어떻게 읽었는가 */
-  detail: {
-    stateField: string;
-    stateRaw: string | number | null;
-    remainingField?: string;
-    remainingRaw?: number;
-    unit?: "s" | "ds" | "cs";
-  };
-};
 
 export function fieldBase(direction: Direction, kind: SignalKind): string {
   return `${direction}${KIND_CODE[kind]}`;
@@ -205,7 +199,6 @@ export function isLiveConfigured(): boolean {
  * 세야 하고, 0.9초 캐시에 맞은 요청은 한도를 쓰지 않는다 — 구분하지 않으면
  * 새로고침 두 번이 호출 두 건으로 기록된다.
  */
-export type LiveResult = { reading: LiveReading | null; fetched: boolean };
 
 /**
  * 포털이 "값 없음" 을 나타내는 자리값 (2026-09-11 실측: `36001` = 360.01초).
@@ -252,12 +245,6 @@ export async function readLive(ref: LiveRef): Promise<LiveResult> {
 }
 
 /** 한 교차로의 **8방위** 현시 — 눈앞의 신호와 대조해 방위를 특정할 때 쓴다 */
-export type PhaseRow = {
-  direction: Direction;
-  state: SignalState;
-  secondsRemaining: number | null;
-  field: string;
-};
 
 export const DIRECTIONS: readonly Direction[] = [
   "nt",
@@ -300,15 +287,6 @@ export async function readPhases(
   return rows.length > 0 ? { rows, fetched } : null;
 }
 
-export type IntersectionRow = {
-  itstId: string;
-  name: string;
-  engName?: string;
-  lat: number;
-  lon: number;
-  laneWidth?: number;
-  limitSpeed?: number;
-};
 
 /**
  * 좌표 정규화.
@@ -399,3 +377,28 @@ export async function fetchIntersectionMap(): Promise<{
 
   return { items, requests };
 }
+
+/** 서울시가 담는 대략의 경위도 상자 — 경계를 정확히 그릴 필요는 없다 */
+const SEOUL_BOX = { minLat: 37.41, maxLat: 37.71, minLon: 126.76, maxLon: 127.19 };
+
+/**
+ * 서울 T-Data 제공자 (D-317).
+ *
+ * ⚠️ **서울시 신호제어기만 담는다.** 용인·수원 좌표를 물으면 빈 결과가 오는데,
+ * 그것을 "교차로 없음" 으로 보여주면 유저는 자기 위치 탓으로 오해한다 —
+ * `covers()` 가 먼저 갈라낸다.
+ */
+export const seoulTData: SignalProvider = {
+  id: "seoul-tdata",
+  label: "서울 T-Data",
+  isConfigured: isLiveConfigured,
+  covers: ({ lat, lon }) =>
+    lat >= SEOUL_BOX.minLat &&
+    lat <= SEOUL_BOX.maxLat &&
+    lon >= SEOUL_BOX.minLon &&
+    lon <= SEOUL_BOX.maxLon,
+  readLive,
+  readPhases,
+  fetchIntersections: fetchIntersectionMap,
+  // 계획정보(TOD)는 이 포털이 주지 않는다 — `readPlan` 을 구현하지 않는 것이 답이다
+};

@@ -6,7 +6,7 @@ import {
   readCatalogState,
 } from "@/lib/signal/intersections";
 import { checkPortalQuota, recordPortalCalls } from "@/lib/signal/portal";
-import { isLiveConfigured } from "@/lib/signal/tdata";
+import { isLiveConfigured } from "@/lib/signal/providers";
 
 /**
  * 개방 대상 교차로 찾기 — "내 앞의 신호등 id" 를 푸는 화면용.

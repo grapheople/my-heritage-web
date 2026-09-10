@@ -6,7 +6,7 @@ import { getLights } from "@/lib/signal/lights";
 import { readLiveTarget } from "@/lib/signal/live-target";
 import { checkPortalQuota, recordPortalCalls } from "@/lib/signal/portal";
 import { loadProfile } from "@/lib/signal/resolve";
-import { isLiveConfigured, readLive } from "@/lib/signal/tdata";
+import { isLiveConfigured, readLive } from "@/lib/signal/providers";
 
 /**
  * 주기 동기화 — **실시간 API 를 쓰는 유일한 자리다.**
