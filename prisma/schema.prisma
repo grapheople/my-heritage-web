@@ -1582,3 +1582,149 @@ model RoutineEntry {
   @@index([routineItemId, displayOrder])
   @@index([exerciseId])
 }
+
+// ---------------------------------------------------------------------------
+// 신호등 주기 보정 (`/api/signal`)
+// ---------------------------------------------------------------------------
+
+/// 보정의 출처.
+///
+/// ⚠️ **수동 측정이 1급 경로다.** 실시간 개방 대상이 아닌 교차로가 대부분이라
+/// (그리고 인증키가 없어도 되므로) 사람이 신호등을 보면서 버튼으로 재는 쪽이
+/// 실제로 더 많이 쓰인다. LIVE 를 기본값으로 둔 것은 이 열이 나중에 추가되어
+/// 기존 행이 전부 실시간 보정이기 때문일 뿐이다.
+enum SignalCalibrationSource {
+  LIVE /// 서울 C-ITS 실시간 조회 (`POST /api/signal/sync`)
+  MANUAL /// 사람이 3번 눌러 측정 (`POST /api/signal/measure`)
+}
+
+/// 고정주기의 **기준 시각·주기 길이를 맞춘 이력**.
+///
+/// ## ⚠️ 왜 이력으로 쌓는가 (덮어쓰지 않는가)
+/// 보정은 **하루 1,000건짜리 외부 쿼터를 태워서** 얻은 값이다. 덮어쓰면 그 호출로
+/// 무엇을 알아냈는지가 사라진다. 특히 `driftSec` 이 매번 같은 방향으로 커지면
+/// 주기 자체(`greenSec`·`redSec`)를 잘못 측정한 것이고, 값이 튀면 감응식 신호라는
+/// 뜻이다 — 한 행만 남기면 그 판단의 근거가 없다.
+///
+/// ## ⚠️ 신호등 목록의 SoT 는 이 테이블이 아니다
+/// 신호등 정의는 설정(`src/lib/signal/lights.ts` · `SIGNAL_LIGHTS_JSON`)이 SoT 고,
+/// 여기 `lightId` 는 그 키를 가리키는 문자열이다. FK 가 아니다 — 설정에서 신호등을
+/// 지웠다고 과거 보정 이력까지 지울 이유가 없다.
+model SignalCalibration {
+  id String @id @default(cuid())
+
+  /// 설정의 신호등 키 (`/api/signal?id=` 값)
+  lightId String
+  /// 어느 주기 프로파일을 맞춘 것인가 (`CycleProfile.label`).
+  /// ⚠️ 첨두·비첨두는 주기 길이가 달라 **기준 시각을 공유할 수 없다.**
+  /// 라벨이 없는 종일 프로파일은 `null` 이다
+  profileLabel String?
+
+  source SignalCalibrationSource @default(LIVE)
+
+  /// 보정된 기준 시각 — **이 순간에 녹색이 켜졌다**
+  greenStartAt DateTime
+  /// 설정값이 실제 신호보다 얼마나 어긋나 있었는가 (초).
+  /// 양수 = 설정이 실제보다 **늦다**(기준 시각을 앞으로 당겨야 했다)
+  driftSec Int
+
+  /// 수동 측정으로 얻은 녹색 길이·적색 길이 (초).
+  ///
+  /// ⚠️ **실시간 보정(LIVE)은 이 값을 채우지 못한다** — 관측 한 건으로는 주기
+  /// 길이를 알 수 없다. 그래서 nullable 이고, 읽을 때는 "길이가 있는 가장 최근
+  /// 행"과 "기준 시각이 가장 최근인 행"을 **따로** 찾는다. 그러지 않으면 수동
+  /// 측정 뒤에 실시간 동기화를 한 번 하는 순간 측정한 길이가 사라진다.
+  greenSec Int?
+  redSec   Int?
+
+  /// 실시간 응답 원본. 잔여시간 필드명·단위 추측이 맞았는지 나중에 검증할 근거다.
+  /// 수동 측정에는 없다
+  liveState String?
+  liveRaw   Json?
+
+  /// 요청한 유저 (`User.id`).
+  /// ⚠️ FK 를 걸지 않는다 — 탈퇴해도 "누가 쿼터를 태웠는가"는 남아야 한다
+  requestedBy String
+
+  createdAt DateTime @default(now())
+
+  @@index([lightId, profileLabel, createdAt])
+  /// 하루 호출 한도 판정용 — 신호등을 가리지 않고 오늘 몇 건인지 센다
+  @@index([createdAt])
+}
+
+/// 외부 포털 호출 종류 — 하루 한도를 정확히 세기 위한 것이다
+enum SignalPortalEndpoint {
+  SIGNAL_PHASE /// 신호제어기 신호 정보 (실시간 현시)
+  CROSSROAD_MAP /// 교차로 Map 정보 (교차로 목록·좌표)
+}
+
+/// 서울 T-Data 호출 1건.
+///
+/// ## ⚠️ 왜 보정 이력으로 세지 않는가
+/// 처음에는 `SignalCalibration` 행 수로 하루 한도를 셌는데 **틀린 집계였다.**
+/// 황색이거나 관측이 주기와 모순되면 보정을 거절하는데, 그때도 포털은 **이미
+/// 호출됐다.** 행이 안 남으므로 집계에서 빠지고, 실패가 반복되면 한도를 넘긴
+/// 채로 계속 호출한다 — 정작 한도를 지키려고 만든 장치가 그걸 못 본다.
+///
+/// 그래서 **호출 자체를 남긴다.** 교차로 목록 조회·현시 조회처럼 보정과 무관한
+/// 호출도 같은 쿼터를 쓰므로 여기 함께 들어온다.
+model SignalPortalCall {
+  id       String               @id @default(cuid())
+  endpoint SignalPortalEndpoint
+  /// 대상 (교차로 ID 또는 신호등 키). 목록 조회처럼 대상이 없으면 null
+  target      String?
+  requestedBy String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([target, createdAt])
+}
+
+/// 개방 대상 교차로 목록 캐시 (「교차로 Map 정보」).
+///
+/// ## ⚠️ 캐시가 아니라 **전제**다
+/// 목록 조회도 같은 하루 1,000건을 쓴다. 화면에서 교차로를 찾을 때마다 부르면
+/// 검색 몇 번으로 쿼터가 사라진다. 목록은 거의 바뀌지 않으므로 한 번 받아 두고
+/// 그 뒤 검색은 **전부 DB 안에서** 끝낸다.
+model SignalIntersection {
+  /// 포털의 교차로 ID (`itstId`) — `lights.ts` 의 `live.itstId` 에 넣는 값
+  itstId String @id
+  name   String
+  engName String?
+
+  /// 위도·경도 (도 단위로 정규화해 저장한다).
+  /// ⚠️ 포털 원본은 1/10 마이크로도 정수로 오는 경우가 있어 수집 시 환산한다
+  lat Float
+  lon Float
+
+  laneWidth  Int?
+  limitSpeed Int?
+
+  /// 마지막으로 목록을 받아온 시각 — 재수집 판단에 쓴다
+  syncedAt DateTime @default(now())
+
+  @@index([lat, lon])
+  @@index([name])
+}
+
+/// 화면에서 고른 실시간 조회 대상 (교차로·방위·신호종별).
+///
+/// ## ⚠️ 설정 파일이 아니라 여기가 이긴다
+/// `lights.ts` 의 `live` 는 **기본값**이다. 어느 횡단보도인지는 신호등 앞에서
+/// 눈으로 대조해야 정해지는 값이라(8방위 중 하나) 코드를 고치는 대신 화면에서
+/// 정하고 여기 저장한다 — 폰만 들고 서 있는 사람이 배포를 할 수는 없다.
+model SignalLightLive {
+  /// 설정의 신호등 키
+  lightId String @id
+  itstId  String
+  /// 방위 (nt·et·st·wt·ne·se·sw·nw)
+  direction String
+  /// 신호종별 (pedestrian·straight·left·uturn·bus·bicycle)
+  kind String
+
+  updatedBy String
+  updatedAt DateTime @updatedAt
+
+  @@index([itstId])
+}

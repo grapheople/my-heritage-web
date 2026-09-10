@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { isNavActive, NAV_ITEMS } from "./nav-items";
 
 /**
- * 하단 탭 4개 — `sm`·`md`(~1023px) 전용 (myroom-service §1-1, D-089).
+ * 하단 탭 — `sm`·`md`(~1023px) 전용 (myroom-service §1-1, D-089).
  * `lg`에서는 숨기고 `SideNav`가 같은 메뉴를 **좌측**에 낸다 (D-143). 배열은 NAV_ITEMS 공유.
  *
  * D-069 — 비로그인·정지 상태에서도 **항상 노출되고 누를 수 있다.**
@@ -22,9 +22,18 @@ export function BottomTabBar() {
       aria-label={t("new")}
       className="sticky bottom-0 z-40 border-t bg-background/95 backdrop-blur lg:hidden"
     >
-      {/* 탭 4개가 태블릿에서 과하게 벌어지지 않게 40rem 으로 묶는다.
-          `max-w-screen-sm` 은 Tailwind v4 에서 동작하지 않는다 */}
-      <ul className="mx-auto grid max-w-[40rem] grid-cols-4">
+      {/* 탭이 태블릿에서 과하게 벌어지지 않게 40rem 으로 묶는다.
+          `max-w-screen-sm` 은 Tailwind v4 에서 동작하지 않는다.
+
+          ⚠️ **열 수를 `grid-cols-4` 로 박지 않는다.** 박아두면 메뉴를 추가할 때
+          이 파일을 같이 고쳐야 한다는 사실이 어디에도 안 적혀 있어서, 5번째 탭이
+          4칸 그리드에 눌려 다음 줄로 떨어진다. Tailwind v4 는 클래스명을 정적으로
+          훑으므로 `grid-cols-${NAV_ITEMS.length}` 같은 동적 클래스는 만들어지지
+          않는다 — 그래서 인라인 스타일로 준다. */}
+      <ul
+        className="mx-auto grid max-w-[40rem]"
+        style={{ gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))` }}
+      >
         {NAV_ITEMS.map(({ href, labelKey, Icon }) => {
           const active = isNavActive(pathname, href);
           return (
