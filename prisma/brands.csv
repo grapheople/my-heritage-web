@@ -53,6 +53,7 @@ Brooks,브룩스,ブルックス,Brooks England,bicycle,브룩스,ブルック�
 Brooks Brothers,브룩스브라더스,ブルックス ブラザーズ,brooks brothers,apparel,브룩스브라더스,ブルックス ブラザーズ,Brooks Brothers
 Burberry,버버리,バーバリー,burberry,apparel,버버리,バーバリー,Burberry
 C.P. Company,씨피컴퍼니,C.P.カンパニー,cp company,apparel,씨피컴퍼니,C.P.カンパニー,C.P. Company
+Cadex,카덱스,カデックス,cadex,bicycle,카덱스,カデックス,Cadex
 Campagnolo,캄파뇰로;캄파,カンパニョーロ,campagnolo,bicycle,캄파뇰로,カンパニョーロ,Campagnolo
 Cannondale,캐논데일,キャノンデール,cannondale,bicycle,캐논데일,キャノンデール,Cannondale
 Canyon,캐니언,キャニオン,canyon,bicycle,캐니언,キャニオン,Canyon
@@ -67,6 +68,7 @@ Cervélo,서벨로,サーヴェロ,cervelo,bicycle,서벨로,サーヴェロ,Cer
 Champion,챔피언,チャンピオン,champion,apparel,챔피언,チャンピオン,Champion
 Chapter2,챕터2,チャプター2,chapter2,bicycle,챕터2,チャプター2,Chapter2
 Chopard,쇼파드,ショパール,chopard,watch,쇼파드,ショパール,Chopard
+Chris King,크리스킹,クリスキング,chrisking;ck,bicycle,크리스킹,クリスキング,Chris King
 Christopher Ward,크리스토퍼워드,クリストファー・ウォード,cw,watch,크리스토퍼워드,クリストファー・ウォード,Christopher Ward
 Chronoswiss,크로노스위스,クロノスイス,chronoswiss,watch,크로노스위스,クロノスイス,Chronoswiss
 Chums,첨스,チャムス,chums,apparel;camping,첨스,チャムス,Chums
@@ -118,6 +120,7 @@ Fjällräven,피엘라벤,フェールラーベン,fjallraven,apparel;camping;hi
 Fred Perry,프레드페리,フレッドペリー,fred perry,apparel,프레드페리,フレッドペリー,Fred Perry
 Frederique Constant,프레드릭콘스탄트,フレデリック・コンスタント,fc,watch,프레드릭콘스탄트,フレデリック・コンスタント,Frederique Constant
 Fuji,후지,フジ,fuji bike,bicycle,후지,フジ,Fuji
+Fulcrum,풀크럼,フルクラム,fulcrum,bicycle,풀크럼,フルクラム,Fulcrum
 G-SHOCK,지샥,Gショック,gshock,watch,지샥,Gショック,G-SHOCK
 Gap,갭,ギャップ,gap,apparel,갭,ギャップ,Gap
 Gentle Monster,젠틀몬스터,ジェントルモンスター,gentle monster,apparel,젠틀몬스터,ジェントルモンスター,Gentle Monster
@@ -148,9 +151,11 @@ Houdini,후디니,フーディニ,houdini,apparel;hiking,후디니,フーディ�
 Hublot,위블로,ウブロ,hublot,watch,위블로,ウブロ,Hublot
 Human Made,휴먼메이드,ヒューマンメイド,human made,apparel,휴먼메이드,ヒューマンメイド,Human Made
 Humanscale,휴먼스케일,ヒューマンスケール,humanscale,deskterior,휴먼스케일,ヒューマンスケール,Humanscale
+Hunt,헌트,ハント,hunt;huntwheels,bicycle,헌트,ハント,Hunt
 Hydro Flask,하이드로플라스크,ハイドロフラスク,hydroflask,camping,하이드로플라스크,ハイドロフラスク,Hydro Flask
 Hyperlite Mountain Gear,하이퍼라이트,ハイパーライト,hmg;hyperlite,camping;hiking,하이퍼라이트,ハイパーライト,Hyperlite Mountain Gear
 Icebreaker,아이스브레이커,アイスブレーカー,icebreaker,apparel;hiking,아이스브레이커,アイスブレーカー,Icebreaker
+Industry Nine,인더스트리나인,インダストリーナイン,industrynine;i9,bicycle,인더스트리나인,インダストリーナイン,Industry Nine
 Inov-8,이노브에이트,イノヴェイト,inov8;inov-8,shoes;hiking,이노브에이트,イノヴェイト,Inov-8
 Issey Miyake,이세이미야케,イッセイミヤケ,issey,apparel,이세이미야케,イッセイミヤケ,Issey Miyake
 Iwatani,이와타니,イワタニ,iwatani,camping,이와타니,イワタニ,Iwatani
@@ -225,6 +230,7 @@ Neighborhood,네이버후드,ネイバーフッド,nbhd;neighborhood,apparel,네
 Nemo,니모,ニーモ,nemo,camping,니모,ニーモ,Nemo
 Nepa,네파,ネパ,nepa,apparel;hiking,네파,ネパ,Nepa
 New Balance,뉴발란스,ニューバランス,nb;new balance,shoes;apparel,뉴발란스,ニューバランス,New Balance
+Newmen,뉴멘,ニューメン,newmen,bicycle,뉴멘,ニューメン,Newmen
 Nike,나이키,ナイキ,nike,shoes;apparel,나이키,ナイキ,Nike
 Nomos Glashütte,노모스,ノモス,nomos,watch,노모스,ノモス,Nomos Glashütte
 Nordisk,노르디스크,ノルディスク,nordisk,camping,노르디스크,ノルディスク,Nordisk
@@ -267,10 +273,12 @@ Razer,레이저,レイザー,razer,deskterior,레이저,レイザー,Razer
 Realforce,리얼포스,リアルフォース,realforce,deskterior,리얼포스,リアルフォース,Realforce
 Red Wing,레드윙,レッドウィング,redwing,shoes,레드윙,レッドウィング,Red Wing
 Reebok,리복,リーボック,reebok,shoes,리복,リーボック,Reebok
+Reynolds,레이놀즈,レイノルズ,reynolds,bicycle,레이놀즈,レイノルズ,Reynolds
 Ridley,리들리,リドレー,ridley,bicycle,리들리,リドレー,Ridley
 Rivendell,리븐델,リブェンデル,rivendell,bicycle,리븐델,リブェンデル,Rivendell
 Rocky Mountain,로키마운틴,ロッキーマウンテン,rocky mountain,bicycle,로키마운틴,ロッキーマウンテン,Rocky Mountain
 Rolex,롤렉스,ロレックス,rolex,watch,롤렉스,ロレックス,Rolex
+Roval,로발,ロヴァール,roval,bicycle,로발,ロヴァール,Roval
 Sacai,사카이,サカイ,sacai,apparel,사카이,サカイ,Sacai
 Saint Laurent,생로랑,サンローラン,ysl;saint laurent,apparel,생로랑,サンローラン,Saint Laurent
 Salewa,살레와,サレワ,salewa,apparel;hiking,살레와,サレワ,Salewa
@@ -305,6 +313,7 @@ Studio D'Artisan,스튜디오다르티잔,ステュディオ・ダ・ルチザ�
 Suicoke,스이코크,スイコック,suicoke,shoes,스이코크,スイコック,Suicoke
 Sunspel,선스펠,サンスペル,sunspel,apparel,선스펠,サンスペル,Sunspel
 Surly,설리,サーリー,surly,bicycle,설리,サーリー,Surly
+Syncros,싱크로스,シンクロス,syncros,bicycle,싱크로스,シンクロス,Syncros
 System,시스템,システム,system,apparel,시스템,システム,System
 TAG Heuer,태그호이어,タグ・ホイヤー,tag;heuer,watch,태그호이어,タグ・ホイヤー,TAG Heuer
 Tent-Mark Designs,텐트마크디자인,テンマクデザイン,tentmark,camping,텐트마크디자인,テンマクデザイン,Tent-Mark Designs
@@ -331,6 +340,7 @@ Vacheron Constantin,바쉐론콘스탄틴,ヴァシュロン・コンスタン�
 Vans,반스,ヴァンズ,vans,shoes,반스,ヴァンズ,Vans
 Varmilo,바밀로,バーミロ,varmilo,deskterior,바밀로,バーミロ,Varmilo
 Vasque,바스크,バスク,vasque,hiking,바스크,バスク,Vasque
+Vision,비전,ヴィジョン,vision,bicycle,비전,ヴィジョン,Vision
 Visvim,비즈빔,ビズビム,visvim,apparel,비즈빔,ビズビム,Visvim
 Warehouse,웨어하우스,ウエアハウス,warehouse;Warehouse & Co.,apparel,웨어하우스,ウエアハウス,Warehouse
 Wild Country,와일드컨트리,ワイルドカントリー,wildcountry,hiking,와일드컨트리,ワイルドカントリー,Wild Country
