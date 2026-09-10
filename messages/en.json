@@ -281,8 +281,6 @@
     "loginToMeasure": "Sign in to measure the cycle",
     "findTitle": "Find the signal",
     "findIntro": "To sync with the live signal, pick the intersection and direction once",
-    "findByLocation": "Find near me",
-    "findLocating": "Getting your location…",
     "findSearchPlaceholder": "Intersection name",
     "findSearch": "Search by name",
     "findPickIntersection": "Pick the nearest intersection",
@@ -293,7 +291,6 @@
     "findCurrent": "Live target {name} · {direction}",
     "findReset": "Pick again",
     "findFailed": "Couldn't find it — {reason}",
-    "findGeoDenied": "Location permission is required",
     "distanceM": "{meters}m",
     "shortGreen": "Green",
     "shortRed": "Red",
@@ -308,7 +305,10 @@
       "sw": "SW",
       "wt": "W",
       "nw": "NW"
-    }
+    },
+    "mapPick": "Find intersections here",
+    "mapHint": "Drag the map to place the pin on the crossing",
+    "mapLocate": "Move to my location"
   },
   "market": {
     "allCurrencies": "All currencies",

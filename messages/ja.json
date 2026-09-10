@@ -281,8 +281,6 @@
     "loginToMeasure": "ログインすると周期を測れます",
     "findTitle": "信号を探す",
     "findIntro": "リアルタイム信号に合わせるには、交差点と方位を一度だけ決めておきます",
-    "findByLocation": "現在地から探す",
-    "findLocating": "位置を確認中…",
     "findSearchPlaceholder": "交差点名",
     "findSearch": "名前で探す",
     "findPickIntersection": "近い交差点を選んでください",
@@ -293,7 +291,6 @@
     "findCurrent": "リアルタイム対象 {name}・{direction}",
     "findReset": "選び直す",
     "findFailed": "見つかりませんでした — {reason}",
-    "findGeoDenied": "位置情報の許可が必要です",
     "distanceM": "{meters}m",
     "shortGreen": "青",
     "shortRed": "赤",
@@ -308,7 +305,10 @@
       "sw": "南西",
       "wt": "西",
       "nw": "北西"
-    }
+    },
+    "mapPick": "この位置で交差点を探す",
+    "mapHint": "地図を動かして信号機の位置にピンを合わせてください",
+    "mapLocate": "現在地へ移動"
   },
   "market": {
     "allCurrencies": "すべての通貨",

@@ -93,7 +93,17 @@ export function CommuteSignal({
   const [measured, setMeasured] = useState(initial.measured);
   /** 서버 시각 − 기기 시각 (ms) */
   const [skewMs, setSkewMs] = useState(0);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  /*
+    ⚠️ **`Date.now()` 로 시작하면 hydration 이 깨진다.** 이 값은 SSR 에서 한 번,
+    브라우저 hydration 에서 또 한 번 평가되는데 그 사이에 시간이 흐른다 —
+    서버는 `50`, 클라이언트는 `49` 를 그려 React 가 트리를 통째로 다시 만든다
+    (실제로 그 오류가 났다).
+
+    서버가 계산에 쓴 시각을 그대로 받아 시작한다 (`initial.asOf`). 그러면 첫
+    렌더가 서버와 **같은 입력**으로 같은 숫자를 낸다. 실제 시각으로는 아래
+    250ms 타이머가 곧바로 따라잡는다 — 최대 250ms 뒤처질 뿐이다.
+  */
+  const [nowMs, setNowMs] = useState(() => new Date(initial.asOf).getTime());
   const [busy, setBusy] = useState<"sync" | "measure" | null>(null);
   /** 찾기에서 대상을 정하면 동기화 버튼이 그 자리에서 생긴다 */
   const [hasLiveTarget, setHasLiveTarget] = useState(syncable);

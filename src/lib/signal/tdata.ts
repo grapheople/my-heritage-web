@@ -19,9 +19,18 @@ import type { Direction, LiveRef, SignalKind } from "./lights";
  * 않는 편이 낫다.
  */
 
+/**
+ * ⚠️ **「신호제어기 잔여시간 정보」다** — `v2xSignalPhase**Timing**Information`.
+ *
+ * 이름이 비슷한 `v2xSignalPhaseInformation`(신호제어기 **신호** 정보)은 **현시
+ * 상태만 주고 잔여시간이 없다.** 이 기능이 필요한 것은 잔여시간이므로 그쪽을
+ * 부르면 애초에 쓸 값이 안 온다. 실측(2026-09-11)으로 확인했다:
+ * - `…PhaseTimingInformation/1.0` → **200**, `ntPdsgRmdrCs` 같은 잔여 필드가 온다
+ * - `…PhaseInformation/1.0` → **404** (활용신청이 API 별이라 승인 범위도 다르다)
+ */
 const ENDPOINT =
   process.env.TDATA_SIGNAL_ENDPOINT?.trim() ||
-  "http://t-data.seoul.go.kr/apig/apiman-gateway/tapi/v2xSignalPhaseInformation/1.0";
+  "http://t-data.seoul.go.kr/apig/apiman-gateway/tapi/v2xSignalPhaseTimingInformation/1.0";
 
 /**
  * 「교차로 Map 정보」 — 교차로 ID·이름·좌표 목록.
@@ -128,7 +137,8 @@ function readRemaining(
   row: Record<string, unknown>,
   base: string,
 ): { field: string; raw: number } | null {
-  const pinned = process.env.TDATA_REMAINING_FIELD?.trim();
+  // 실측 확정: `{방위}{종별}RmdrCs` (예 `ntPdsgRmdrCs`). 환경변수로 덮을 수 있다
+  const pinned = process.env.TDATA_REMAINING_FIELD?.trim() || "RmdrCs";
   if (pinned) {
     const field = pinned.startsWith(base) ? pinned : `${base}${pinned}`;
     const n = Number(row[field]);
@@ -143,16 +153,21 @@ function readRemaining(
 }
 
 /**
- * 단위 환산. 기본은 자동 판정이다 — C-ITS 는 1/10초를 쓰는 곳이 있고 포털은
- * 단위를 밝히지 않는다. 한 현시가 200초를 넘는 신호등은 사실상 없으므로 그보다
- * 큰 값은 1/10초로 본다. `TDATA_REMAINING_UNIT=s|ds|cs` 로 고정할 수 있다.
+ * 단위 환산.
+ *
+ * ⚠️ **1/100초(cs)로 확정됐다** — 필드 이름 자체가 `…RmdrCs` 이고 포털 문서도
+ * centiseconds 라고 적는다 (2026-09-11 실측·문서 확인). 종전 기본값이던 "200 을
+ * 넘으면 1/10초" 자동 판정은 **추측**이었고, 실제 값이 `36001`(=360.01초, 아래
+ * 참조)처럼 크게 들어와 1/10초로 잘못 읽힐 수 있었다.
+ *
+ * `TDATA_REMAINING_UNIT=s|ds|cs` 로 여전히 덮을 수 있다 — 다른 지자체 게이트웨이가
+ * 다른 단위를 쓸 수 있어서다.
  */
 function toSeconds(raw: number): { seconds: number; unit: "s" | "ds" | "cs" } {
   const configured = process.env.TDATA_REMAINING_UNIT?.trim();
   if (configured === "s") return { seconds: raw, unit: "s" };
   if (configured === "ds") return { seconds: raw / 10, unit: "ds" };
-  if (configured === "cs") return { seconds: raw / 100, unit: "cs" };
-  return raw > 200 ? { seconds: raw / 10, unit: "ds" } : { seconds: raw, unit: "s" };
+  return { seconds: raw / 100, unit: "cs" };
 }
 
 type CacheEntry = { at: number; payload: unknown };
@@ -192,14 +207,25 @@ export function isLiveConfigured(): boolean {
  */
 export type LiveResult = { reading: LiveReading | null; fetched: boolean };
 
+/**
+ * 포털이 "값 없음" 을 나타내는 자리값 (2026-09-11 실측: `36001` = 360.01초).
+ *
+ * ⚠️ **그대로 두면 화면에 `361초 남음` 이 뜬다.** 보행 현시가 6분일 리 없다 —
+ * 실제로 잔여시간을 아직 못 받은 방위가 전부 이 값으로 왔다. 신호가 아니라
+ * **모른다는 표시**이므로 `null` 로 바꿔 호출부가 주기 계산으로 넘어가게 한다.
+ */
+const UNKNOWN_SECONDS = 360;
+
 function readRow(row: Record<string, unknown>, base: string): LiveReading {
   const stateField = `${base}StatNm`;
   const stateRaw = row[stateField];
   const remaining = readRemaining(row, base);
   const converted = remaining ? toSeconds(remaining.raw) : null;
+  // 자리값은 값이 아니다 — 위 주석 참조
+  const usable = converted && converted.seconds < UNKNOWN_SECONDS ? converted : null;
   return {
     state: normalizeState(stateRaw),
-    secondsRemaining: converted ? Math.ceil(converted.seconds) : null,
+    secondsRemaining: usable ? Math.ceil(usable.seconds) : null,
     detail: {
       stateField,
       stateRaw:

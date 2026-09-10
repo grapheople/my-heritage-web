@@ -281,8 +281,6 @@
     "loginToMeasure": "로그인하면 주기를 측정할 수 있어요",
     "findTitle": "신호등 찾기",
     "findIntro": "실시간 신호와 맞추려면 교차로와 방위를 한 번만 정해두면 됩니다",
-    "findByLocation": "내 위치로 찾기",
-    "findLocating": "위치 확인 중…",
     "findSearchPlaceholder": "교차로 이름",
     "findSearch": "이름으로 찾기",
     "findPickIntersection": "가까운 교차로를 고르세요",
@@ -293,7 +291,6 @@
     "findCurrent": "실시간 대상 {name} · {direction}",
     "findReset": "다시 고르기",
     "findFailed": "찾지 못했어요 — {reason}",
-    "findGeoDenied": "위치 권한이 필요해요",
     "distanceM": "{meters}m",
     "shortGreen": "초록",
     "shortRed": "빨강",
@@ -308,7 +305,10 @@
       "sw": "남서",
       "wt": "서",
       "nw": "북서"
-    }
+    },
+    "mapPick": "이 위치로 교차로 찾기",
+    "mapHint": "지도를 움직여 신호등 위치에 핀을 맞춰주세요",
+    "mapLocate": "현재 위치로 이동"
   },
   "market": {
     "allCurrencies": "전체 통화",
