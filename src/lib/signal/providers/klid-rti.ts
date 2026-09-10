@@ -14,6 +14,10 @@ import type {
  *
  * `https://apis.data.go.kr/B551982/rti/…` · 공공데이터포털 `serviceKey` 인증.
  *
+ * **명세**: `https://ido.sharedata.go.kr/dcat/swagger/swagger-d0007.json` (Swagger).
+ * 오퍼레이션은 **둘뿐**이고 파라미터도 `serviceKey`·`stdgCd`(지자체 코드) 둘뿐이다 —
+ * 추측할 여지가 없으니 다음 사람은 이 파일을 고치기 전에 명세를 먼저 열 것.
+ *
  * ## ⚠️ 서울 T-Data 보다 이쪽이 낫다
  * T-Data 는 **잔여시간만** 주고, 상태(`신호 정보`)와 좌표(`교차로 Map 정보`)는
  * **활용신청이 따로**라 404 였다. 이 API 는 **한 응답에 상태와 잔여시간이 함께**
@@ -23,14 +27,18 @@ import type {
  * | 항목 | 값 |
  * |---|---|
  * | 잔여 필드 | `{방위}{종별}RmndCs` (T-Data 는 `RmdrCs` — **철자가 다르다**) |
- * | 잔여 단위 | ⚠️ **1/1000초(ms)** — 이름은 `Cs` 인데 아니다. 10.2초에 10000 감소를 실측했다 |
+ * | 잔여 단위 | ⚠️ **1/1000초(ms)** — 이름도 명세도 "센티초" 라고 하지만 아니다 |
  * | 상태 필드 | `{방위}{종별}SttsNm` (T-Data 는 `StatNm`) |
  * | 상태 어휘 | SAE J2735 — `protected-Movement-Allowed` · `stop-And-Remain` 등 |
  * | 방위·종별 | T-Data 와 **같은 코드** (nt/et/st/wt/ne/se/sw/nw × Bssg/Bcsg/Ltsg/Pdsg/Stsg/Utsg) |
  *
- * ⚠️ **필드 이름을 믿지 않는다.** `Cs` 를 보고 1/100초로 읽으면 모든 값이 10배가
- * 된다 — 황색이 30초로 표시된다. T-Data 에서 단위를 추측해 겪은 것과 같은 함정이라
- * 이번엔 **감소 속도를 재서** 확정했다.
+ * ## ⚠️ 명세와 데이터가 어긋난다 — **데이터가 이긴다**
+ * Swagger 명세는 `ntBssgRmndCs` 를 **"북쪽버스신호잔여_센티초"** 라고 적는다.
+ * 그런데 같은 교차로를 **10.2초 간격으로 두 번 찍으니 값이 정확히 10000 줄었다** —
+ * 센티초면 100초가 흘렀어야 한다. 황색(`clearance`)이 `3000` 인 것도 ms 여야
+ * 3초로 맞는다 (센티초면 30초다).
+ *
+ * 이름도 명세도 틀릴 수 있다. **재보는 것이 유일한 확인**이다.
  *
  * ## ⚠️ 교차로 id 는 **지자체 안에서만** 유일하다
  * 서울 `crsrdId=1` 은 이촌역앞, 울산 `crsrdId=1` 은 다른 곳이다. 그래서 이
@@ -86,9 +94,19 @@ type Row = Record<string, string>;
 type Cached = { at: number; rows: Row[] };
 let liveCache: Cached | null = null;
 
-async function get(op: string, page: number, rows: number): Promise<Row[]> {
+/**
+ * ⚠️ **인증키를 `URLSearchParams` 에 넣지 않는다.** 포털이 주는 "일반 인증키"는
+ * 이미 URL 인코딩된 문자열이라(`%2F` 포함) 다시 인코딩하면 `%252F` 가 되어
+ * 인증이 깨진다. 게이트웨이 가이드가 말하는 `serviceKey(Decoding)` 를 쓸 거라면
+ * 그때는 인코딩이 필요하다 — 지금은 **인코딩된 키를 그대로 잇는다.**
+ */
+async function get(
+  op: string,
+  page: number,
+  rows: number,
+): Promise<{ items: Row[]; total: number }> {
   const key = serviceKey();
-  if (!key) return [];
+  if (!key) return { items: [], total: 0 };
   const url = `${BASE}/${op}?serviceKey=${key}&type=json&pageNo=${page}&numOfRows=${rows}`;
   const res = await fetch(url, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -96,9 +114,9 @@ async function get(op: string, page: number, rows: number): Promise<Row[]> {
   });
   if (!res.ok) throw new Error(`KLID ${op} ${res.status}`);
   const body = (await res.json()) as {
-    body?: { items?: { item?: Row[] } };
+    body?: { totalCount?: number; items?: { item?: Row[] } };
   };
-  return body.body?.items?.item ?? [];
+  return { items: body.body?.items?.item ?? [], total: body.body?.totalCount ?? 0 };
 }
 
 /** 실시간 표는 **한 번에 전부** 온다 (지자체 필터가 없다) — 받아서 잠깐 캐시한다 */
@@ -107,7 +125,7 @@ async function liveRows(): Promise<{ rows: Row[]; fetched: boolean }> {
   if (liveCache && now - liveCache.at < CACHE_TTL_MS) {
     return { rows: liveCache.rows, fetched: false };
   }
-  const rows = await get("tl_drct_info", 1, PAGE_SIZE);
+  const { items: rows } = await get("tl_drct_info", 1, PAGE_SIZE);
   liveCache = { at: now, rows };
   return { rows, fetched: true };
 }
@@ -181,8 +199,12 @@ async function fetchIntersections(): Promise<{ items: IntersectionRow[]; request
   if (!serviceKey()) return { items: [], requests: 0 };
   const items: IntersectionRow[] = [];
   let requests = 0;
+  let total = Infinity;
   for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const rows = await get("crsrd_map_info", page, PAGE_SIZE);
+    // ⚠️ `totalCount` 를 보고 정확히 끊는다 — 상한까지 도는 것은 호출 낭비다
+    const got = await get("crsrd_map_info", page, PAGE_SIZE);
+    const rows = got.items;
+    if (page === 1) total = got.total || Infinity;
     requests += 1;
     for (const r of rows) {
       const lat = Number(r.mapCtptIntLat);
@@ -199,7 +221,7 @@ async function fetchIntersections(): Promise<{ items: IntersectionRow[]; request
         limitSpeed: r.lmtSpd ? Number(r.lmtSpd) : undefined,
       });
     }
-    if (rows.length < PAGE_SIZE) break;
+    if (rows.length < PAGE_SIZE || items.length >= total) break;
   }
   return { items, requests };
 }
@@ -211,6 +233,9 @@ async function fetchIntersections(): Promise<{ items: IntersectionRow[]; request
  * |---|---|---|
  * | `crsrd_map_info` (좌표) | 서울 · 제주 · 울산 | 2,779 / 1,058 / 402 = **4,239** |
  * | `tl_drct_info` (실시간) | **울산뿐** | **398** |
+ *
+ * 명세의 `stdgCd` 파라미터로 **직접 확인했다**: `1100000000`(서울) → `totalCount 0`,
+ * `5000000000`(제주) → `0`, `3100000000`(울산) → `398`. 추측이 아니다.
  *
  * `covers()` 는 **실시간 기준**이다 — 이 함수가 답하는 질문이 "여기 신호를 실시간
  * 으로 읽을 수 있나" 이기 때문이다. 서울 좌표를 맡았다가 실시간이 비면 화면에는
