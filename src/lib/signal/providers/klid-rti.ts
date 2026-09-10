@@ -95,10 +95,13 @@ type Cached = { at: number; rows: Row[] };
 let liveCache: Cached | null = null;
 
 /**
- * ⚠️ **인증키를 `URLSearchParams` 에 넣지 않는다.** 포털이 주는 "일반 인증키"는
- * 이미 URL 인코딩된 문자열이라(`%2F` 포함) 다시 인코딩하면 `%252F` 가 되어
- * 인증이 깨진다. 게이트웨이 가이드가 말하는 `serviceKey(Decoding)` 를 쓸 거라면
- * 그때는 인코딩이 필요하다 — 지금은 **인코딩된 키를 그대로 잇는다.**
+ * ⚠️ **인증키를 `URLSearchParams` 에 넣지 않는다.** 포털은 "일반 인증키" 를
+ * **Encoding·Decoding 두 벌**로 준다. 인코딩본은 이미 `%2F` 를 품고 있어 다시
+ * 인코딩하면 `%252F` 가 되어 인증이 깨진다 — 그래서 **문자열로 잇는다.**
+ *
+ * ⚠️ 게이트웨이 가이드의 *"serviceKey 는 일반 인증키(Decoding)을 입력"* 은
+ * **Swagger-UI 입력창 기준**이다. 거기서는 UI 가 대신 인코딩해 준다. URL 을 직접
+ * 만드는 이 코드와는 **반대**이니 그 문장을 그대로 옮기지 말 것.
  */
 async function get(
   op: string,
