@@ -54,8 +54,15 @@ const MAP_ENDPOINT =
 
 /** ⚠️ 신호는 초 단위로 바뀐다 — 캐시를 길게 잡으면 그 자체가 오차다 */
 const CACHE_TTL_MS = 900;
-/** 실시간이 늦으면 기다리지 않고 주기 계산으로 넘어간다 */
-const TIMEOUT_MS = 2_000;
+/**
+ * ⚠️ **이 포털은 응답이 13초쯤 걸린다** (2026-09-11 실측: `numOfRows` 10/100/1000
+ * 모두 13.3~13.4초 — 크기와 무관한 서버 지연이다).
+ *
+ * 종전 2초로는 **성공할 수가 없었다.** 그렇다고 화면을 13초 세워둘 수도 없으니,
+ * 이 값은 **유저가 누른 동작**(방위 대조·기준 맞추기)에서만 쓰인다. 화면의
+ * 카운트다운은 애초에 주기 계산이라 이 호출을 기다리지 않는다.
+ */
+const TIMEOUT_MS = 15_000;
 
 const KIND_CODE: Record<SignalKind, string> = {
   straight: "Stsg",
@@ -107,7 +114,18 @@ export function normalizeState(raw: unknown): SignalState {
  * 않다. 그래서 **찾는 필드를 가진 객체를 JSON 안에서 탐색한다.** 껍데기 이름이
  * 바뀌어도 계속 동작한다.
  */
+/**
+ * ⚠️ **응답은 교차로 하나의 시계열이다 — 첫 행이 최신이 아니다.**
+ *
+ * 실측(2026-09-11): `itstId` 를 걸고 200행을 받으면 **전부 같은 교차로**이고
+ * `trsmTm` 이 `010000`·`010001`·`010002`… 로 **1초씩** 늘어난다. 첫 행을 집으면
+ * 가장 **오래된** 스냅샷을 읽는다 — 새로고침해도 숫자가 안 변해 "피드가 멈췄다"
+ * 로 보인다 (실제로 그렇게 오해했다).
+ *
+ * 그래서 조건에 맞는 행을 **전부 모아 `trsmUtcTime` 이 가장 큰 것**을 고른다.
+ */
 function findRow(payload: unknown, base: string): Record<string, unknown> | null {
+  const found: Record<string, unknown>[] = [];
   const queue: unknown[] = [payload];
   while (queue.length > 0) {
     const node = queue.shift();
@@ -117,10 +135,15 @@ function findRow(payload: unknown, base: string): Record<string, unknown> | null
     }
     if (typeof node !== "object" || node === null) continue;
     const obj = node as Record<string, unknown>;
-    if (Object.keys(obj).some((k) => k.startsWith(base))) return obj;
+    if (Object.keys(obj).some((k) => k.startsWith(base))) {
+      found.push(obj);
+      continue;
+    }
     queue.push(...Object.values(obj));
   }
-  return null;
+  if (found.length === 0) return null;
+  const at = (o: Record<string, unknown>) => Number(o.trsmUtcTime ?? 0) || 0;
+  return found.reduce((best, o) => (at(o) > at(best) ? o : best), found[0]);
 }
 
 /**
@@ -147,30 +170,46 @@ function readRemaining(
 }
 
 /**
- * 단위 환산.
+ * 단위 환산 — **1/10초(ds)**.
  *
- * ⚠️ **1/100초(cs)로 확정됐다** — 필드 이름 자체가 `…RmdrCs` 이고 포털 문서도
- * centiseconds 라고 적는다 (2026-09-11 실측·문서 확인). 종전 기본값이던 "200 을
- * 넘으면 1/10초" 자동 판정은 **추측**이었고, 실제 값이 `36001`(=360.01초, 아래
- * 참조)처럼 크게 들어와 1/10초로 잘못 읽힐 수 있었다.
+ * ## ⚠️ 문서보다 데이터를 믿는다
+ * 필드 이름은 `…RmdrCs` 이고 포털 문서도 centiseconds 라고 적는다. **둘 다
+ * 틀렸다.** 실데이터 1,800개를 훑으니 (2026-09-11):
+ * - 값 범위 **9 ~ 1409** — `cs` 로 읽으면 0.09~14초라 적색 현시가 담기지 않는다
+ * - **끝자리의 99.5% 가 `9`** — 0.1초 단위로 세는 값이 `X.9` 로 떨어지는 모양이다
+ * - `ds` 로 읽으면 **0.9~140.9초** 로 신호 현시 범위와 정확히 맞는다
  *
- * `TDATA_REMAINING_UNIT=s|ds|cs` 로 여전히 덮을 수 있다 — 다른 지자체 게이트웨이가
- * 다른 단위를 쓸 수 있어서다.
+ * 행안부 API 에서도 이름이 `Cs` 인데 값은 밀리초였다 (D-317) — **이 바닥은
+ * 필드 이름이 단위를 보장하지 않는다.**
+ *
+ * `TDATA_REMAINING_UNIT=s|ds|cs` 로 덮을 수 있다.
  */
 function toSeconds(raw: number): { seconds: number; unit: "s" | "ds" | "cs" } {
   const configured = process.env.TDATA_REMAINING_UNIT?.trim();
   if (configured === "s") return { seconds: raw, unit: "s" };
-  if (configured === "ds") return { seconds: raw / 10, unit: "ds" };
-  return { seconds: raw / 100, unit: "cs" };
+  if (configured === "cs") return { seconds: raw / 100, unit: "cs" };
+  return { seconds: raw / 10, unit: "ds" };
 }
 
 type CacheEntry = { at: number; payload: unknown };
 const cache = new Map<string, CacheEntry>();
 
+/**
+ * ⚠️ **다른 제공자의 id 를 받아준다.** 서울 교차로 목록은 행안부 API 에서 오고
+ * (T-Data 의 교차로 Map 은 404) 그 id 는 `1100000000:2217` 모양이다. 두 API 는
+ * **같은 교차로 번호 체계**를 쓴다 — 실측으로 확인했다 (KLID 서울 `2217` =
+ * 역삼역, T-Data `itstId=2217` 도 같은 곳). 접두를 떼면 그대로 통한다.
+ */
+function bareItstId(itstId: string): string {
+  const i = itstId.lastIndexOf(":");
+  return i >= 0 ? itstId.slice(i + 1) : itstId;
+}
+
 async function fetchIntersection(
-  itstId: string,
+  rawItstId: string,
   apiKey: string,
 ): Promise<{ payload: unknown; fetched: boolean }> {
+  const itstId = bareItstId(rawItstId);
   const hit = cache.get(itstId);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return { payload: hit.payload, fetched: false };
 
@@ -178,6 +217,13 @@ async function fetchIntersection(
   url.searchParams.set("apiKey", apiKey);
   url.searchParams.set("type", "json");
   url.searchParams.set("itstId", itstId);
+  /*
+    ⚠️ **응답은 정시부터 지금까지 1초 단위로 쌓인 시계열이고, 오래된 것이 앞에
+    온다** (실측: `010000` → `011639`, 그때 시각 `011657`). 적게 받으면 **정시
+    직후의 옛 행만** 온다 — 끝까지 받아야 지금에 닿는다. 크기를 늘려도 응답
+    시간은 같다(13초 고정)
+  */
+  url.searchParams.set("numOfRows", "1000");
 
   const res = await fetch(url, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -201,13 +247,13 @@ export function isLiveConfigured(): boolean {
  */
 
 /**
- * 포털이 "값 없음" 을 나타내는 자리값 (2026-09-11 실측: `36001` = 360.01초).
+ * 포털이 "값 없음" 을 나타내는 자리값 (실측 `36001` — ds 로 **3600.1초 = 1시간**).
  *
  * ⚠️ **그대로 두면 화면에 `361초 남음` 이 뜬다.** 보행 현시가 6분일 리 없다 —
  * 실제로 잔여시간을 아직 못 받은 방위가 전부 이 값으로 왔다. 신호가 아니라
  * **모른다는 표시**이므로 `null` 로 바꿔 호출부가 주기 계산으로 넘어가게 한다.
  */
-const UNKNOWN_SECONDS = 360;
+const UNKNOWN_SECONDS = 300;
 
 function readRow(row: Record<string, unknown>, base: string): LiveReading {
   const stateField = `${base}StatNm`;

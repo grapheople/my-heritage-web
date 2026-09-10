@@ -71,22 +71,44 @@ export function isLiveConfigured(): boolean {
 }
 
 /**
- * 실시간 1건.
+ * 실시간 1건 — **읽어내는 제공자가 나올 때까지 넘긴다.**
  *
- * ⚠️ 대상(`itstId`)이 어느 제공자 것인지는 **저장할 때 정해진다** — 지금은
- * 실시간을 내는 제공자가 하나뿐이라 첫 번째를 쓴다. 둘 이상이 되면
- * `LiveRef` 에 제공자 id 를 실어야 한다 (그때 이 주석을 근거로 삼는다).
+ * ## ⚠️ 첫 제공자에서 멈추면 안 된다
+ * 교차로 목록은 행안부 API 에서 오지만(서울 2,779건) **행안부 실시간에는 울산만**
+ * 있다. 첫 제공자만 물으면 서울 교차로가 전부 "찾지 못했어요" 가 된다 — 실제로
+ * `1100000000:2217`(역삼역)에서 502 가 났다. T-Data 가 읽을 수 있는데도 그쪽까지
+ * 가지 못한 것이다.
+ *
+ * ⚠️ **예외도 넘긴다.** 한 제공자의 404·타임아웃이 다른 제공자를 막으면 안 된다
+ * (`fetchIntersectionMap` 과 같은 태도).
  */
 export async function readLive(ref: LiveRef): Promise<LiveResult> {
-  const provider = configuredProviders().find((p) => p.readLive);
-  if (!provider?.readLive) return { reading: null, fetched: false };
-  return provider.readLive(ref);
+  let fetched = false;
+  for (const p of configuredProviders()) {
+    if (!p.readLive) continue;
+    try {
+      const got = await p.readLive(ref);
+      fetched = fetched || got.fetched;
+      if (got.reading) return { ...got, fetched };
+    } catch {
+      // 다음 제공자로 넘어간다 — 사유는 호출부가 아니라 로그의 몫이다
+    }
+  }
+  return { reading: null, fetched };
 }
 
+/** 8방위 현시 — `readLive` 와 같은 이유로 제공자를 순서대로 넘긴다 */
 export async function readPhases(itstId: string, kind: SignalKind) {
-  const provider = configuredProviders().find((p) => p.readPhases);
-  if (!provider?.readPhases) return null;
-  return provider.readPhases(itstId, kind);
+  for (const p of configuredProviders()) {
+    if (!p.readPhases) continue;
+    try {
+      const got = await p.readPhases(itstId, kind);
+      if (got && got.rows.length > 0) return got;
+    } catch {
+      // 위와 같다
+    }
+  }
+  return null;
 }
 
 /**
