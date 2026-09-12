@@ -345,7 +345,11 @@
     "pickRoute": "{name} — 乗る路線を選んでください",
     "noRoute": "この停留所の路線情報がありません — 停留所ごと登録すると到着するバスをすべて表示します",
     "addWholeStop": "路線を分けずに登録",
-    "back": "戻る"
+    "back": "戻る",
+    "tabVisible": "表示中の路線",
+    "tabHidden": "非表示 {count}",
+    "unhide": "戻す",
+    "hideRoute": "{name} を非表示"
   },
   "market": {
     "allCurrencies": "すべての通貨",

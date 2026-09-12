@@ -1778,7 +1778,8 @@ model TransitFavorite {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  arrivals TransitArrival[]
+  arrivals     TransitArrival[]
+  hiddenRoutes TransitHiddenRoute[]
 
   @@unique([userId, kind, stopId, routeId])
   @@index([userId, displayOrder])
@@ -1825,6 +1826,33 @@ model TransitArrival {
 ///
 /// ⚠️ **신호등의 `SignalPortalCall` 과 섞지 않는다.** 한도가 API 별로 따로 붙고,
 /// 한쪽을 많이 써서 다른 쪽이 막히면 원인을 찾기 어렵다.
+/// 그 정류장에서 **보지 않기로 한 노선** (D-324).
+///
+/// ## ⚠️ 지우는 것과 숨기는 것은 다르다
+/// 한 정류장에 노선이 여럿인데(수지구청역3번출구는 3개) 실제로 타는 것은 한둘이다.
+/// 나머지가 카운트다운에 섞이면 **내 버스를 찾는 데 시간이 걸린다.** 그렇다고
+/// 정류장을 노선별로 따로 담게 하면 같은 정류장 카드가 여러 장 생긴다.
+///
+/// ⚠️ **숨긴 것을 지우지 않는 이유**는 되돌리기 위해서다. 노선이 바뀌거나 잘못
+/// 숨겼을 때 다시 찾아 담게 하면 지도부터 다시 잡아야 한다.
+///
+/// ⚠️ `routeName` 을 **함께 저장한다.** 숨긴 노선은 도착 스냅샷이 없으므로
+/// (`TransitArrival` 에서 걸러진다) 이름을 여기 두지 않으면 **숨김 탭에 id 만
+/// 남아** 무엇을 숨겼는지 알 수 없다.
+model TransitHiddenRoute {
+  id         String          @id @default(cuid())
+  favoriteId String
+  favorite   TransitFavorite @relation(fields: [favoriteId], references: [id], onDelete: Cascade)
+
+  routeId   String
+  routeName String
+
+  createdAt DateTime @default(now())
+
+  @@unique([favoriteId, routeId])
+  @@index([favoriteId])
+}
+
 model TransitPortalCall {
   id       String  @id @default(cuid())
   endpoint String

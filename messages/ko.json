@@ -345,7 +345,11 @@
     "pickRoute": "{name} — 탈 노선을 고르세요",
     "noRoute": "이 정류장의 노선 정보가 없어요 — 정류장 전체로 담으면 도착하는 버스를 모두 보여드려요",
     "addWholeStop": "노선 구분 없이 담기",
-    "back": "뒤로"
+    "back": "뒤로",
+    "tabVisible": "보이는 노선",
+    "tabHidden": "숨김 {count}",
+    "unhide": "되돌리기",
+    "hideRoute": "{name} 숨기기"
   },
   "market": {
     "allCurrencies": "전체 통화",

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth/viewer";
-import { addFavorite, listFavorites, removeFavorite } from "@/lib/transit/favorites";
+import {
+  addFavorite,
+  listFavorites,
+  removeFavorite,
+  setRouteHidden,
+} from "@/lib/transit/favorites";
 
 /**
  * 지정한 역·정류장 담기·빼기·목록 (D-321).
@@ -8,6 +13,7 @@ import { addFavorite, listFavorites, removeFavorite } from "@/lib/transit/favori
  * ```
  * GET    /api/transit/favorites
  * POST   /api/transit/favorites   { kind, stopId, stopName, cityCode?, routeId?, … }
+ * PATCH  /api/transit/favorites   { id, routeId, routeName, hidden }   — 노선 숨김·되돌리기
  * DELETE /api/transit/favorites?id=…
  * ```
  *
@@ -96,6 +102,50 @@ export async function DELETE(req: Request) {
   }
   const removed = await removeFavorite(viewer.userId, id);
   if (!removed) {
+    return NextResponse.json({ error: "없는 항목이다" }, { status: 404, headers: NO_STORE });
+  }
+  return NextResponse.json(
+    { favorites: await listFavorites(viewer.userId) },
+    { headers: NO_STORE },
+  );
+}
+
+/**
+ * 노선 숨김·되돌리기 (D-324).
+ *
+ * ⚠️ **삭제(`DELETE`)와 다른 동작이다.** 숨김은 카운트다운에서 빼는 것이고,
+ * 숨긴 목록에 남아 언제든 되돌릴 수 있다.
+ */
+export async function PATCH(req: Request) {
+  const viewer = await getViewer();
+  if (!viewer) {
+    return NextResponse.json({ error: "로그인이 필요하다" }, { status: 401, headers: NO_STORE });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "본문이 JSON 이 아니다" }, { status: 400, headers: NO_STORE });
+  }
+
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  const routeId = typeof body.routeId === "string" ? body.routeId.trim() : "";
+  const routeName = typeof body.routeName === "string" ? body.routeName.trim() : routeId;
+  if (!id || !routeId || typeof body.hidden !== "boolean") {
+    return NextResponse.json(
+      { error: "id·routeId·hidden 이 필요하다" },
+      { status: 400, headers: NO_STORE },
+    );
+  }
+
+  const ok = await setRouteHidden(viewer.userId, {
+    favoriteId: id,
+    routeId,
+    routeName,
+    hidden: body.hidden,
+  });
+  if (!ok) {
     return NextResponse.json({ error: "없는 항목이다" }, { status: 404, headers: NO_STORE });
   }
   return NextResponse.json(

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Bus, Plus, RefreshCw, Train, X } from "lucide-react";
+import { Bus, Eye, EyeOff, Plus, RefreshCw, Train, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,13 @@ export function CommuteTransit({
   const [chosen, setChosen] = useState<Candidate | null>(null);
   /** 확정한 정류장의 경유노선 — `null` 은 아직 안 받음, `[]` 는 포털에 없음 */
   const [routes, setRoutes] = useState<RouteAtStop[] | null>(null);
+  /**
+   * 보임·숨김 탭 (D-324).
+   *
+   * ⚠️ 숨긴 것을 **지우지 않는** 이유가 이 탭이다 — 되돌릴 자리가 없으면
+   * 잘못 숨겼을 때 정류장을 다시 찾아 담아야 한다.
+   */
+  const [tab, setTab] = useState<"visible" | "hidden">("visible");
 
   useEffect(() => {
     // 250ms 로 돈다 — 초 경계가 눈에 띄게 늦지 않을 만큼만 촘촘하다
@@ -124,6 +131,8 @@ export function CommuteTransit({
     // 최초 1회만 — `call` 은 매 렌더 새로 만들어지므로 의존성에 넣지 않는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
+
+  const hiddenCount = favorites.reduce((n, f) => n + f.hiddenRoutes.length, 0);
 
   const fail = (reason: string) => setMessage(t("failed", { reason }));
 
@@ -174,6 +183,14 @@ export function CommuteTransit({
     );
     // 실패해도 **정류장 전체로 담는 길은 남긴다** — 빈 배열이 그 상태다
     setRoutes((body?.routes as RouteAtStop[]) ?? []);
+  }
+
+  function setHidden(favoriteId: string, routeId: string, routeName: string, hidden: boolean) {
+    void call("/api/transit/favorites", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: favoriteId, routeId, routeName, hidden }),
+    });
   }
 
   async function add(c: Candidate, route?: { routeId: string; routeName: string; headsign?: string }) {
@@ -231,6 +248,55 @@ export function CommuteTransit({
         <p className="mt-2 text-xs text-muted-foreground">{t("intro")}</p>
       )}
 
+      {/* ⚠️ 숨긴 것이 하나도 없으면 탭이 **의미 없는 선택지**다 — 그때는 내지 않는다 */}
+      {hiddenCount > 0 && (
+        <div role="tablist" aria-label={t("title")} className="mt-3 flex gap-1 rounded-lg bg-muted p-1">
+          {(["visible", "hidden"] as const).map((k) => (
+            <button
+              key={k}
+              role="tab"
+              type="button"
+              aria-selected={tab === k}
+              onClick={() => setTab(k)}
+              className={cn(
+                "min-h-9 flex-1 rounded-md px-3 text-xs font-medium",
+                tab === k ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {k === "visible" ? t("tabVisible") : t("tabHidden", { count: hiddenCount })}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "hidden" ? (
+        /* ── 숨김 탭 — 되돌리기만 한다 ── */
+        <ul className="mt-3 space-y-2">
+          {favorites
+            .filter((f) => f.hiddenRoutes.length > 0)
+            .map((f) => (
+              <li key={f.id} className="rounded-lg border p-3">
+                <p className="text-sm font-medium">{f.stopName}</p>
+                <ul className="mt-2 space-y-1">
+                  {f.hiddenRoutes.map((h) => (
+                    <li key={h.routeId} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate text-muted-foreground">{h.routeName}</span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setHidden(f.id, h.routeId, h.routeName, false)}
+                        className="flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-xs hover:bg-accent disabled:opacity-40"
+                      >
+                        <Eye aria-hidden className="size-3.5" />
+                        {t("unhide")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+        </ul>
+      ) : (
       <ul className="mt-3 space-y-2">
         {favorites.map((f) => (
           <li key={f.id} className="rounded-lg border p-3">
@@ -271,7 +337,10 @@ export function CommuteTransit({
                 ⚠️ **한참 지난 행은 버린다.** 스냅샷이 낡으면 전부 음수가 되는데,
                 그것을 "곧 도착" 으로 띄우면 오지 않을 차를 기다리게 된다.
               */
+              const hidden = new Set(f.hiddenRoutes.map((h) => h.routeId));
               const live = f.arrivals.filter((a) => {
+                // ⚠️ 숨김은 **화면에서** 거른다 — 서버가 빼면 숨김 탭이 보여줄 것이 없다
+                if (hidden.has(a.routeId)) return false;
                 const age = Math.floor((nowMs - new Date(a.fetchedAt).getTime()) / 1000);
                 /*
                   ⚠️ 초를 주지 않는 노선(정거장 수만 오는 신분당선 등)은 **시간으로
@@ -311,7 +380,7 @@ export function CommuteTransit({
                       </span>
                       <span
                         className={cn(
-                          "shrink-0 font-bold tabular-nums",
+                          "ml-auto shrink-0 font-bold tabular-nums",
                           left !== null && left <= 0 && "text-muted-foreground",
                           soon && "text-sale",
                         )}
@@ -327,6 +396,16 @@ export function CommuteTransit({
                             ? t("arrived")
                             : t("inSeconds", { time: clock(left) })}
                       </span>
+                      {/* ⚠️ 지우기가 아니라 **숨기기**다 — 되돌릴 수 있어야 한다 */}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setHidden(f.id, a.routeId, a.routeName, true)}
+                        aria-label={t("hideRoute", { name: a.routeName })}
+                        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent disabled:opacity-40"
+                      >
+                        <EyeOff aria-hidden className="size-3.5" />
+                      </button>
                     </li>
                   );
                 })}
@@ -336,6 +415,7 @@ export function CommuteTransit({
           </li>
         ))}
       </ul>
+      )}
 
       {adding === null ? (
         <div className="mt-3 flex gap-2">

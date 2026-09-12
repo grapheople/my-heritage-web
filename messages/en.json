@@ -345,7 +345,11 @@
     "pickRoute": "{name} — pick your route",
     "noRoute": "No route data for this stop — save the whole stop to see every bus that arrives",
     "addWholeStop": "Save without picking a route",
-    "back": "Back"
+    "back": "Back",
+    "tabVisible": "Showing",
+    "tabHidden": "Hidden {count}",
+    "unhide": "Restore",
+    "hideRoute": "Hide {name}"
   },
   "market": {
     "allCurrencies": "All currencies",

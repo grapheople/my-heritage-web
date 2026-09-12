@@ -27,6 +27,13 @@ export type FavoriteView = {
   routeName: string;
   headsign: string | null;
   displayOrder: number;
+  /**
+   * 이 정류장에서 **보지 않기로 한 노선** (D-324).
+   *
+   * ⚠️ 화면이 `arrivals` 에서 걸러 낸다 — 서버가 미리 빼지 않는다. 숨김 탭이
+   * 그 목록을 그대로 보여주고 되돌릴 수 있어야 하기 때문이다.
+   */
+  hiddenRoutes: { routeId: string; routeName: string }[];
   arrivals: {
     routeId: string;
     routeName: string;
@@ -43,7 +50,10 @@ export async function listFavorites(userId: string): Promise<FavoriteView[]> {
   const rows = await prisma.transitFavorite.findMany({
     where: { userId },
     orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
-    include: { arrivals: { orderBy: [{ routeName: "asc" }, { seq: "asc" }] } },
+    include: {
+      arrivals: { orderBy: [{ routeName: "asc" }, { seq: "asc" }] },
+      hiddenRoutes: { orderBy: { routeName: "asc" } },
+    },
   });
   return rows.map((f) => ({
     id: f.id,
@@ -55,6 +65,7 @@ export async function listFavorites(userId: string): Promise<FavoriteView[]> {
     routeName: f.routeName,
     headsign: f.headsign,
     displayOrder: f.displayOrder,
+    hiddenRoutes: f.hiddenRoutes.map((h) => ({ routeId: h.routeId, routeName: h.routeName })),
     arrivals: f.arrivals.map((a) => ({
       routeId: a.routeId,
       routeName: a.routeName,
@@ -206,4 +217,38 @@ export async function refreshFavorite(
   ]);
 
   return { id, ok: true, count: got.arrivals.length };
+}
+
+/**
+ * 노선을 **숨기거나 되돌린다** (D-324).
+ *
+ * ⚠️ 지우지 않는다. 숨긴 노선도 목록에 남아야 되돌릴 수 있다 — 잘못 숨겼을 때
+ * 정류장을 다시 찾아 담게 하면 지도부터 다시 잡아야 한다.
+ *
+ * ⚠️ `userId` 를 **반드시** 조건에 넣는다. `favoriteId` 만으로 쓰면 남의 항목을
+ * 건드린다 (`removeFavorite` 과 같은 이유).
+ */
+export async function setRouteHidden(
+  userId: string,
+  args: { favoriteId: string; routeId: string; routeName: string; hidden: boolean },
+): Promise<boolean> {
+  const owned = await prisma.transitFavorite.findFirst({
+    where: { id: args.favoriteId, userId },
+    select: { id: true },
+  });
+  if (!owned) return false;
+
+  if (args.hidden) {
+    await prisma.transitHiddenRoute.upsert({
+      where: { favoriteId_routeId: { favoriteId: owned.id, routeId: args.routeId } },
+      create: { favoriteId: owned.id, routeId: args.routeId, routeName: args.routeName },
+      // 이름이 바뀌는 일이 있다 — 숨김 탭이 옛 이름을 보여주면 무엇인지 모른다
+      update: { routeName: args.routeName },
+    });
+  } else {
+    await prisma.transitHiddenRoute.deleteMany({
+      where: { favoriteId: owned.id, routeId: args.routeId },
+    });
+  }
+  return true;
 }
