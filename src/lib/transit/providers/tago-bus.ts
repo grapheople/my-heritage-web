@@ -1,3 +1,4 @@
+import { distanceMeters } from "@/lib/geo";
 import { TransitPortalError } from "../types";
 import type { Arrival, StopCandidate, TransitProvider } from "../types";
 
@@ -143,14 +144,36 @@ async function search({
     ? rows.filter((r) => str(r.nodenm).includes(q.trim()))
     : rows;
 
-  return byName.map((r) => ({
-    kind: "BUS" as const,
-    stopId: str(r.nodeid),
-    stopName: str(r.nodenm),
-    cityCode: str(r.citycode),
-    lat: num(r.gpslati),
-    lon: num(r.gpslong),
-  }));
+  const origin = lat !== undefined && lon !== undefined ? { lat, lon } : null;
+
+  /*
+    ⚠️ **거리를 계산해 가까운 것부터 준다.** 포털은 30건을 근접 순서라고 주지만
+    실제로는 같은 이름의 양방향 정류장이 섞여 나오고, 화면에 30줄이 그대로 깔리면
+    **어느 것이 길 건너편인지 구분할 수가 없다.** 거리를 보여주면 갈린다.
+
+    ⚠️ 중복처럼 보여도 **합치지 않는다.** "수지구청.수지우체국" 이 둘인 것은
+    상행·하행 정류장이라 `nodeId` 가 다르고 도착하는 버스도 다르다 — 합치면
+    반대편 버스를 기다리게 된다.
+  */
+  return byName
+    .map((r) => {
+      const p = { lat: num(r.gpslati), lon: num(r.gpslong) };
+      return {
+        kind: "BUS" as const,
+        stopId: str(r.nodeid),
+        stopName: str(r.nodenm),
+        cityCode: str(r.citycode),
+        lat: p.lat,
+        lon: p.lon,
+        distanceM:
+          origin && p.lat !== undefined && p.lon !== undefined
+            ? Math.round(distanceMeters(origin, { lat: p.lat, lon: p.lon }))
+            : undefined,
+      };
+    })
+    .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
+    // 화면이 한눈에 들어오는 만큼만 — 30줄은 고르는 일을 오히려 어렵게 한다
+    .slice(0, 10);
 }
 
 async function arrivals({

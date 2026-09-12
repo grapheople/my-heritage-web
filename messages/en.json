@@ -331,6 +331,7 @@
     "stationPlaceholder": "Station name",
     "search": "Search",
     "cancel": "Cancel",
+    "distanceM": "{meters}m",
     "refresh": "Refresh",
     "remove": "Remove",
     "searchNone": "Nothing found — try another spot or name",

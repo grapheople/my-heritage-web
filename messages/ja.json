@@ -331,6 +331,7 @@
     "stationPlaceholder": "駅名",
     "search": "探す",
     "cancel": "キャンセル",
+    "distanceM": "{meters}m",
     "refresh": "更新",
     "remove": "削除",
     "searchNone": "見つかりませんでした — 位置や名前を変えてみてください",

@@ -331,6 +331,7 @@
     "stationPlaceholder": "역 이름",
     "search": "찾기",
     "cancel": "취소",
+    "distanceM": "{meters}m",
     "refresh": "새로고침",
     "remove": "빼기",
     "searchNone": "찾지 못했어요 — 위치나 이름을 바꿔보세요",

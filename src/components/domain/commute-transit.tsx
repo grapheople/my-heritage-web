@@ -44,6 +44,8 @@ type Candidate = {
   cityCode?: string;
   lat?: number;
   lon?: number;
+  /** 핀에서 얼마나 떨어졌나 — 길 건너편 정류장을 가르는 유일한 단서다 */
+  distanceM?: number;
   routes?: { routeId: string; routeName: string; headsign?: string }[];
 };
 
@@ -358,12 +360,13 @@ export function CommuteTransit({
                       className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
                     >
                       <span className="truncate">{c.stopName}</span>
-                      {routes[0] && (
-                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                          {routes[0].routeName}
-                          {routes[0].headsign ? ` · ${routes[0].headsign}` : ""}
-                        </span>
-                      )}
+                      <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                        {routes[0]
+                          ? `${routes[0].routeName}${routes[0].headsign ? ` · ${routes[0].headsign}` : ""}`
+                          : c.distanceM !== undefined
+                            ? t("distanceM", { meters: c.distanceM })
+                            : ""}
+                      </span>
                     </button>
                   </li>
                 );
