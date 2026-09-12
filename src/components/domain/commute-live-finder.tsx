@@ -96,6 +96,20 @@ export function CommuteLiveFinder({
    */
   const [pickedKind, setPickedKind] = useState<SignalKind>("pedestrian");
 
+  /**
+   * 지금이 **위치를 찾는 단계인가** (D-326).
+   *
+   * ⚠️ 후보·현시·다른 종별 중 무엇이라도 떠 있으면 찾기는 끝난 것이다. 지도를
+   * 계속 띄우면 그 아래로 목록이 밀려 모바일에서는 스크롤해야 보인다.
+   */
+  const searching =
+    /*
+      ⚠️ **빈 결과는 "찾기가 끝난 것" 이 아니다.** `search()` 는 결과가 없어도
+      `[]` 를 넣으므로 `!== null` 로 판정하면 **근처에 교차로가 없을 때 지도가
+      사라진다** — 유저는 다른 곳을 찍어볼 수단을 잃는다.
+    */
+    (candidates === null || candidates.length === 0) && phases === null && altKinds === null;
+
   const fail = (reason: string) => setMessage(t("findFailed", { reason }));
 
   async function search(params: URLSearchParams) {
@@ -234,27 +248,57 @@ export function CommuteLiveFinder({
 
       {open && (
         <div className="mt-2 space-y-3">
-          <p className="text-xs text-muted-foreground">{t("findIntro")}</p>
+          {/*
+            ⚠️ **지도는 위치를 찾는 동안에만 낸다.**
+            후보가 나온 뒤에도 계속 떠 있으면 256px 짜리 지도가 화면 위쪽을
+            차지해, 정작 골라야 할 **교차로 목록과 방위 버튼이 아래로 밀린다** —
+            모바일에서는 스크롤해야 보인다. 찾기가 끝나면 자리를 비운다.
+          */}
+          {searching ? (
+            <>
+              <p className="text-xs text-muted-foreground">{t("findIntro")}</p>
 
-          <MapPinPicker busy={busy} onPick={searchByPin} pickLabel={t("mapPick")} />
+              <MapPinPicker busy={busy} onPick={searchByPin} pickLabel={t("mapPick")} />
 
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (query.trim()) void search(new URLSearchParams({ q: query.trim(), limit: "10" }));
-            }}
-          >
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("findSearchPlaceholder")}
-              aria-label={t("findSearchPlaceholder")}
-            />
-            <Button type="submit" variant="outline" disabled={busy || !query.trim()}>
-              {t("findSearch")}
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (query.trim()) {
+                    void search(new URLSearchParams({ q: query.trim(), limit: "10" }));
+                  }
+                }}
+              >
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("findSearchPlaceholder")}
+                  aria-label={t("findSearchPlaceholder")}
+                />
+                <Button type="submit" variant="outline" disabled={busy || !query.trim()}>
+                  {t("findSearch")}
+                </Button>
+              </form>
+            </>
+          ) : (
+            /* ⚠️ 되돌아올 길을 남긴다 — 지도를 감추기만 하면 다른 교차로를 고르려고
+               화면 전체를 닫았다 다시 열어야 한다 */
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                setCandidates(null);
+                setPhases(null);
+                setPicked(null);
+                setAltKinds(null);
+                setMessage(null);
+              }}
+            >
+              {t("findAgain")}
             </Button>
-          </form>
+          )}
 
           {altKinds && altKinds.length > 0 && picked && (
             <div>
