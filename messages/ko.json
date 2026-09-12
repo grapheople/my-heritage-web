@@ -289,6 +289,7 @@
     "findPickDirection": "지금 눈앞의 신호와 같은 것을 고르세요",
     "findAllSame": "모든 방위가 같은 상태예요 — 신호가 바뀐 뒤 다시 눌러보세요",
     "findNone": "근처에 개방된 교차로가 없어요. 3번 눌러 측정하는 방법을 쓰면 됩니다",
+    "findNoLiveHere": "이 지역은 아직 실시간 개방 대상이 아니에요 — 아래 '주기 측정하기'로 3번 누르면 맞출 수 있어요",
     "findSaved": "{name} · {direction} 으로 저장했어요",
     "findCurrent": "실시간 대상 {name} · {direction}",
     "findReset": "다시 고르기",

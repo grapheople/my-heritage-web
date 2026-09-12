@@ -111,8 +111,17 @@ export function CommuteLiveFinder({
         fail(body.error ?? String(res.status));
         return;
       }
-      setCandidates(body.intersections ?? []);
-      if ((body.intersections ?? []).length === 0) setMessage(t("findNone"));
+      const rows: Intersection[] = body.intersections ?? [];
+      setCandidates(rows);
+      /*
+        ⚠️ **비어 있을 때만 안내하면 늦다.** 후보가 5건 나와도 전부 실시간 밖이면
+        유저는 하나를 고르고 나서야 "개방 대상이 아니다" 를 본다 — 그러면 다른
+        교차로를 골라 보게 되고, 몇 번을 반복해도 결과는 같다. 좌표 목록은
+        서울·제주·울산 4,239건인데 실시간은 울산 397건뿐이라 **대부분이 이 경우**다
+        (D-320)
+      */
+      if (rows.length === 0) setMessage(t("findNone"));
+      else if (rows.every((r) => !r.live)) setMessage(t("findNoLiveHere"));
     } catch {
       fail("network");
     } finally {

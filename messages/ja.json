@@ -289,6 +289,7 @@
     "findPickDirection": "今、目の前の信号と同じものを選んでください",
     "findAllSame": "すべての方位が同じ状態です — 信号が変わってからもう一度押してください",
     "findNone": "近くに公開された交差点がありません。3回押して測る方法が使えます",
+    "findNoLiveHere": "この地域はまだリアルタイム提供の対象ではありません — 下の「周期を測定」で3回押せば合わせられます",
     "findSaved": "{name}・{direction} で保存しました",
     "findCurrent": "リアルタイム対象 {name}・{direction}",
     "findReset": "選び直す",

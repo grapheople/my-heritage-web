@@ -289,6 +289,7 @@
     "findPickDirection": "Pick the one that matches the light in front of you",
     "findAllSame": "Every direction shows the same state — try again after the light changes",
     "findNone": "No published intersection nearby. You can still measure it with three taps",
+    "findNoLiveHere": "This area isn't covered by live signals yet — use “Measure cycle” below and tap three times instead",
     "findSaved": "Saved as {name} · {direction}",
     "findCurrent": "Live target {name} · {direction}",
     "findReset": "Pick again",
