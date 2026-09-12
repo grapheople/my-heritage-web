@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * 서울 T-Data 하루 한도 관리.
+ * 신호 포털 하루 한도 관리.
  *
  * ## ⚠️ 호출을 세지, 결과를 세지 않는다
  * 처음에는 보정 이력(`SignalCalibration`) 행 수로 셌는데 **틀린 집계였다.**

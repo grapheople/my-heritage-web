@@ -17,10 +17,10 @@ import { validateProfile } from "./cycle";
  * 대체한다.** 주기를 재측정할 때마다 배포하지 않아도 된다.
  */
 
-/** T-Data 필드 접두 — 8방위 (북/동/남/서/북동/남동/남서/북서) */
+/** 포털 필드 접두 — 8방위 (북/동/남/서/북동/남동/남서/북서) */
 export type Direction = "nt" | "et" | "st" | "wt" | "ne" | "se" | "sw" | "nw";
 
-/** T-Data 신호 종류 */
+/** 신호 종류 */
 export type SignalKind =
   | "straight"
   | "left"
@@ -30,7 +30,7 @@ export type SignalKind =
   | "bicycle";
 
 export type LiveRef = {
-  /** 서울 T-Data 교차로 ID (`itstId`) */
+  /** 교차로 ID — 행안부 API 는 `stdgCd:crsrdId` 형태다 */
   itstId: string;
   /** 내가 보는 신호등이 붙은 방위 */
   direction: Direction;

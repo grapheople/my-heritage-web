@@ -20,7 +20,7 @@ import { isFailure, resolveSignal } from "@/lib/signal/resolve";
  * 낸다. 설정은 `src/lib/signal/lights.ts` (또는 `SIGNAL_LIGHTS_JSON`).
  *
  * ## ⚠️ 이 엔드포인트는 외부 API 를 부르지 않는다
- * 서울 T-Data 는 하루 1,000건이라 상시 폴링에 쓸 수 없다. 실시간 조회는
+ * 신호 포털은 하루 호출 상한이 있어 상시 폴링에 쓸 수 없다. 실시간 조회는
  * `POST /api/signal/sync` 뿐이고, 여기서는 그 동기화가 맞춰 둔 **기준 시각**으로
  * 계산만 한다 — 그래서 몇 초마다 새로고침해도 쿼터가 줄지 않는다.
  *
