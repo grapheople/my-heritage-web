@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth/viewer";
 import { parseKind } from "@/lib/signal/live-target";
 import { checkPortalQuota, recordPortalCalls } from "@/lib/signal/portal";
+import { prisma } from "@/lib/prisma";
 import { isLiveConfigured, readPhases } from "@/lib/signal/providers";
 
 /**
@@ -55,9 +56,19 @@ export async function GET(req: Request) {
     );
   }
 
+  /*
+    ⚠️ 좌표를 **먼저 찾아 넘긴다.** 없으면 파사드가 제공자를 전부 부르고, 관계없는
+    포털의 타임아웃까지 유저가 기다린다 (울산 교차로에 9.4초가 들었다).
+    목록을 이미 DB 에 갖고 있으므로 조회 1회면 된다.
+  */
+  const known = await prisma.signalIntersection.findUnique({
+    where: { itstId },
+    select: { lat: true, lon: true },
+  });
+
   let result;
   try {
-    result = await readPhases(itstId, kind);
+    result = await readPhases(itstId, kind, known ? { lat: known.lat, lon: known.lon } : undefined);
   } catch (error) {
     console.error(`[signal] ${itstId} 현시 조회 실패:`, error);
     return NextResponse.json(
@@ -65,22 +76,52 @@ export async function GET(req: Request) {
       { status: 502, headers: NO_STORE },
     );
   }
-  if (result?.fetched) {
-    await recordPortalCalls({
-      endpoint: "SIGNAL_PHASE",
-      target: itstId,
-      requestedBy: viewer.userId,
-    });
-  }
-  if (!result) {
-    return NextResponse.json(
-      {
-        error: "이 교차로에는 해당 신호종별 필드가 없다",
-        hint: "개방 대상이 아니거나 보행 신호를 내지 않는 교차로일 수 있다",
-      },
-      { status: 502, headers: NO_STORE },
-    );
+  if (result.ok) {
+    if (result.fetched) {
+      await recordPortalCalls({
+        endpoint: "SIGNAL_PHASE",
+        target: itstId,
+        requestedBy: viewer.userId,
+      });
+    }
+    return NextResponse.json({ itstId, kind, phases: result.rows }, { headers: NO_STORE });
   }
 
-  return NextResponse.json({ itstId, kind, phases: result.rows }, { headers: NO_STORE });
+  /*
+    ⚠️ **사유마다 유저가 할 수 있는 일이 다르다.** 전부 502 "필드가 없다" 로 뭉치면
+    포털 장애일 때도 유저가 교차로를 계속 바꿔 보게 된다 — 그때마다 15초다.
+  */
+  if (result.reason === "kind-empty") {
+    return NextResponse.json(
+      {
+        error: "이 교차로는 이 신호종별 정보를 주지 않는다",
+        // 같은 응답에 들어 있던 값이라 **추가 호출 없이** 대안을 말할 수 있다
+        kinds: result.kinds,
+        hint:
+          result.kinds.length > 0
+            ? "다른 신호종별로 방위를 맞춘 뒤 보행 시간은 3번 눌러 측정하면 된다"
+            : "실시간 연동 없이 3번 눌러 측정하는 방법을 쓰면 된다",
+      },
+      { status: 404, headers: NO_STORE },
+    );
+  }
+  if (result.reason === "portal-error") {
+    // ⚠️ 우리 잘못이 아니라는 것을 **로그와 화면 양쪽에** 남긴다
+    console.error(`[signal] ${itstId} 현시 조회 — 포털 실패:`, result.failures);
+    return NextResponse.json(
+      {
+        error: "신호 포털이 응답하지 않는다",
+        hint: "잠시 뒤 다시 시도하거나, 3번 눌러 측정하는 방법을 쓰면 된다",
+        detail: result.failures,
+      },
+      { status: 503, headers: NO_STORE },
+    );
+  }
+  return NextResponse.json(
+    {
+      error: "이 교차로는 실시간 개방 대상이 아니다",
+      hint: "실시간 연동 없이 3번 눌러 측정하는 방법을 쓰면 된다",
+    },
+    { status: 404, headers: NO_STORE },
+  );
 }

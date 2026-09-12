@@ -284,6 +284,7 @@
     "findSearchPlaceholder": "交差点名",
     "findSearch": "名前で探す",
     "findPickIntersection": "近い交差点を選んでください",
+    "findPickKind": "この交差点は以下の信号のみリアルタイムで提供しています — 一つ選んで方位を合わせてください",
     "findPickDirection": "今、目の前の信号と同じものを選んでください",
     "findAllSame": "すべての方位が同じ状態です — 信号が変わってからもう一度押してください",
     "findNone": "近くに公開された交差点がありません。3回押して測る方法が使えます",
@@ -308,7 +309,15 @@
     },
     "mapPick": "この位置で交差点を探す",
     "mapHint": "地図を動かして信号機の位置にピンを合わせてください",
-    "mapLocate": "現在地へ移動"
+    "mapLocate": "現在地へ移動",
+    "kinds": {
+      "straight": "直進",
+      "left": "左折",
+      "uturn": "Uターン",
+      "pedestrian": "歩行者",
+      "bus": "バス",
+      "bicycle": "自転車"
+    }
   },
   "market": {
     "allCurrencies": "すべての通貨",

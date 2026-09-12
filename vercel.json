@@ -6,6 +6,15 @@
     "src/app/api/upload/route.ts": {
       "memory": 2048,
       "maxDuration": 60
+    },
+    "src/app/api/signal/phases/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/signal/live/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/signal/intersections/route.ts": {
+      "maxDuration": 30
     }
   }
 }

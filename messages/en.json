@@ -284,6 +284,7 @@
     "findSearchPlaceholder": "Intersection name",
     "findSearch": "Search by name",
     "findPickIntersection": "Pick the nearest intersection",
+    "findPickKind": "This intersection only reports the signals below — pick one to match the direction",
     "findPickDirection": "Pick the one that matches the light in front of you",
     "findAllSame": "Every direction shows the same state — try again after the light changes",
     "findNone": "No published intersection nearby. You can still measure it with three taps",
@@ -308,7 +309,15 @@
     },
     "mapPick": "Find intersections here",
     "mapHint": "Drag the map to place the pin on the crossing",
-    "mapLocate": "Move to my location"
+    "mapLocate": "Move to my location",
+    "kinds": {
+      "straight": "Straight",
+      "left": "Left turn",
+      "uturn": "U-turn",
+      "pedestrian": "Pedestrian",
+      "bus": "Bus",
+      "bicycle": "Bicycle"
+    }
   },
   "market": {
     "allCurrencies": "All currencies",

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Direction, LiveRef } from "@/lib/signal/lights";
+import type { Direction, LiveRef, SignalKind } from "@/lib/signal/lights";
 import { cn } from "@/lib/utils";
 
 /**
@@ -79,6 +79,14 @@ export function CommuteLiveFinder({
   const [candidates, setCandidates] = useState<Intersection[] | null>(null);
   const [picked, setPicked] = useState<Intersection | null>(null);
   const [phases, setPhases] = useState<Phase[] | null>(null);
+  /** 요청한 종별이 비었을 때 **이 교차로가 실제로 주는** 종별 (2026-09-12) */
+  const [altKinds, setAltKinds] = useState<SignalKind[] | null>(null);
+  /**
+   * ⚠️ **대조에 쓴 종별을 저장에도 써야 한다.** 예전에는 저장이 `"pedestrian"` 로
+   * 박혀 있어, 직진 신호로 방위를 맞춰도 DB 에는 보행으로 들어갔다 — 이후 실시간
+   * 조회가 **영원히 빈 필드를 읽는다.**
+   */
+  const [pickedKind, setPickedKind] = useState<SignalKind>("pedestrian");
 
   const fail = (reason: string) => setMessage(t("findFailed", { reason }));
 
@@ -87,6 +95,7 @@ export function CommuteLiveFinder({
     setMessage(null);
     setPhases(null);
     setPicked(null);
+    setAltKinds(null);
     try {
       const res = await fetch(`/api/signal/intersections?${params}`);
       const body = await res.json();
@@ -114,21 +123,36 @@ export function CommuteLiveFinder({
     );
   }
 
-  async function loadPhases(intersection: Intersection) {
+  /**
+   * 교차로의 8방위 현시를 받는다.
+   *
+   * ## ⚠️ 보행 신호가 없는 교차로가 있다
+   * 예전에는 `kind=pedestrian` 로 **고정**이었다. 그런데 울산 교차로는 보행 필드를
+   * 가지고 있으면서 값이 비어 있어, 8방위가 전부 "알 수 없음" 인 표가 나왔다 —
+   * 화면은 방위 버튼 8개를 띄우지만 **어느 것이 눈앞 신호인지 대조할 수가 없어**
+   * 거기서 멈춘다. 서버가 "이 교차로가 값을 주는 종별" 을 함께 내려주므로
+   * 그것으로 다시 부를 수 있게 한다 (2026-09-12).
+   */
+  async function loadPhases(intersection: Intersection, kind: SignalKind = "pedestrian") {
     setBusy(true);
     setMessage(null);
+    setAltKinds(null);
     setPicked(intersection);
     try {
       const res = await fetch(
-        `/api/signal/phases?itstId=${encodeURIComponent(intersection.itstId)}&kind=pedestrian`,
+        `/api/signal/phases?itstId=${encodeURIComponent(intersection.itstId)}&kind=${kind}`,
       );
       const body = await res.json();
       if (!res.ok) {
         fail(body.error ?? String(res.status));
-        setPicked(null);
+        // ⚠️ **고른 교차로를 버리지 않는다.** 다른 종별로 다시 부를 것이기 때문이다
+        const kinds: SignalKind[] = (body.kinds ?? []).filter((k: SignalKind) => k !== kind);
+        if (kinds.length > 0) setAltKinds(kinds);
+        else setPicked(null);
         return;
       }
       const rows: Phase[] = body.phases ?? [];
+      setPickedKind(kind);
       setPhases(rows);
       // 전부 같은 상태면 대조가 불가능하다 — 기다렸다 다시 받아야 한다
       if (rows.length > 1 && new Set(rows.map((r) => r.state)).size === 1) {
@@ -150,14 +174,14 @@ export function CommuteLiveFinder({
       const res = await fetch(`/api/signal/live?id=${encodeURIComponent(lightId)}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ itstId: picked.itstId, direction, kind: "pedestrian" }),
+        body: JSON.stringify({ itstId: picked.itstId, direction, kind: pickedKind }),
       });
       const body = await res.json();
       if (!res.ok) {
         fail(body.error ?? String(res.status));
         return;
       }
-      const saved: LiveRef = { itstId: picked.itstId, direction, kind: "pedestrian" };
+      const saved: LiveRef = { itstId: picked.itstId, direction, kind: pickedKind };
       setTarget(saved);
       setOpen(false);
       setCandidates(null);
@@ -215,7 +239,27 @@ export function CommuteLiveFinder({
             </Button>
           </form>
 
-          {candidates && candidates.length > 0 && !phases && (
+          {altKinds && altKinds.length > 0 && picked && (
+            <div>
+              <p className="text-xs font-medium">{t("findPickKind")}</p>
+              <ul className="mt-2 flex flex-wrap gap-1">
+                {altKinds.map((kind) => (
+                  <li key={kind}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void loadPhases(picked, kind)}
+                      className="min-h-11 rounded-lg border px-3 py-2 text-sm hover:bg-accent"
+                    >
+                      {t(`kinds.${kind}`)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {candidates && candidates.length > 0 && !phases && !altKinds && (
             <div>
               <p className="text-xs font-medium">{t("findPickIntersection")}</p>
               <ul className="mt-2 space-y-1">

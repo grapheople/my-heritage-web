@@ -177,6 +177,34 @@ async function readLive(ref: LiveRef): Promise<LiveResult> {
 
 const DIRECTIONS: Direction[] = ["nt", "ne", "et", "se", "st", "sw", "wt", "nw"];
 
+/**
+ * 그 방위·종별에 **읽을 값이 있는가**.
+ *
+ * ⚠️ **`undefined` 만 보면 안 된다.** 울산 교차로는 보행(`Pdsg`) 필드를 *가지고
+ * 있으면서 값이 빈 문자열*이다. 존재 여부만 보던 예전 판정은 그것을 통과시켜
+ * **8방위가 전부 `unknown` 인 표**를 성공 응답으로 내보냈다 — 화면은 방위 8개를
+ * 나란히 띄우지만 전부 같은 상태라 **사용자가 눈앞 신호와 대조할 수가 없다.**
+ * "진행이 안 된다" 로 보이는 자리가 여기였다 (2026-09-12 실측).
+ */
+function hasValue(row: Row, base: string): boolean {
+  const state = row[`${base}SttsNm`];
+  const rest = row[`${base}RmndCs`];
+  return (state !== undefined && state !== "") || (rest !== undefined && rest !== "");
+}
+
+/**
+ * 이 교차로가 **값을 주는 신호종별**.
+ *
+ * ⚠️ 같은 응답 한 행에 모든 종별이 들어 있어 **추가 호출이 들지 않는다.** 요청한
+ * 종별이 비었을 때 "그럼 무엇이 되는가" 를 화면이 말할 수 있어야 유저가 다음
+ * 행동을 안다 — 빈 화면은 유저에게 자기 잘못처럼 보인다.
+ */
+function kindsWithData(row: Row): SignalKind[] {
+  return (Object.keys(KIND_CODE) as SignalKind[]).filter((kind) =>
+    DIRECTIONS.some((d) => hasValue(row, fieldBase(d, kind))),
+  );
+}
+
 async function readPhases(itstId: string, kind: SignalKind) {
   if (!serviceKey()) return null;
   const { rows, fetched } = await liveRows();
@@ -186,7 +214,7 @@ async function readPhases(itstId: string, kind: SignalKind) {
   for (const direction of DIRECTIONS) {
     const base = fieldBase(direction, kind);
     // 그 방위·종별이 아예 없는 교차로가 있다 — 빈 칸을 행으로 만들지 않는다
-    if (row[`${base}SttsNm`] === undefined && row[`${base}RmndCs`] === undefined) continue;
+    if (!hasValue(row, base)) continue;
     const reading = readRow(row, base);
     out.push({
       direction,
@@ -195,7 +223,10 @@ async function readPhases(itstId: string, kind: SignalKind) {
       field: reading.detail.stateField,
     });
   }
-  return out.length > 0 ? { rows: out, fetched } : null;
+  // 요청한 종별이 비어도 **이 교차로가 무엇을 주는지는 안다** — 그 사실을 넘긴다
+  return out.length > 0
+    ? { rows: out, fetched, kinds: kindsWithData(row) }
+    : { rows: [], fetched, kinds: kindsWithData(row) };
 }
 
 async function fetchIntersections(): Promise<{ items: IntersectionRow[]; requests: number }> {

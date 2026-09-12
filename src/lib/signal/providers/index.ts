@@ -1,7 +1,7 @@
 import type { LiveRef, SignalKind } from "../lights";
 import { klidRti } from "./klid-rti";
 import { seoulTData } from "./seoul-tdata";
-import type { Coords, LiveResult, SignalProvider } from "./types";
+import type { Coords, LiveResult, PhaseRow, SignalProvider } from "./types";
 
 export type {
   Coords,
@@ -97,18 +97,77 @@ export async function readLive(ref: LiveRef): Promise<LiveResult> {
   return { reading: null, fetched };
 }
 
-/** 8방위 현시 — `readLive` 와 같은 이유로 제공자를 순서대로 넘긴다 */
-export async function readPhases(itstId: string, kind: SignalKind) {
-  for (const p of configuredProviders()) {
+/**
+ * 8방위 현시를 못 받은 **사유**.
+ *
+ * ## ⚠️ 예전에는 전부 `null` 이었고, 그래서 화면이 거짓말을 했다
+ * 제공자 예외를 삼키고 `null` 을 내보내면 라우트는 그것을 **"이 교차로에는 해당
+ * 신호종별 필드가 없다"** 로 옮긴다. 2026-09-12 에 서울시 T-Data 포털이 DB 장애로
+ * 500 을 내고 있었는데(`CannotGetJdbcConnectionException`), 화면에는 *"개방 대상이
+ * 아닌 교차로"* 라고 떴다 — **원인과 정반대의 안내**다. 유저는 교차로를 계속 바꿔
+ * 보게 되고 그때마다 15초를 기다린다.
+ */
+export type PhasesFailure =
+  /** 제공자가 이 교차로를 모른다 — 실시간 개방 지역이 아닐 수 있다 */
+  | { reason: "unknown-intersection" }
+  /** 교차로는 아는데 **그 종별에 값이 없다.** `kinds` 가 대안이다 */
+  | { reason: "kind-empty"; kinds: SignalKind[] }
+  /** 포털이 응답하지 않았다 (타임아웃·5xx). 우리가 고칠 수 없는 쪽이다 */
+  | { reason: "portal-error"; failures: string[] };
+
+export type PhasesOutcome =
+  | { ok: true; rows: PhaseRow[]; fetched: boolean }
+  | ({ ok: false } & PhasesFailure);
+
+/**
+ * 8방위 현시 — `readLive` 와 같은 이유로 제공자를 순서대로 넘긴다.
+ *
+ * ⚠️ **넘기되 사유는 모은다.** 마지막 제공자까지 실패하면 무엇 때문이었는지
+ * 호출부가 알아야 한다 (위 주석).
+ */
+export async function readPhases(
+  itstId: string,
+  kind: SignalKind,
+  /**
+   * 교차로 좌표 — 있으면 **그 지역을 담는 제공자만** 부른다.
+   *
+   * ⚠️ **없으면 전부 부르고, 그 값이 곧 대기 시간이다.** 울산 교차로를 물을 때도
+   * 서울 T-Data 까지 갔고 그 포털이 15초 만에 타임아웃해 **9.4초짜리 응답이
+   * 0.3초로 끝날 수 있는 자리에서 나왔다** (2026-09-12 실측). 좌표는
+   * `SignalIntersection` 에 이미 있으니 호출부가 넘기면 된다.
+   */
+  coords?: Coords,
+): Promise<PhasesOutcome> {
+  const failures: string[] = [];
+  /** 어느 제공자든 "이 교차로는 안다" 고 답했으면 그 종별 목록을 기억한다 */
+  let known: SignalKind[] | null = null;
+
+  const pool = configuredProviders();
+  /*
+    ⚠️ 좁힌 결과가 **비면 좁히지 않은 것으로 되돌린다.** 커버리지 상자는 우리가
+    손으로 적은 것이라(`BOXES`) 실제 개방 범위보다 좁을 수 있다 — 좁혀서 0개가
+    됐다고 "지원 안 함" 으로 끝내면, 실제로는 읽을 수 있는 교차로를 막는다
+  */
+  const narrowed = coords ? pool.filter((p) => p.covers(coords)) : [];
+  const providers = narrowed.length > 0 ? narrowed : pool;
+
+  for (const p of providers) {
     if (!p.readPhases) continue;
     try {
       const got = await p.readPhases(itstId, kind);
-      if (got && got.rows.length > 0) return got;
-    } catch {
-      // 위와 같다
+      if (got && got.rows.length > 0) {
+        return { ok: true, rows: got.rows, fetched: got.fetched };
+      }
+      if (got) known = got.kinds ?? known ?? [];
+    } catch (e) {
+      failures.push(`${p.label} — ${(e as Error).message}`);
     }
   }
-  return null;
+
+  // ⚠️ 순서가 중요하다. 포털 장애를 "값 없음" 으로 덮으면 위 사고가 그대로 재현된다
+  if (known !== null) return { ok: false, reason: "kind-empty", kinds: known };
+  if (failures.length > 0) return { ok: false, reason: "portal-error", failures };
+  return { ok: false, reason: "unknown-intersection" };
 }
 
 /**

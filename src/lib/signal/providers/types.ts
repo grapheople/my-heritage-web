@@ -95,11 +95,22 @@ export type SignalProvider = {
   /* ── 능력별 선택 구현 ── */
   /** 실시간 1건 */
   readLive?(ref: LiveRef): Promise<LiveResult>;
-  /** 한 교차로의 8방위 현시 — 방위를 고를 때 눈앞 신호와 대조한다 */
+  /**
+   * 한 교차로의 8방위 현시 — 방위를 고를 때 눈앞 신호와 대조한다.
+   *
+   * `null` 은 **"이 교차로를 모른다"**, `rows: []` 는 **"안다, 그런데 이 종별에
+   * 값이 없다"** 다. 둘을 합치면 화면이 "지원하지 않는 지역" 과 "보행 신호를 주지
+   * 않는 교차로" 를 같은 말로 안내하게 된다 — 유저가 할 수 있는 일이 서로 다르다.
+   */
   readPhases?(
     itstId: string,
     kind: SignalKind,
-  ): Promise<{ rows: PhaseRow[]; fetched: boolean } | null>;
+  ): Promise<{
+    rows: PhaseRow[];
+    fetched: boolean;
+    /** 이 교차로가 값을 주는 신호종별 — 요청한 종별이 비었을 때 대안을 말한다 */
+    kinds?: SignalKind[];
+  } | null>;
   /** 교차로 목록 (좌표로 찾기 위한 재료) */
   fetchIntersections?(): Promise<{ items: IntersectionRow[]; requests: number }>;
   /** 계획정보(TOD) — 현시 길이 */

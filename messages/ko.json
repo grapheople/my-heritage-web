@@ -284,6 +284,7 @@
     "findSearchPlaceholder": "교차로 이름",
     "findSearch": "이름으로 찾기",
     "findPickIntersection": "가까운 교차로를 고르세요",
+    "findPickKind": "이 교차로는 아래 신호만 실시간으로 줘요 — 하나를 골라 방위를 맞추세요",
     "findPickDirection": "지금 눈앞의 신호와 같은 것을 고르세요",
     "findAllSame": "모든 방위가 같은 상태예요 — 신호가 바뀐 뒤 다시 눌러보세요",
     "findNone": "근처에 개방된 교차로가 없어요. 3번 눌러 측정하는 방법을 쓰면 됩니다",
@@ -308,7 +309,15 @@
     },
     "mapPick": "이 위치로 교차로 찾기",
     "mapHint": "지도를 움직여 신호등 위치에 핀을 맞춰주세요",
-    "mapLocate": "현재 위치로 이동"
+    "mapLocate": "현재 위치로 이동",
+    "kinds": {
+      "straight": "직진",
+      "left": "좌회전",
+      "uturn": "유턴",
+      "pedestrian": "보행",
+      "bus": "버스",
+      "bicycle": "자전거"
+    }
   },
   "market": {
     "allCurrencies": "전체 통화",
