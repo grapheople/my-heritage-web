@@ -263,6 +263,7 @@
     "synced": "Corrected by {seconds}s",
     "syncedNone": "Already in sync",
     "lastSynced": "Last synced {time}",
+    "liveBadge": "Live",
     "neverSynced": "Never synced with the live signal",
     "notCalibrated": "Example cycle — measure the real one for accuracy",
     "loginToSync": "Sign in to sync with the live signal",

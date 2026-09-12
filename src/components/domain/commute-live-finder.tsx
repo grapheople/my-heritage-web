@@ -46,6 +46,14 @@ type Intersection = {
   name: string;
   engName: string | null;
   distanceM: number;
+  /**
+   * 이 좌표가 **실시간 개방 지역인가** (D-320).
+   *
+   * ⚠️ 목록에 있다고 실시간이 되는 것이 아니다 — 좌표는 서울·제주·울산 4,239건인데
+   * 실시간은 울산 397건뿐이다. 고른 **뒤에야** 알면 유저는 이유를 모른 채 교차로만
+   * 바꿔 본다
+   */
+  live?: boolean;
 };
 type Phase = {
   direction: Direction;
@@ -272,11 +280,16 @@ export function CommuteLiveFinder({
                       className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
                     >
                       <span className="truncate">{item.name}</span>
-                      {item.distanceM > 0 && (
-                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                          {t("distanceM", { meters: item.distanceM })}
-                        </span>
-                      )}
+                      <span className="ml-2 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                        {/* ⚠️ 실시간이 **되는 쪽**에만 배지를 단다. 안 되는 쪽에 경고를
+                            달면 목록 대부분이 경고로 덮여 신호가 죽는다 */}
+                        {item.live && (
+                          <span className="rounded bg-sale/10 px-1.5 py-0.5 font-medium text-sale">
+                            {t("liveBadge")}
+                          </span>
+                        )}
+                        {item.distanceM > 0 && t("distanceM", { meters: item.distanceM })}
+                      </span>
                     </button>
                   </li>
                 ))}

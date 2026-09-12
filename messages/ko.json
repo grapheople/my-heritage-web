@@ -263,6 +263,7 @@
     "synced": "{seconds}초 보정했어요",
     "syncedNone": "이미 맞아 있었어요",
     "lastSynced": "마지막 동기화 {time}",
+    "liveBadge": "실시간",
     "neverSynced": "아직 실시간 신호와 맞춘 적이 없어요",
     "notCalibrated": "예시 주기예요 — 실제로 측정한 값을 넣어야 맞습니다",
     "loginToSync": "로그인하면 실시간 신호와 맞출 수 있어요",

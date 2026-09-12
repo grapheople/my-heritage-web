@@ -6,7 +6,7 @@ import {
   readCatalogState,
 } from "@/lib/signal/intersections";
 import { checkPortalQuota, recordPortalCalls } from "@/lib/signal/portal";
-import { isLiveConfigured } from "@/lib/signal/providers";
+import { isCoveredRegion, isLiveConfigured } from "@/lib/signal/providers";
 
 /**
  * 개방 대상 교차로 찾기 — "내 앞의 신호등 id" 를 푸는 화면용.
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     if (!isLiveConfigured()) {
       return NextResponse.json(
         {
-          error: "교차로 목록이 비어 있고 TDATA_API_KEY 가 없다",
+          error: "교차로 목록이 비어 있고 POLICE_SIGNAL_API_KEY 가 없다",
           hint: "목록은 포털에서 받아야 한다. 키가 없으면 실시간 연동 없이 3번 눌러 측정하는 방법을 쓰면 된다",
         },
         { status: 503, headers: NO_STORE },
@@ -95,7 +95,17 @@ export async function GET(req: Request) {
     }
   }
 
-  const intersections = await findIntersections({ lat, lon, q, limit });
+  const found = await findIntersections({ lat, lon, q, limit });
+  /*
+    ⚠️ **목록에 있다고 실시간이 되는 것이 아니다.** 좌표 목록은 서울·제주·울산
+    4,239건인데 실시간은 울산 397건뿐이다. 고른 **뒤에야** 안 되는 걸 알면 유저는
+    이유를 모른 채 교차로만 바꿔 본다 — 고르기 **전에** 표시한다 (D-320).
+  */
+  const intersections = found.map((row) => ({
+    ...row,
+    live: isCoveredRegion({ lat: row.lat, lon: row.lon }),
+  }));
+
   return NextResponse.json(
     {
       intersections,
@@ -108,7 +118,9 @@ export async function GET(req: Request) {
       hint:
         intersections.length === 0
           ? "근처에 개방된 교차로가 없다 — 실시간 연동 없이 3번 눌러 측정하는 방법을 쓰면 된다"
-          : undefined,
+          : intersections.every((i) => !i.live)
+            ? "이 지역은 아직 실시간 개방 대상이 아니다 — 교차로를 고른 뒤 3번 눌러 측정하면 된다"
+            : undefined,
     },
     { headers: NO_STORE },
   );

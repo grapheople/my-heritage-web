@@ -263,6 +263,7 @@
     "synced": "{seconds}秒のずれを補正しました",
     "syncedNone": "すでに合っていました",
     "lastSynced": "最終同期 {time}",
+    "liveBadge": "リアルタイム",
     "neverSynced": "まだリアルタイム信号に合わせていません",
     "notCalibrated": "サンプルの周期です — 実測値を入れてください",
     "loginToSync": "ログインするとリアルタイム信号に合わせられます",

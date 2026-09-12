@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   }
   if (!isLiveConfigured()) {
     return NextResponse.json(
-      { error: "TDATA_API_KEY 가 없다", hint: "서울교통 빅데이터 포털에서 발급받아 환경변수에 넣어라" },
+      { error: "POLICE_SIGNAL_API_KEY 가 없다", hint: "공공데이터포털의 「(전국 통합데이터) 교통안전 신호등 실시간 정보」 인증키를 환경변수에 넣어라" },
       { status: 503, headers: NO_STORE },
     );
   }
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "실시간 응답에서 잔여시간 필드를 찾지 못했다",
-        hint: "observed.detail 의 필드 이름을 보고 TDATA_REMAINING_FIELD·TDATA_REMAINING_UNIT 을 지정하라",
+        hint: "observed.detail 에 어느 필드를 어떻게 읽었는지 들어 있다 — 비어 있으면 이 교차로가 그 종별 잔여시간을 내지 않는 것이다",
         observed: live,
       },
       { status: 409, headers: NO_STORE },

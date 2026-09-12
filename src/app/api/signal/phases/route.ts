@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   }
   if (!isLiveConfigured()) {
     return NextResponse.json(
-      { error: "TDATA_API_KEY 가 없다" },
+      { error: "POLICE_SIGNAL_API_KEY 가 없다" },
       { status: 503, headers: NO_STORE },
     );
   }
