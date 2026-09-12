@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { CommuteSignal } from "@/components/domain/commute-signal";
-import { CommuteTransit } from "@/components/domain/commute-transit";
+import { CommuteBoard } from "@/components/domain/commute-board";
 import { getViewer } from "@/lib/auth/viewer";
 import { getLights } from "@/lib/signal/lights";
 import { readLiveTarget } from "@/lib/signal/live-target";
@@ -75,17 +74,13 @@ export default async function CommutePage() {
   }
 
   return (
-    <div className="space-y-4">
-      <CommuteSignal
-        initial={result}
-        /** 실시간 대상이 정해져 있지 않으면 맞출 것이 없다 — 버튼 대신 찾기를 낸다 */
-        syncable={liveTarget !== null}
-        liveTarget={liveTarget}
-        loggedIn={viewer !== null}
-      />
-      <div className="px-4 pb-10">
-        <CommuteTransit initial={favorites} asOf={asOf} loggedIn={viewer !== null} />
-      </div>
-    </div>
+    <CommuteBoard
+      signal={result}
+      lightId={light.id}
+      liveTarget={liveTarget}
+      favorites={favorites}
+      asOf={asOf}
+      loggedIn={viewer !== null}
+    />
   );
 }

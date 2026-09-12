@@ -352,7 +352,8 @@
     "hideRoute": "{name} 숨기기",
     "addStop": "정류장·역 추가",
     "kindBus": "버스",
-    "kindSubway": "지하철"
+    "kindSubway": "지하철",
+    "kindSignal": "신호등"
   },
   "market": {
     "allCurrencies": "전체 통화",

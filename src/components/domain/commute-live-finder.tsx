@@ -73,15 +73,24 @@ export function CommuteLiveFinder({
   lightId,
   initial,
   onSaved,
+  /**
+   * **다른 화면 안에 끼워 넣을 때** (D-328).
+   *
+   * ⚠️ 자기 테두리·제목을 그대로 두면 「정류장·역 추가」 패널 안에 **카드 속 카드**가
+   * 생긴다. 입구와 종류 선택은 감싸는 쪽이 이미 하고 있으므로 여기서는 본문만 낸다.
+   */
+  embedded,
 }: {
   lightId: string;
   initial: LiveRef | null;
   onSaved: (target: LiveRef) => void;
+  embedded?: boolean;
 }) {
   const t = useTranslations("commute");
 
   const [target, setTarget] = useState(initial);
-  const [open, setOpen] = useState(initial === null);
+  /** 끼워 넣은 경우 감싸는 쪽이 이미 "추가" 를 눌러 들어온 것이라 늘 열려 있다 */
+  const [open, setOpen] = useState(embedded || initial === null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -99,6 +108,8 @@ export function CommuteLiveFinder({
    * 측정·신호 카드가 밀린다. **누를 때만** 펼친다.
    */
   const [mapOpen, setMapOpen] = useState(false);
+  /** 끼워 넣었을 때는 바깥 테두리를 쓰지 않는다 (위 `embedded` 주석) */
+  const Shell = embedded ? "div" : "section";
   /**
    * ⚠️ **대조에 쓴 종별을 저장에도 써야 한다.** 예전에는 저장이 `"pedestrian"` 로
    * 박혀 있어, 직진 신호로 방위를 맞춰도 DB 에는 보행으로 들어갔다 — 이후 실시간
@@ -239,10 +250,10 @@ export function CommuteLiveFinder({
   }
 
   return (
-    <section className="rounded-xl border p-4">
-      <h2 className="text-sm font-bold">{t("findTitle")}</h2>
+    <Shell className={embedded ? "space-y-2" : "rounded-xl border p-4"}>
+      {!embedded && <h2 className="text-sm font-bold">{t("findTitle")}</h2>}
 
-      {target && !open && (
+      {!embedded && target && !open && (
         <div className="mt-2 space-y-2">
           <p className="text-xs text-muted-foreground">
             {t("findCurrent", {
@@ -405,6 +416,6 @@ export function CommuteLiveFinder({
       )}
 
       {message && <p className="mt-3 text-xs text-muted-foreground">{message}</p>}
-    </section>
+    </Shell>
   );
 }

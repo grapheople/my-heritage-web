@@ -352,7 +352,8 @@
     "hideRoute": "{name} を非表示",
     "addStop": "停留所・駅を追加",
     "kindBus": "バス",
-    "kindSubway": "地下鉄"
+    "kindSubway": "地下鉄",
+    "kindSignal": "信号機"
   },
   "market": {
     "allCurrencies": "すべての通貨",

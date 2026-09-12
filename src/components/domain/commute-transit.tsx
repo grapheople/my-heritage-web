@@ -1,12 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Bus, Eye, EyeOff, Plus, RefreshCw, Train, X } from "lucide-react";
+import { Bus, Eye, EyeOff, Plus, RefreshCw, Train, TrafficCone, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HIDE_AFTER_SEC, STALE_AFTER_SEC } from "@/lib/transit/constants";
+import { CommuteLiveFinder } from "@/components/domain/commute-live-finder";
+import type { LiveRef } from "@/lib/signal/lights";
 import type { FavoriteView } from "@/lib/transit/favorites";
 import { cn } from "@/lib/utils";
 
@@ -70,11 +72,24 @@ export function CommuteTransit({
   initial,
   asOf,
   loggedIn,
+  lightId,
+  liveTarget,
+  onSignalSaved,
 }: {
   initial: FavoriteView[];
   /** 서버가 목록을 만든 시각 (ISO) — 첫 카운트의 기준 */
   asOf: string;
   loggedIn: boolean;
+  /**
+   * 신호등 찾기를 **같은 입구에 끼워 넣는다** (D-328).
+   *
+   * ⚠️ 저장 대상이 다르다 — 버스·지하철은 유저별 `TransitFavorite`, 신호등은
+   * 전역 `SignalLightLive`(OI-121)다. 그래서 **목록에는 섞지 않고 입구만** 합친다.
+   * 담은 결과가 서로 다른 곳에 보이는 것은 그 차이가 실제로 있기 때문이다.
+   */
+  lightId: string;
+  liveTarget: LiveRef | null;
+  onSignalSaved: (target: LiveRef) => void;
 }) {
   const t = useTranslations("transit");
 
@@ -82,7 +97,7 @@ export function CommuteTransit({
   const [nowMs, setNowMs] = useState(() => new Date(asOf).getTime());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [adding, setAdding] = useState<"BUS" | "SUBWAY" | null>(null);
+  const [adding, setAdding] = useState<"BUS" | "SUBWAY" | "SIGNAL" | null>(null);
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   /**
@@ -446,7 +461,7 @@ export function CommuteTransit({
             하고 그에 맞는 방법만 낸다.
           */}
           <div role="tablist" aria-label={t("addStop")} className="flex gap-1 rounded-lg bg-muted p-1">
-            {(["BUS", "SUBWAY"] as const).map((k) => (
+            {(["BUS", "SUBWAY", "SIGNAL"] as const).map((k) => (
               <button
                 key={k}
                 role="tab"
@@ -470,10 +485,12 @@ export function CommuteTransit({
               >
                 {k === "BUS" ? (
                   <Bus aria-hidden className="size-3.5" />
-                ) : (
+                ) : k === "SUBWAY" ? (
                   <Train aria-hidden className="size-3.5" />
+                ) : (
+                  <TrafficCone aria-hidden className="size-3.5" />
                 )}
-                {k === "BUS" ? t("kindBus") : t("kindSubway")}
+                {k === "BUS" ? t("kindBus") : k === "SUBWAY" ? t("kindSubway") : t("kindSignal")}
               </button>
             ))}
           </div>
@@ -483,7 +500,24 @@ export function CommuteTransit({
             확정됐고 지도는 할 일이 없는데, 256px 이 남아 노선 목록을 아래로
             밀어낸다 — 정류장을 고를 때(상행·하행 확인)만 필요하다.
           */}
-          {adding === "BUS" ? (
+          {adding === "SIGNAL" ? (
+            /*
+              ⚠️ **신호등은 흐름 전체가 다르다** — 교차로를 고른 뒤 8방위 현시를
+              받아 눈앞 신호와 대조해야 한다(D-317). 그 판단은 신호등 앞에 선
+              사람만 할 수 있어 정류장 고르기와 단계가 겹치지 않는다. 그래서 이
+              탭에서는 **기존 찾기 컴포넌트를 그대로** 낸다 — 다시 구현하면 두 벌이
+              갈린다.
+            */
+            <CommuteLiveFinder
+              embedded
+              lightId={lightId}
+              initial={liveTarget}
+              onSaved={(target) => {
+                onSignalSaved(target);
+                setAdding(null);
+              }}
+            />
+          ) : adding === "BUS" ? (
             /* ⚠️ **조건을 `adding` 과 합치지 않는다.** `adding === "BUS" && routes === null`
                로 쓰면 노선 단계에서 else 로 떨어져 **지하철 이름 검색창**이 뜬다 */
             routes === null && (

@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { CommuteLiveFinder } from "@/components/domain/commute-live-finder";
 import { Link } from "@/i18n/navigation";
-import type { LiveRef } from "@/lib/signal/lights";
 import { readProfile } from "@/lib/signal/cycle";
 import type { SignalAnswer } from "@/lib/signal/resolve";
 import { cn } from "@/lib/utils";
@@ -76,13 +74,16 @@ type MeasureResponse = {
 export function CommuteSignal({
   initial,
   syncable,
-  liveTarget,
   loggedIn,
 }: {
   initial: SignalAnswer;
+  /**
+   * 실시간 대상이 정해져 있는가 — **부모가 판정해 넘긴다** (D-328).
+   *
+   * ⚠️ 대상 자체(`LiveRef`)는 더 이상 여기서 쓰지 않는다. 고르는 일이 「정류장·역
+   * 추가」의 신호등 탭으로 갔고, 이 카드는 **버튼을 낼지 말지**만 알면 된다.
+   */
   syncable: boolean;
-  /** 화면에서 고른 실시간 대상 (없으면 아직 안 정해진 것) */
-  liveTarget: LiveRef | null;
   loggedIn: boolean;
 }) {
   const t = useTranslations("commute");
@@ -106,7 +107,8 @@ export function CommuteSignal({
   const [nowMs, setNowMs] = useState(() => new Date(initial.asOf).getTime());
   const [busy, setBusy] = useState<"sync" | "measure" | null>(null);
   /** 찾기에서 대상을 정하면 동기화 버튼이 그 자리에서 생긴다 */
-  const [hasLiveTarget, setHasLiveTarget] = useState(syncable);
+  /** ⚠️ 부모(`CommuteBoard`)가 들고 있다 — 여기서 또 들면 한쪽만 갱신된다 (D-328) */
+  const hasLiveTarget = syncable;
   const [message, setMessage] = useState<string | null>(null);
   /** 측정 중 누른 시각들 — **기기 시계 그대로** 담는다 (서버가 시차를 민다) */
   const [marks, setMarks] = useState<number[] | null>(null);
@@ -362,16 +364,10 @@ export function CommuteSignal({
         {message && <p className="text-xs text-muted-foreground">{message}</p>}
 
         {/*
-          실시간 대상 고르기. 측정 중에는 감춘다 — 신호를 보며 누르는 중에
-          다른 선택지가 끼어들면 탭을 놓친다
+          ⚠️ **대상 고르기는 여기 없다** (D-328). 「정류장·역 추가」의 신호등 탭으로
+          옮겼다 — 버스·지하철과 입구를 합쳐 달라는 요청이었고, 카드마다 찾기 UI 를
+          두면 같은 일을 두 곳에서 하게 된다.
         */}
-        {loggedIn && !measuring && (
-          <CommuteLiveFinder
-            lightId={initial.id}
-            initial={liveTarget}
-            onSaved={() => setHasLiveTarget(true)}
-          />
-        )}
       </div>
     </div>
   );

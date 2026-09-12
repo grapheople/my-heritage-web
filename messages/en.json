@@ -352,7 +352,8 @@
     "hideRoute": "Hide {name}",
     "addStop": "Add stop or station",
     "kindBus": "Bus",
-    "kindSubway": "Subway"
+    "kindSubway": "Subway",
+    "kindSignal": "Signal"
   },
   "market": {
     "allCurrencies": "All currencies",
