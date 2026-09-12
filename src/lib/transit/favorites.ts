@@ -1,5 +1,6 @@
 import type { TransitKind } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
+import { MAX_FAVORITES } from "./constants";
 import { readArrivals } from "./providers";
 
 /**
@@ -13,16 +14,8 @@ import { readArrivals } from "./providers";
  * 신호등이 `greenStartAt` 으로 같은 문제를 푼 것과 같은 구조다.
  */
 
-/** 한 유저가 담을 수 있는 수 — 화면이 한눈에 들어오는 범위 */
-export const MAX_FAVORITES = 8;
-
-/**
- * 스냅샷을 **언제 낡았다고 보는가**.
- *
- * ⚠️ 버스·지하철은 1분이면 상황이 바뀐다. 다만 페이지를 열 때마다 포털을 부르면
- * 하루 한도를 금방 태우므로, 이 시간 안이면 저장된 값으로 센다.
- */
-export const STALE_AFTER_SEC = 45;
+// 상수는 `constants.ts` 에 둔다 — 화면이 그것을 가져올 때 prisma 가 딸려오면 안 된다
+export { MAX_FAVORITES, STALE_AFTER_SEC } from "./constants";
 
 export type FavoriteView = {
   id: string;

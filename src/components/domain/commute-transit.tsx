@@ -3,9 +3,10 @@
 import dynamic from "next/dynamic";
 import { Bus, Plus, RefreshCw, Train, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { HIDE_AFTER_SEC, STALE_AFTER_SEC } from "@/lib/transit/constants";
 import type { FavoriteView } from "@/lib/transit/favorites";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +80,29 @@ export function CommuteTransit({
     const id = setInterval(() => setNowMs(Date.now()), 250);
     return () => clearInterval(id);
   }, []);
+
+  /*
+    ⚠️ **낡은 스냅샷을 그대로 세면 거짓말이 된다.** 어제 담아둔 정류장을 오늘 열면
+    카운트다운이 한참 음수가 되고 화면은 그것을 "곧 도착" 으로 띄운다 — 오지 않을
+    차를 기다리게 하는 가장 나쁜 실패다. 열 때 한 번만 다시 받는다.
+
+    ⚠️ **열 때마다 무조건 부르지는 않는다.** 포털에 하루 한도가 있어서, 45초 안의
+    값이면 저장된 것으로 충분하다.
+  */
+  const autoRefreshed = useRef(false);
+  useEffect(() => {
+    if (autoRefreshed.current || initial.length === 0) return;
+    const newest = Math.max(
+      0,
+      ...initial.flatMap((f) => f.arrivals.map((a) => new Date(a.fetchedAt).getTime())),
+    );
+    const stale = newest === 0 || Date.now() - newest > STALE_AFTER_SEC * 1000;
+    if (!stale) return;
+    autoRefreshed.current = true;
+    void call("/api/transit/refresh", { method: "POST" });
+    // 최초 1회만 — `call` 은 매 렌더 새로 만들어지므로 의존성에 넣지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
 
   const fail = (reason: string) => setMessage(t("failed", { reason }));
 
@@ -200,11 +224,21 @@ export function CommuteTransit({
               </button>
             </div>
 
-            {f.arrivals.length === 0 ? (
+            {(() => {
+              /*
+                ⚠️ **한참 지난 행은 버린다.** 스냅샷이 낡으면 전부 음수가 되는데,
+                그것을 "곧 도착" 으로 띄우면 오지 않을 차를 기다리게 된다.
+              */
+              const live = f.arrivals.filter(
+                (a) =>
+                  a.predictSec - Math.floor((nowMs - new Date(a.fetchedAt).getTime()) / 1000) >
+                  -HIDE_AFTER_SEC,
+              );
+              return live.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{t("noArrival")}</p>
             ) : (
               <ul className="mt-2 space-y-1">
-                {f.arrivals.map((a) => {
+                {live.map((a) => {
                   /*
                     ⚠️ **받은 시각부터 흐른 만큼 뺀다.** 이것이 이 화면의 핵심이다 —
                     저장된 `predictSec` 를 그대로 쓰면 페이지를 열어둔 시간만큼 틀린다
@@ -237,7 +271,8 @@ export function CommuteTransit({
                   );
                 })}
               </ul>
-            )}
+              );
+            })()}
           </li>
         ))}
       </ul>
