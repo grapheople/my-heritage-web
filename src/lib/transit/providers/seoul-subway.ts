@@ -129,6 +129,48 @@ function variantOf(name: string): string | null {
   return null;
 }
 
+/**
+ * 이 열차의 **종점** (D-325).
+ *
+ * `trainLineNm` 은 `"광운대행 - 시청방면"` 처럼 **종점과 다음 방면**을 한 문자열로
+ * 준다. 앞부분만 떼어 쓴다.
+ *
+ * ## ⚠️ 상행·하행만으로는 탈 차를 고를 수 없다
+ * **1호선 상행 하나에 종점이 넷이다** — 광운대·연천·의정부·청량리 (2026-09-12
+ * 실측). 청량리에서 내릴 사람에게 연천행과 청량리행은 전혀 다른 열차다.
+ *
+ * ## ⚠️ `(급행)` 을 떼지 않는다
+ * 공항철도는 `"인천공항2터미널행 - 공덕방면 (급행)"` 처럼 **꼬리에** 붙인다.
+ * `-` 앞만 자르면 급행 표시가 사라져 **완행과 구분할 수 없다.**
+ */
+function terminus(r: Row): string | undefined {
+  const line = r.trainLineNm?.trim();
+  if (!line) return undefined;
+  const head = line.split("-")[0]?.trim();
+  if (!head) return undefined;
+  return /\(급행\)/.test(line) ? `${head} (급행)` : head;
+}
+
+/** 방향 + 종점 — 후보 목록에 그대로 쓴다 */
+function directionLabel(updnLine: string | undefined, termini: string[]): string {
+  const dir = updnLine ?? "";
+  /*
+    ⚠️ **급행 표시는 요약에서 뗀다.** 공항철도 상행은 종점이 하나인데 완행·급행이
+    따로 와서, 그대로 두면 `인천공항2터미널행·인천공항2터미널행 (급행)` 처럼
+    **같은 이름이 두 번** 나온다 — 읽는 사람에게는 버그로 보인다. 급행 여부는
+    도착 행마다 그대로 나오므로 요약에서 잃을 것이 없다.
+  */
+  const base = [...new Set(termini.map((x) => x.replace(/\s*\(급행\)$/, "")))];
+  if (base.length === 0) return dir;
+  /*
+    ⚠️ **전부 나열하지 않는다.** 1호선 상행은 넷이라 한 줄에 담기지 않고, 목록에서
+    정작 중요한 **역 이름과 호선**을 밀어낸다. 둘까지 보이고 나머지는 수로 말한다
+  */
+  const head = base.slice(0, 2).join("·");
+  const rest = base.length - 2;
+  return dir ? `${dir} · ${head}${rest > 0 ? ` 외 ${rest}` : ""}` : head;
+}
+
 async function search({ q }: { q?: string }): Promise<StopCandidate[]> {
   const name = q?.trim();
   // 좌표만 온 경우 — 이 제공자는 답할 수 없다 (위 주석)
@@ -154,21 +196,30 @@ async function search({ q }: { q?: string }): Promise<StopCandidate[]> {
     같은 역에 호선·방향이 여럿이다. **방향까지 골라야** 도착 카운트가 의미를
     가지므로(반대편 열차를 세면 안 된다) 조합마다 후보를 낸다.
   */
-  const seen = new Set<string>();
-  const out: StopCandidate[] = [];
+  /*
+    ⚠️ **먼저 모으고 나중에 만든다.** 한 (호선·방향)에 종점이 여럿이라, 첫 행만
+    보고 후보를 만들면 나머지 종점이 사라진다 — 유저는 자기 열차가 없다고 본다.
+  */
+  const groups = new Map<string, { line: string; stop: string; updn?: string; termini: string[] }>();
   for (const r of rows) {
-    const line = LINE[r.subwayId ?? ""] ?? r.subwayId ?? "";
     const routeId = `${r.subwayId ?? ""}:${r.updnLine ?? ""}`;
-    if (seen.has(routeId)) continue;
-    seen.add(routeId);
-    out.push({
-      kind: "SUBWAY",
-      stopId: r.statnNm ?? name,
-      stopName: r.statnNm ?? name,
-      routes: [{ routeId, routeName: line, headsign: r.updnLine ?? undefined }],
-    });
+    const g = groups.get(routeId) ?? {
+      line: LINE[r.subwayId ?? ""] ?? r.subwayId ?? "",
+      stop: r.statnNm ?? name,
+      updn: r.updnLine ?? undefined,
+      termini: [],
+    };
+    const end = terminus(r);
+    if (end && !g.termini.includes(end)) g.termini.push(end);
+    groups.set(routeId, g);
   }
-  return out;
+
+  return [...groups.entries()].map(([routeId, g]) => ({
+    kind: "SUBWAY" as const,
+    stopId: g.stop,
+    stopName: g.stop,
+    routes: [{ routeId, routeName: g.line, headsign: directionLabel(g.updn, g.termini) }],
+  }));
 }
 
 async function arrivals({
@@ -190,7 +241,8 @@ async function arrivals({
         {
           routeId: id,
           routeName: LINE[r.subwayId ?? ""] ?? r.subwayId ?? "",
-          headsign: r.trainLineNm ?? r.updnLine ?? undefined,
+          // ⚠️ 행마다 종점이 다르다 — 그 차가 어디까지 가는지가 탈지 말지를 가른다
+          headsign: terminus(r) ?? r.updnLine ?? undefined,
           ...got,
         },
       ];

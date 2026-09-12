@@ -369,6 +369,13 @@ export function CommuteTransit({
                     >
                       <span className="truncate text-muted-foreground">
                         {a.routeName}
+                        {/*
+                          ⚠️ **행마다 종점이 다르다.** 1호선 상행 하나에 광운대·연천·
+                          의정부·청량리가 섞인다 — 어디까지 가는 차인지가 탈지 말지를
+                          가른다 (D-325). 정류장 이름줄의 종점은 방향 요약이라 여기
+                          한 번 더 나와도 같은 말이 아니다
+                        */}
+                        {a.headsign ? ` · ${a.headsign}` : ""}
                         {a.seq > 1 ? ` · ${t("next")}` : ""}
                         {/*
                           ⚠️ 초가 없는 노선은 정거장 수가 **본문**이라 오른쪽에 크게
