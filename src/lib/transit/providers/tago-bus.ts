@@ -1,3 +1,4 @@
+import { TransitPortalError } from "../types";
 import type { Arrival, StopCandidate, TransitProvider } from "../types";
 
 /**
@@ -55,8 +56,13 @@ async function get(path: string, params: Record<string, string>): Promise<Row[]>
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`TAGO ${res.status}`);
-
+  /*
+    ⚠️ **상태코드로 먼저 끊지 않는다.** 활용신청이 안 된 서비스는 **403 과 함께
+    본문에** `SERVICE_KEY_IS_NOT_REGISTERED_ERROR` 를 담아 준다. `res.ok` 로 먼저
+    던지면 그 본문을 읽지 못해 "TAGO 403" 이라는 **아무것도 알려주지 않는 문구**가
+    되고, 화면은 "신청이 필요하다" 대신 "포털 오류" 라고 말한다 — 실제로 그랬다
+    (2026-09-12). 본문을 먼저 보고, 거기서 얻을 것이 없을 때만 상태코드를 쓴다.
+  */
   const text = await res.text();
   /*
     ⚠️ **오류일 때 XML 이 온다.** `_type=json` 을 줘도 게이트웨이 단계 오류
@@ -67,8 +73,13 @@ async function get(path: string, params: Record<string, string>): Promise<Row[]>
   try {
     body = JSON.parse(text);
   } catch {
+    // XML 로 온 오류도 같은 규칙으로 가른다 — 게이트웨이가 형식을 섞어 답한다
     const msg = /<errMsg>([^<]+)</.exec(text)?.[1] ?? text.slice(0, 120);
-    throw new Error(`TAGO 응답이 JSON 이 아니다 — ${msg}`);
+    if (msg.includes("SERVICE_KEY_IS_NOT_REGISTERED")) {
+      const svc = path.split("/")[0];
+      throw new TransitPortalError("not-registered", svc, `${svc} 활용신청이 안 돼 있다`);
+    }
+    throw new TransitPortalError("portal-error", path.split("/")[0], `TAGO ${res.status} — ${msg}`);
   }
 
   const b = body as {
@@ -77,13 +88,30 @@ async function get(path: string, params: Record<string, string>): Promise<Row[]>
   };
   const gateway = b.OpenAPI_ServiceResponse?.cmmMsgHeader;
   if (gateway) {
-    throw new Error(`TAGO ${gateway.errMsg ?? ""} ${gateway.returnAuthMsg ?? ""}`.trim());
+    /*
+      ⚠️ **활용신청이 서비스마다 따로다.** `SERVICE_KEY_IS_NOT_REGISTERED_ERROR` 는
+      "키가 틀렸다" 가 아니라 **"이 서비스에 이 키가 등록돼 있지 않다"** 는 뜻이다 —
+      같은 키로 도착정보는 200, 정류소정보는 403 이었다. 어느 쪽인지 이름을 실어
+      올려야 화면이 "무엇을 신청해야 하는지" 를 말할 수 있다.
+    */
+    const service = path.split("/")[0];
+    if (gateway.errMsg === "SERVICE_KEY_IS_NOT_REGISTERED_ERROR") {
+      throw new TransitPortalError("not-registered", service, `${service} 활용신청이 안 돼 있다`);
+    }
+    throw new TransitPortalError(
+      "portal-error",
+      service,
+      `TAGO ${gateway.errMsg ?? ""} ${gateway.returnAuthMsg ?? ""}`.trim(),
+    );
   }
   const header = b.response?.header;
   // `00` 이 정상. `03`(데이터 없음)은 빈 배열이 맞는 답이라 던지지 않는다
   if (header?.resultCode && header.resultCode !== "00" && header.resultCode !== "03") {
     throw new Error(`TAGO ${header.resultCode} ${header.resultMsg ?? ""}`.trim());
   }
+  // 본문에서 사유를 못 찾았는데 상태코드가 실패면 그때 상태코드를 쓴다
+  if (!res.ok) throw new TransitPortalError("portal-error", path.split("/")[0], `TAGO ${res.status}`);
+
   const item = b.response?.body?.items?.item;
   if (!item) return [];
   return Array.isArray(item) ? item : [item];

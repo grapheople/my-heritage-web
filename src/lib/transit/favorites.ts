@@ -140,7 +140,9 @@ export async function removeFavorite(userId: string, id: string): Promise<boolea
 export type RefreshResult = {
   id: string;
   ok: boolean;
-  reason?: "not-configured" | "portal-error";
+  reason?: "not-configured" | "not-registered" | "portal-error";
+  /** `not-registered` 일 때 어느 포털 서비스인지 */
+  service?: string;
   detail?: string;
   count: number;
 };
@@ -177,7 +179,16 @@ export async function refreshFavorite(
     });
   }
 
-  if (!got.ok) return { id, ok: false, reason: got.reason, detail: got.detail, count: 0 };
+  if (!got.ok) {
+    return {
+      id,
+      ok: false,
+      reason: got.reason,
+      service: got.reason === "not-registered" ? got.service : undefined,
+      detail: got.reason === "portal-error" ? got.detail : undefined,
+      count: 0,
+    };
+  }
 
   const fetchedAt = new Date();
   /*

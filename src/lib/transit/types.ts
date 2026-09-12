@@ -74,3 +74,26 @@ export type TransitProvider = {
     routeId?: string;
   }): Promise<Arrival[]>;
 };
+
+/**
+ * 포털이 거절한 이유를 **들고 올라가는** 오류 (D-321).
+ *
+ * ## ⚠️ "못 찾았다" 와 "신청이 안 됐다" 는 다른 말이다
+ * TAGO 는 **오퍼레이션 묶음(서비스)마다 활용신청이 따로**다. 실제로 인증키 하나로
+ * 도착정보는 200 인데 정류소정보는 403 이었다 (2026-09-12 실측). 이때 화면이
+ * "정류장을 찾지 못했다" 라고만 하면 유저는 **위치를 바꿔 가며 다시 찾는다** —
+ * 몇 번을 해도 결과는 같다. 어느 서비스의 신청이 비었는지 이름을 그대로 전한다.
+ *
+ * 신호등에서 포털 장애를 "개방 대상이 아닌 교차로" 로 안내한 것과 같은 실패다 (D-319).
+ */
+export class TransitPortalError extends Error {
+  constructor(
+    readonly reason: "not-registered" | "portal-error",
+    /** 활용신청이 필요한 서비스 이름 (`BusSttnInfoInqireService` 등) */
+    readonly service?: string,
+    message?: string,
+  ) {
+    super(message ?? reason);
+    this.name = "TransitPortalError";
+  }
+}

@@ -1,3 +1,4 @@
+import { TransitPortalError } from "../types";
 import type { Arrival, StopCandidate, TransitProvider } from "../types";
 
 /**
@@ -55,18 +56,27 @@ async function fetchRows(station: string): Promise<Row[]> {
 
   const body = (await res.json()) as {
     realtimeArrivalList?: Row[];
-    /** 오류는 이 모양으로 온다 — `realtimeArrivalList` 가 아예 없다 */
-    status?: number;
+    /** 오류가 **두 모양**으로 온다 — 아래 주석 참조 */
+    code?: string;
     message?: string;
     errorMessage?: { status?: number; message?: string; code?: string };
   };
-  const err = body.errorMessage;
+  /*
+    ⚠️ **오류가 최상위로 올 때가 있다.** 인증키가 틀리면 `errorMessage` 가 아니라
+    **최상위에** `{"status":500,"code":"INFO-100","message":"인증키가 유효하지
+    않습니다"}` 가 온다 (2026-09-12 실측). `errorMessage` 만 보던 코드는 그것을
+    **빈 배열로 흘려보내** 화면이 "역을 찾지 못했다" 라고 했다 — 유저는 역 이름을
+    계속 바꿔 보게 된다. HTTP 는 200 이라 상태코드로도 걸러지지 않는다.
+  */
+  const code = body.errorMessage?.code ?? body.code;
+  const message = body.errorMessage?.message ?? body.message;
   /*
     ⚠️ **`INFO-200`(해당 데이터 없음)은 오류가 아니다.** 막차 이후나 없는 역을
     물으면 이 코드가 온다 — 던지면 화면이 "포털 오류" 로 읽는다.
   */
-  if (err?.code && err.code !== "INFO-000" && err.code !== "INFO-200") {
-    throw new Error(`서울 지하철 ${err.code} ${err.message ?? ""}`.trim());
+  if (code && code !== "INFO-000" && code !== "INFO-200") {
+    const reason = code === "INFO-100" ? "not-registered" : "portal-error";
+    throw new TransitPortalError(reason, "realtimeStationArrival", `서울 지하철 ${code} ${message ?? ""}`.trim());
   }
   return body.realtimeArrivalList ?? [];
 }

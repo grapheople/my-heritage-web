@@ -49,6 +49,25 @@ export async function GET(req: Request) {
 
   const got = await searchStops(kind, { q, lat, lon });
   if (!got.ok) {
+    /*
+      ⚠️ **"신청이 안 됐다" 를 "못 찾았다" 로 뭉치지 않는다.** TAGO 는 서비스마다
+      활용신청이 따로라, 같은 키로 도착정보는 200 인데 정류소정보는 403 이다
+      (2026-09-12 실측). 그때 "정류장을 찾지 못했다" 라고만 하면 유저는 **위치를
+      바꿔 가며 다시 찾는다** — 몇 번을 해도 결과는 같다.
+    */
+    if (got.reason === "not-registered") {
+      return NextResponse.json(
+        {
+          error: "이 포털 서비스에 인증키가 등록돼 있지 않다",
+          service: got.service,
+          hint:
+            got.service === "BusSttnInfoInqireService"
+              ? "공공데이터포털에서 「국토교통부_(TAGO)_버스정류소정보」를 추가로 활용신청해야 한다 — 도착정보와 별개의 서비스다"
+              : "공공데이터포털에서 해당 서비스를 활용신청해야 한다",
+        },
+        { status: 503, headers: NO_STORE },
+      );
+    }
     if (got.reason === "not-configured") {
       return NextResponse.json(
         {

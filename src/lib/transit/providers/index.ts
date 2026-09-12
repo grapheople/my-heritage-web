@@ -1,4 +1,5 @@
 import type { TransitKind } from "@/generated/prisma/enums";
+import { TransitPortalError } from "../types";
 import type { Arrival, StopCandidate, TransitProvider } from "../types";
 import { seoulSubway } from "./seoul-subway";
 import { tagoBus } from "./tago-bus";
@@ -28,9 +29,27 @@ export function configuredKinds(): TransitKind[] {
   return PROVIDERS.filter((p) => p.isConfigured()).map((p) => p.kind);
 }
 
-export type SearchOutcome =
-  | { ok: true; stops: StopCandidate[] }
-  | { ok: false; reason: "not-configured" | "portal-error"; detail?: string };
+/**
+ * 실패 사유.
+ *
+ * ⚠️ **`not-configured` 와 `not-registered` 는 다른 말이다.** 앞은 *우리가* 키를
+ * 안 넣은 것이고, 뒤는 키는 있는데 *그 서비스에* 활용신청이 안 된 것이다. 유저가
+ * 할 일이 서로 달라 같은 문구로 뭉치면 안 된다 (D-319 가 신호등에서 겪은 실패).
+ */
+export type TransitFailure =
+  | { reason: "not-configured" }
+  | { reason: "not-registered"; service?: string }
+  | { reason: "portal-error"; detail?: string };
+
+export type SearchOutcome = { ok: true; stops: StopCandidate[] } | ({ ok: false } & TransitFailure);
+
+/** 던져진 오류를 사유로 옮긴다 — 두 파사드가 같은 규칙을 쓴다 */
+function toFailure(e: unknown): TransitFailure {
+  if (e instanceof TransitPortalError && e.reason === "not-registered") {
+    return { reason: "not-registered", service: e.service };
+  }
+  return { reason: "portal-error", detail: (e as Error).message };
+}
 
 export async function searchStops(
   kind: TransitKind,
@@ -46,13 +65,11 @@ export async function searchStops(
       "개방 대상이 아닌 교차로" 로 안내한 적이 있다 (D-319). 같은 실수를 반복하지
       않기 위해 여기서도 사유를 그대로 올린다.
     */
-    return { ok: false, reason: "portal-error", detail: (e as Error).message };
+    return { ok: false, ...toFailure(e) };
   }
 }
 
-export type ArrivalsOutcome =
-  | { ok: true; arrivals: Arrival[] }
-  | { ok: false; reason: "not-configured" | "portal-error"; detail?: string };
+export type ArrivalsOutcome = { ok: true; arrivals: Arrival[] } | ({ ok: false } & TransitFailure);
 
 export async function readArrivals(
   kind: TransitKind,
@@ -63,6 +80,6 @@ export async function readArrivals(
   try {
     return { ok: true, arrivals: await p.arrivals(args) };
   } catch (e) {
-    return { ok: false, reason: "portal-error", detail: (e as Error).message };
+    return { ok: false, ...toFailure(e) };
   }
 }
