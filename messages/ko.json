@@ -321,6 +321,26 @@
       "bicycle": "자전거"
     }
   },
+  "transit": {
+    "title": "버스·지하철 도착",
+    "intro": "자주 타는 정류장을 담아두면 도착까지 남은 시간을 셉니다",
+    "loginToUse": "로그인하면 정류장을 담을 수 있어요",
+    "addBus": "버스 정류장",
+    "addSubway": "지하철역",
+    "pickHere": "이 위치로 정류장 찾기",
+    "stationPlaceholder": "역 이름",
+    "search": "찾기",
+    "cancel": "취소",
+    "refresh": "새로고침",
+    "remove": "빼기",
+    "searchNone": "찾지 못했어요 — 위치나 이름을 바꿔보세요",
+    "noArrival": "지금은 도착 예정이 없어요",
+    "arrived": "곧 도착",
+    "next": "다음",
+    "inSeconds": "{time}",
+    "stopsLeft": "{count}정거장 전",
+    "failed": "실패했어요 — {reason}"
+  },
   "market": {
     "allCurrencies": "전체 통화",
     "sortRecent": "최신순",

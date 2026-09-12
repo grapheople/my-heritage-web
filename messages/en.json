@@ -321,6 +321,26 @@
       "bicycle": "Bicycle"
     }
   },
+  "transit": {
+    "title": "Bus & subway arrivals",
+    "intro": "Save the stops you use and we'll count down to the next arrival",
+    "loginToUse": "Sign in to save stops",
+    "addBus": "Bus stop",
+    "addSubway": "Subway station",
+    "pickHere": "Find stops near this pin",
+    "stationPlaceholder": "Station name",
+    "search": "Search",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "remove": "Remove",
+    "searchNone": "Nothing found — try another spot or name",
+    "noArrival": "No arrivals right now",
+    "arrived": "Arriving",
+    "next": "Next",
+    "inSeconds": "{time}",
+    "stopsLeft": "{count} stops away",
+    "failed": "Failed — {reason}"
+  },
   "market": {
     "allCurrencies": "All currencies",
     "sortRecent": "Newest",

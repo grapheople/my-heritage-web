@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { CommuteSignal } from "@/components/domain/commute-signal";
+import { CommuteTransit } from "@/components/domain/commute-transit";
 import { getViewer } from "@/lib/auth/viewer";
 import { getLights } from "@/lib/signal/lights";
 import { readLiveTarget } from "@/lib/signal/live-target";
 import { isFailure, resolveSignal } from "@/lib/signal/resolve";
+import { listFavorites } from "@/lib/transit/favorites";
 
 /**
  * 출근길 — 집앞 신호등 잔여시간 (`/api/signal`).
@@ -47,6 +49,17 @@ export default async function CommutePage() {
   */
   const liveTarget = light ? await readLiveTarget(light.id, light.live) : null;
 
+  /*
+    ⚠️ **서버에서 한 번 읽어 내려보낸다** (D-321). 클라이언트가 마운트 후 부르면
+    첫 화면이 빈 카드였다가 채워져 고장처럼 보인다. 담아둔 것이 없으면 조회
+    한 번으로 끝난다.
+
+    ⚠️ `asOf` 를 **함께** 내려보낸다. 카운트다운이 `Date.now()` 로 시작하면 서버와
+    클라이언트의 첫 숫자가 달라 hydration 오류가 난다 — 신호등에서 실제로 겪었다.
+  */
+  const favorites = viewer ? await listFavorites(viewer.userId) : [];
+  const asOf = new Date().toISOString();
+
   if (!result || isFailure(result)) {
     return (
       <div className="px-4 py-10 text-center">
@@ -62,12 +75,17 @@ export default async function CommutePage() {
   }
 
   return (
-    <CommuteSignal
-      initial={result}
-      /** 실시간 대상이 정해져 있지 않으면 맞출 것이 없다 — 버튼 대신 찾기를 낸다 */
-      syncable={liveTarget !== null}
-      liveTarget={liveTarget}
-      loggedIn={viewer !== null}
-    />
+    <div className="space-y-4">
+      <CommuteSignal
+        initial={result}
+        /** 실시간 대상이 정해져 있지 않으면 맞출 것이 없다 — 버튼 대신 찾기를 낸다 */
+        syncable={liveTarget !== null}
+        liveTarget={liveTarget}
+        loggedIn={viewer !== null}
+      />
+      <div className="px-4 pb-10">
+        <CommuteTransit initial={favorites} asOf={asOf} loggedIn={viewer !== null} />
+      </div>
+    </div>
   );
 }

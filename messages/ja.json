@@ -321,6 +321,26 @@
       "bicycle": "自転車"
     }
   },
+  "transit": {
+    "title": "バス・地下鉄の到着",
+    "intro": "よく使う停留所を登録すると到着までの残り時間を数えます",
+    "loginToUse": "ログインすると停留所を登録できます",
+    "addBus": "バス停",
+    "addSubway": "地下鉄駅",
+    "pickHere": "この位置で停留所を探す",
+    "stationPlaceholder": "駅名",
+    "search": "探す",
+    "cancel": "キャンセル",
+    "refresh": "更新",
+    "remove": "削除",
+    "searchNone": "見つかりませんでした — 位置や名前を変えてみてください",
+    "noArrival": "今は到着予定がありません",
+    "arrived": "まもなく到着",
+    "next": "次",
+    "inSeconds": "{time}",
+    "stopsLeft": "{count}停留所前",
+    "failed": "失敗しました — {reason}"
+  },
   "market": {
     "allCurrencies": "すべての通貨",
     "sortRecent": "新着順",
