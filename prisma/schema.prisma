@@ -1806,9 +1806,13 @@ model TransitArrival {
   /// 몇 번째 도착인가 — 1 이 곧 올 차, 2 가 그다음
   seq Int @default(1)
 
-  /// 도착까지 남은 초 (받은 시각 기준)
-  predictSec Int
-  /// 남은 정류장 수 — 버스만 준다
+  /// 도착까지 남은 초 (받은 시각 기준).
+  ///
+  /// ⚠️ **`null` 이 정상이다.** 노선마다 주는 것이 다르다 — 2호선은 초를 주는데
+  /// 신분당선은 `barvlDt` 가 0 이고 "[3]번째 전역" 만 준다 (2026-09-12 실측).
+  /// 초가 없다고 버리면 **그 노선이 통째로 사라진다.** 그때는 `stopsLeft` 로 센다
+  predictSec Int?
+  /// 남은 정류장 수 — 초를 주지 않는 노선에서는 이것이 유일한 단서다
   stopsLeft  Int?
 
   fetchedAt DateTime @default(now())

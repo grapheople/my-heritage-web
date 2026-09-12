@@ -183,11 +183,12 @@ async function arrivals({
       routeId: str(r.routeid),
       routeName: str(r.routeno),
       headsign: str(r.routetp) || undefined,
+      // 버스는 `arrtime` 에 초를 반드시 준다 — 지하철과 달리 빈 경우가 없었다
       predictSec: num(r.arrtime) ?? 0,
       stopsLeft: num(r.arrprevstationcnt),
     }))
-    .filter((a) => a.predictSec > 0)
-    .sort((a, b) => a.predictSec - b.predictSec)
+    .filter((a) => (a.predictSec ?? 0) > 0)
+    .sort((a, b) => (a.predictSec ?? 0) - (b.predictSec ?? 0))
     .flatMap((a) => {
       const seq = (seen.get(a.routeId) ?? 0) + 1;
       seen.set(a.routeId, seq);

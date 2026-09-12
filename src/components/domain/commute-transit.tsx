@@ -229,11 +229,16 @@ export function CommuteTransit({
                 ⚠️ **한참 지난 행은 버린다.** 스냅샷이 낡으면 전부 음수가 되는데,
                 그것을 "곧 도착" 으로 띄우면 오지 않을 차를 기다리게 된다.
               */
-              const live = f.arrivals.filter(
-                (a) =>
-                  a.predictSec - Math.floor((nowMs - new Date(a.fetchedAt).getTime()) / 1000) >
-                  -HIDE_AFTER_SEC,
-              );
+              const live = f.arrivals.filter((a) => {
+                const age = Math.floor((nowMs - new Date(a.fetchedAt).getTime()) / 1000);
+                /*
+                  ⚠️ 초를 주지 않는 노선(정거장 수만 오는 신분당선 등)은 **시간으로
+                  지났는지 판정할 수 없다.** 스냅샷 자체가 낡았는지로 가른다 —
+                  아니면 영영 안 사라지거나, 멀쩡한 행이 곧바로 숨는다
+                */
+                if (a.predictSec === null) return age < STALE_AFTER_SEC * 4;
+                return a.predictSec - age > -HIDE_AFTER_SEC;
+              });
               return live.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{t("noArrival")}</p>
             ) : (
@@ -244,8 +249,8 @@ export function CommuteTransit({
                     저장된 `predictSec` 를 그대로 쓰면 페이지를 열어둔 시간만큼 틀린다
                   */
                   const elapsed = Math.floor((nowMs - new Date(a.fetchedAt).getTime()) / 1000);
-                  const left = a.predictSec - elapsed;
-                  const soon = left > 0 && left <= 60;
+                  const left = a.predictSec === null ? null : a.predictSec - elapsed;
+                  const soon = left !== null && left > 0 && left <= 60;
                   return (
                     <li
                       key={`${a.routeId}-${a.seq}`}
@@ -254,18 +259,31 @@ export function CommuteTransit({
                       <span className="truncate text-muted-foreground">
                         {a.routeName}
                         {a.seq > 1 ? ` · ${t("next")}` : ""}
-                        {a.stopsLeft !== null && a.stopsLeft !== undefined
+                        {/*
+                          ⚠️ 초가 없는 노선은 정거장 수가 **본문**이라 오른쪽에 크게
+                          띄운다 — 여기 한 번 더 적으면 같은 말이 두 번 나온다
+                        */}
+                        {left !== null && a.stopsLeft !== null && a.stopsLeft !== undefined
                           ? ` · ${t("stopsLeft", { count: a.stopsLeft })}`
                           : ""}
                       </span>
                       <span
                         className={cn(
                           "shrink-0 font-bold tabular-nums",
-                          left <= 0 && "text-muted-foreground",
+                          left !== null && left <= 0 && "text-muted-foreground",
                           soon && "text-sale",
                         )}
                       >
-                        {left <= 0 ? t("arrived") : t("inSeconds", { time: clock(left) })}
+                        {left === null
+                          ? /*
+                               ⚠️ **초를 주지 않는 노선이 있다** (신분당선 등). 카운트다운
+                               대신 정거장 수를 낸다 — 초가 없다고 행을 버리면 그 노선이
+                               통째로 사라진다 (2026-09-12)
+                             */
+                            t("stopsLeft", { count: a.stopsLeft ?? 0 })
+                          : left <= 0
+                            ? t("arrived")
+                            : t("inSeconds", { time: clock(left) })}
                       </span>
                     </li>
                   );

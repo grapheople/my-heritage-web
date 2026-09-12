@@ -32,8 +32,8 @@ export type FavoriteView = {
     routeName: string;
     headsign: string | null;
     seq: number;
-    /** 저장된 값 그대로 — 화면이 `fetchedAt` 으로 보정한다 */
-    predictSec: number;
+    /** 저장된 값 그대로 — 화면이 `fetchedAt` 으로 보정한다. 초를 안 주는 노선은 `null` */
+    predictSec: number | null;
     stopsLeft: number | null;
     fetchedAt: string;
   }[];

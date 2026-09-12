@@ -39,6 +39,13 @@ export type StopCandidate = {
  * ⚠️ `predictSec` 는 **받은 시각 기준**이다. 화면이 그대로 세면 페이지를 오래
  * 열어둔 만큼 틀린다 — 저장할 때 `fetchedAt` 을 함께 남기고 화면은 거기서부터
  * 흐른 시간을 뺀다.
+ *
+ * ## ⚠️ 초를 주지 않는 노선이 있다
+ * 서울 지하철 실시간은 **노선마다 주는 것이 다르다.** 2호선은 `barvlDt` 에 초가
+ * 오는데 **신분당선은 0 이고** `arvlMsg2` 에 *"[3]번째 전역 (청계산입구)"* 만 온다
+ * (2026-09-12 실측). 초가 없다고 버리면 **그 노선이 통째로 사라진다** — 수지·판교
+ * 쪽에서는 화면이 늘 비어 보인다. 그래서 `predictSec` 는 `null` 일 수 있고, 그때는
+ * `stopsLeft` 가 유일한 단서다. **둘 다 없는 행만 버린다.**
  */
 export type Arrival = {
   routeId: string;
@@ -46,8 +53,9 @@ export type Arrival = {
   headsign?: string;
   /** 1 이 곧 올 차, 2 가 그다음 */
   seq: number;
-  predictSec: number;
-  /** 남은 정류장 수 — 버스만 준다 */
+  /** 초를 주지 않는 노선에서는 `null` */
+  predictSec: number | null;
+  /** 남은 정류장 수 */
   stopsLeft?: number;
 };
 

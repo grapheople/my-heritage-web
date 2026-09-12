@@ -33,10 +33,39 @@ type Row = {
   subwayId?: string;
   updnLine?: string;
   trainLineNm?: string;
+  /** 도착까지 남은 초. **0 이 흔하다** — 아래 `toArrival` 참조 */
   barvlDt?: string;
+  /** "2분 20초 후" · "[3]번째 전역 (청계산입구)" · "전역 도착" */
   arvlMsg2?: string;
+  /** 0 진입 · 1 도착 · 2 출발 · 3 전역출발 · 4 전역진입 · 5 전역도착 · 99 운행중 */
+  arvlCd?: string;
   btrainSttus?: string;
 };
+
+/**
+ * 한 행을 도착 1건으로 옮긴다.
+ *
+ * ## ⚠️ **초를 주는 노선과 안 주는 노선이 섞여 있다**
+ * 같은 역(강남) 응답에서 2호선은 `barvlDt` 가 140·270 인데 **신분당선은 전부 0**
+ * 이고 `arvlMsg2` 에 *"[3]번째 전역 (청계산입구)"* 만 온다 (2026-09-12 실측).
+ * `barvlDt > 0` 만 남기던 처음 판정은 **신분당선을 통째로 버렸다** — 수지·판교에서
+ * 화면이 늘 비어 보이는 자리였다.
+ *
+ * 그래서 초가 없으면 **메시지에서 정거장 수를 읽는다.** 둘 다 없을 때만 버린다.
+ */
+function toArrival(r: Row): { predictSec: number | null; stopsLeft?: number } | null {
+  const sec = Number(r.barvlDt ?? 0);
+  // 진입·도착은 초가 0 이어도 **지금 오는 차**다 — 버리면 가장 중요한 순간이 사라진다
+  const imminent = r.arvlCd === "0" || r.arvlCd === "1";
+  if (sec > 0) return { predictSec: sec };
+  if (imminent) return { predictSec: 0 };
+
+  const hops = /\[(\d+)\]\s*번째\s*전역/.exec(r.arvlMsg2 ?? "")?.[1];
+  if (hops) return { predictSec: null, stopsLeft: Number(hops) };
+  // "전역 도착"·"전역 출발" 처럼 한 정거장 앞인 경우
+  if ((r.arvlMsg2 ?? "").startsWith("전역")) return { predictSec: null, stopsLeft: 1 };
+  return null;
+}
 
 /** 호선 코드 → 사람이 읽는 이름. 응답에 호선명이 없고 코드만 온다 */
 const LINE: Record<string, string> = {
@@ -50,7 +79,12 @@ const LINE: Record<string, string> = {
 async function fetchRows(station: string): Promise<Row[]> {
   const key = serviceKey();
   if (!key) return [];
-  const url = `${BASE}/${key}/json/realtimeStationArrival/0/10/${encodeURIComponent(station)}`;
+  /*
+    ⚠️ **30건을 받는다.** 10건이면 노선이 많은 역에서 **뒤쪽 노선이 잘린다** —
+    서울(1·4호선·공항철도·경의중앙선)은 22행이 온다. 한 역의 응답이라 크기를
+    늘려도 호출 수는 그대로다.
+  */
+  const url = `${BASE}/${key}/json/realtimeStationArrival/0/30/${encodeURIComponent(station)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
   if (!res.ok) throw new Error(`서울 지하철 ${res.status}`);
 
@@ -81,12 +115,39 @@ async function fetchRows(station: string): Promise<Row[]> {
   return body.realtimeArrivalList ?? [];
 }
 
+/**
+ * 같은 역을 가리키는 **다른 표기**.
+ *
+ * ## ⚠️ 역명에 "역" 이 붙은 것과 아닌 것이 섞여 있다
+ * 서울역에서 **1·4호선·공항철도·경의중앙선의 `statnNm` 은 "서울"** 인데
+ * **GTX-A 만 "서울역"** 이다 (2026-09-12 실측). 유저가 "서울역" 이라고 치면
+ * **GTX-A 한 줄만** 나오고, 정작 타려는 1호선은 없다 — 화면만 보고는 왜 없는지
+ * 알 수 없는 종류의 실패다.
+ */
+function variantOf(name: string): string | null {
+  if (name.endsWith("역") && name.length > 2) return name.slice(0, -1);
+  return null;
+}
+
 async function search({ q }: { q?: string }): Promise<StopCandidate[]> {
   const name = q?.trim();
   // 좌표만 온 경우 — 이 제공자는 답할 수 없다 (위 주석)
   if (!name) return [];
 
   const rows = await fetchRows(name);
+  /*
+    ⚠️ **비어 있을 때만 다시 묻는 것으로는 부족하다.** "서울역" 은 GTX-A 로 3행이
+    오므로 비지 않는다 — 그런데도 1호선은 빠져 있다. 끝이 "역" 이면 **항상** 다른
+    표기도 물어 합친다 (호출 1건 더 든다).
+  */
+  const alt = variantOf(name);
+  if (alt) {
+    try {
+      rows.push(...(await fetchRows(alt)));
+    } catch {
+      // 다른 표기가 없는 역이면 그만이다 — 첫 결과를 버리지 않는다
+    }
+  }
   if (rows.length === 0) return [];
 
   /*
@@ -120,19 +181,31 @@ async function arrivals({
   const rows = await fetchRows(stopId);
   const seen = new Map<string, number>();
   return rows
-    .map((r) => ({
-      routeId: `${r.subwayId ?? ""}:${r.updnLine ?? ""}`,
-      routeName: LINE[r.subwayId ?? ""] ?? r.subwayId ?? "",
-      headsign: r.trainLineNm ?? r.updnLine ?? undefined,
-      /*
-        ⚠️ `barvlDt` 가 **0 인 행이 많다.** 진입·도착처럼 초를 셀 수 없는 상태를
-        0 으로 주기 때문이다. 0 을 그대로 쓰면 화면이 "0초 뒤 도착" 을 계속
-        띄운다 — 초가 있는 행만 센다.
-      */
-      predictSec: Number(r.barvlDt ?? 0),
-    }))
-    .filter((a) => a.predictSec > 0 && (!routeId || a.routeId === routeId))
-    .sort((a, b) => a.predictSec - b.predictSec)
+    .flatMap((r) => {
+      const id = `${r.subwayId ?? ""}:${r.updnLine ?? ""}`;
+      if (routeId && id !== routeId) return [];
+      const got = toArrival(r);
+      if (!got) return [];
+      return [
+        {
+          routeId: id,
+          routeName: LINE[r.subwayId ?? ""] ?? r.subwayId ?? "",
+          headsign: r.trainLineNm ?? r.updnLine ?? undefined,
+          ...got,
+        },
+      ];
+    })
+    /*
+      ⚠️ **초가 있는 것을 앞에 세운다.** 초와 정거장 수를 한 자로 비교할 수 없으니
+      (정거장 하나가 몇 초인지는 구간마다 다르다) 초가 있는 쪽을 먼저, 그 안에서
+      작은 순으로, 나머지는 정거장 수 순으로 둔다.
+    */
+    .sort((a, b) => {
+      if (a.predictSec !== null && b.predictSec !== null) return a.predictSec - b.predictSec;
+      if (a.predictSec !== null) return -1;
+      if (b.predictSec !== null) return 1;
+      return (a.stopsLeft ?? 99) - (b.stopsLeft ?? 99);
+    })
     .flatMap((a) => {
       const seq = (seen.get(a.routeId) ?? 0) + 1;
       seen.set(a.routeId, seq);
