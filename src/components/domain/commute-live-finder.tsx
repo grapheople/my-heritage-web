@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,15 @@ export function CommuteLiveFinder({
   const [phases, setPhases] = useState<Phase[] | null>(null);
   /** 요청한 종별이 비었을 때 **이 교차로가 실제로 주는** 종별 (2026-09-12) */
   const [altKinds, setAltKinds] = useState<SignalKind[] | null>(null);
+  /**
+   * 지도를 **펼쳤는가** (D-327).
+   *
+   * ⚠️ `open` 만 보고 지도를 그리면, 실시간 대상이 정해지지 않은 유저에게는
+   * **`/commute` 를 열자마자 지도가 떠 있다** — `open` 의 초기값이 `initial === null`
+   * 이기 때문이다. 찾을 생각이 없는 사람에게도 256px 이 깔리고, 그 아래 주기
+   * 측정·신호 카드가 밀린다. **누를 때만** 펼친다.
+   */
+  const [mapOpen, setMapOpen] = useState(false);
   /**
    * ⚠️ **대조에 쓴 종별을 저장에도 써야 한다.** 예전에는 저장이 `"pedestrian"` 로
    * 박혀 있어, 직진 신호로 방위를 맞춰도 DB 에는 보행으로 들어갔다 — 이후 실시간
@@ -258,7 +268,20 @@ export function CommuteLiveFinder({
             <>
               <p className="text-xs text-muted-foreground">{t("findIntro")}</p>
 
-              <MapPinPicker busy={busy} onPick={searchByPin} pickLabel={t("mapPick")} />
+              {mapOpen ? (
+                <MapPinPicker busy={busy} onPick={searchByPin} pickLabel={t("mapPick")} />
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={busy}
+                  onClick={() => setMapOpen(true)}
+                >
+                  <MapPin aria-hidden className="size-4" />
+                  {t("findOnMap")}
+                </Button>
+              )}
 
               <form
                 className="flex gap-2"
@@ -294,6 +317,8 @@ export function CommuteLiveFinder({
                 setPicked(null);
                 setAltKinds(null);
                 setMessage(null);
+                // 다시 찾을 때는 지도부터 — 그것이 이 버튼을 누른 이유다
+                setMapOpen(true);
               }}
             >
               {t("findAgain")}

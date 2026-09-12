@@ -478,7 +478,15 @@ export function CommuteTransit({
             ))}
           </div>
 
+          {/*
+            ⚠️ **노선을 고르는 단계에서는 지도를 내린다** (D-327). 정류장은 이미
+            확정됐고 지도는 할 일이 없는데, 256px 이 남아 노선 목록을 아래로
+            밀어낸다 — 정류장을 고를 때(상행·하행 확인)만 필요하다.
+          */}
           {adding === "BUS" ? (
+            /* ⚠️ **조건을 `adding` 과 합치지 않는다.** `adding === "BUS" && routes === null`
+               로 쓰면 노선 단계에서 else 로 떨어져 **지하철 이름 검색창**이 뜬다 */
+            routes === null && (
             <MapPinPicker
               busy={busy}
               pickLabel={t("pickHere")}
@@ -493,6 +501,7 @@ export function CommuteTransit({
                 )
               }
             />
+            )
           ) : (
             <form
               className="flex gap-2"

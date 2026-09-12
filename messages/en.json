@@ -290,6 +290,7 @@
     "findAllSame": "Every direction shows the same state — try again after the light changes",
     "findAgain": "Find another intersection",
     "findNone": "No published intersection nearby. You can still measure it with three taps",
+    "findOnMap": "Find on the map",
     "findNoLiveHere": "This area isn't covered by live signals yet — use “Measure cycle” below and tap three times instead",
     "findSaved": "Saved as {name} · {direction}",
     "findCurrent": "Live target {name} · {direction}",
