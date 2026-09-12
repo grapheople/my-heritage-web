@@ -340,7 +340,12 @@
     "next": "다음",
     "inSeconds": "{time}",
     "stopsLeft": "{count}정거장 전",
-    "failed": "실패했어요 — {reason}"
+    "failed": "실패했어요 — {reason}",
+    "confirmStop": "'{name}' 으로 할게요",
+    "pickRoute": "{name} — 탈 노선을 고르세요",
+    "noRoute": "이 정류장의 노선 정보가 없어요 — 정류장 전체로 담으면 도착하는 버스를 모두 보여드려요",
+    "addWholeStop": "노선 구분 없이 담기",
+    "back": "뒤로"
   },
   "market": {
     "allCurrencies": "전체 통화",

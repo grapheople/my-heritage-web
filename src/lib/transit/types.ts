@@ -59,6 +59,24 @@ export type Arrival = {
   stopsLeft?: number;
 };
 
+/**
+ * 그 정류장을 **지나는 노선** (D-323).
+ *
+ * ⚠️ **도착정보로 대신할 수 없다.** 도착정보는 *지금 오는 차*만 준다 — 배차가
+ * 긴 노선이나 막차 뒤에는 비어서, 실제로 다니는 노선인데도 고를 수가 없다.
+ * 경유노선은 시간과 무관하게 그 정류장의 노선을 전부 준다.
+ */
+export type RouteAtStop = {
+  routeId: string;
+  routeName: string;
+  /** 일반버스·직행좌석버스 등 */
+  routeType?: string;
+  /** 기점 — 방향을 가르는 단서다 (상행·하행이 같은 이름의 정류장으로 갈린다) */
+  startName?: string;
+  /** 종점 */
+  endName?: string;
+};
+
 export type TransitProvider = {
   id: string;
   /** 오류 문구에 그대로 쓴다 (ko) */
@@ -81,6 +99,14 @@ export type TransitProvider = {
     cityCode?: string;
     routeId?: string;
   }): Promise<Arrival[]>;
+
+  /**
+   * 그 정류장을 지나는 노선 — **선택 구현**.
+   *
+   * ⚠️ 지하철은 구현하지 않는다. 역 검색이 이미 호선·방향을 후보로 주므로
+   * 같은 것을 두 번 묻게 된다.
+   */
+  routesAt?(args: { stopId: string; cityCode?: string }): Promise<RouteAtStop[]>;
 };
 
 /**

@@ -340,7 +340,12 @@
     "next": "Next",
     "inSeconds": "{time}",
     "stopsLeft": "{count} stops away",
-    "failed": "Failed — {reason}"
+    "failed": "Failed — {reason}",
+    "confirmStop": "Use “{name}”",
+    "pickRoute": "{name} — pick your route",
+    "noRoute": "No route data for this stop — save the whole stop to see every bus that arrives",
+    "addWholeStop": "Save without picking a route",
+    "back": "Back"
   },
   "market": {
     "allCurrencies": "All currencies",

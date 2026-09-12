@@ -1,10 +1,10 @@
 import type { TransitKind } from "@/generated/prisma/enums";
 import { TransitPortalError } from "../types";
-import type { Arrival, StopCandidate, TransitProvider } from "../types";
+import type { Arrival, RouteAtStop, StopCandidate, TransitProvider } from "../types";
 import { seoulSubway } from "./seoul-subway";
 import { tagoBus } from "./tago-bus";
 
-export type { Arrival, StopCandidate, TransitProvider } from "../types";
+export type { Arrival, RouteAtStop, StopCandidate, TransitProvider } from "../types";
 
 /**
  * 대중교통 제공자 **등록부** (D-321).
@@ -79,6 +79,30 @@ export async function readArrivals(
   if (!p || !p.isConfigured()) return { ok: false, reason: "not-configured" };
   try {
     return { ok: true, arrivals: await p.arrivals(args) };
+  } catch (e) {
+    return { ok: false, ...toFailure(e) };
+  }
+}
+
+export type RoutesOutcome =
+  | { ok: true; routes: RouteAtStop[] }
+  | ({ ok: false } & TransitFailure);
+
+/**
+ * 그 정류장을 지나는 노선 (D-323).
+ *
+ * ⚠️ 제공자가 이 능력을 **안 가질 수 있다.** 지하철은 역 검색이 이미 호선·방향을
+ * 주므로 구현하지 않는다 — 그때는 빈 목록이 맞는 답이다(오류가 아니다).
+ */
+export async function readRoutesAt(
+  kind: TransitKind,
+  args: { stopId: string; cityCode?: string },
+): Promise<RoutesOutcome> {
+  const p = providerFor(kind);
+  if (!p || !p.isConfigured()) return { ok: false, reason: "not-configured" };
+  if (!p.routesAt) return { ok: true, routes: [] };
+  try {
+    return { ok: true, routes: await p.routesAt(args) };
   } catch (e) {
     return { ok: false, ...toFailure(e) };
   }

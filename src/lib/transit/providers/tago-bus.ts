@@ -1,6 +1,6 @@
 import { distanceMeters } from "@/lib/geo";
 import { TransitPortalError } from "../types";
-import type { Arrival, StopCandidate, TransitProvider } from "../types";
+import type { Arrival, RouteAtStop, StopCandidate, TransitProvider } from "../types";
 
 /**
  * 국토교통부 **TAGO** 버스 도착정보 (D-321).
@@ -219,6 +219,39 @@ async function arrivals({
     });
 }
 
+/**
+ * 그 정류장을 지나는 노선 (`getSttnThrghRouteList`).
+ *
+ * ⚠️ **`nodeid` 다 — `nodeId` 가 아니다.** 같은 서비스 안에서도 오퍼레이션마다
+ * 대소문자가 다르다(도착정보는 `nodeId`). 틀리면 조용히 빈 결과가 온다.
+ *
+ * ⚠️ **0건인 정류장이 있다.** 실측에서 `GGB228000919`(수지구청.수지우체국)는
+ * 경유노선도 도착정보도 0 이었다. 없는 것이 아니라 **그 정류장 데이터가 포털에
+ * 없는 것**이므로, 화면은 "노선 없음" 이 아니라 **정류장 전체로 담기**를 낼 수
+ * 있어야 한다 (D-323).
+ */
+async function routesAt({
+  stopId,
+  cityCode,
+}: {
+  stopId: string;
+  cityCode?: string;
+}): Promise<RouteAtStop[]> {
+  if (!cityCode) throw new Error("cityCode 가 없다 — 정류소를 다시 지정해야 한다");
+  const rows = await get("BusSttnInfoInqireService/getSttnThrghRouteList", {
+    cityCode,
+    nodeid: stopId,
+    numOfRows: "50",
+  });
+  return rows.map((r) => ({
+    routeId: str(r.routeid),
+    routeName: str(r.routeno),
+    routeType: str(r.routetp) || undefined,
+    startName: str(r.startnodenm) || undefined,
+    endName: str(r.endnodenm) || undefined,
+  }));
+}
+
 export const tagoBus: TransitProvider = {
   id: "tago-bus",
   label: "국토교통부 버스도착정보(TAGO)",
@@ -226,4 +259,5 @@ export const tagoBus: TransitProvider = {
   isConfigured: () => serviceKey() !== null,
   search,
   arrivals,
+  routesAt,
 };

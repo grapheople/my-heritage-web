@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { Crosshair, LocateFixed } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import type { Map as LeafletMap } from "leaflet";
+import type { CircleMarker, Map as LeafletMap } from "leaflet";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -32,16 +32,30 @@ export function MapPinPicker({
   onPick,
   busy,
   pickLabel,
+  focus,
+  hidePick,
 }: {
-  /** 초기 중심. 없으면 서울시청 — 이 기능이 서울시 신호 데이터를 쓴다 */
+  /** 초기 중심. 없으면 서울시청 */
   center?: { lat: number; lon: number };
   onPick: (coords: { lat: number; lon: number }) => void;
   busy?: boolean;
   pickLabel: string;
+  /**
+   * **목록에서 고른 지점**을 지도에 표시하고 그리로 옮긴다 (D-323).
+   *
+   * ⚠️ 버스 정류장은 **상행·하행이 이름이 같다.** 목록의 "수지구청.수지우체국" 둘
+   * 중 어느 것이 내가 타는 쪽인지 글자로는 알 수 없다 — 지도에서 길 어느 편인지
+   * 보여야 고를 수 있다.
+   */
+  focus?: { lat: number; lon: number } | null;
+  /** 지점을 이미 고른 뒤에는 '이 위치로 찾기' 가 방해가 된다 */
+  hidePick?: boolean;
 }) {
   const t = useTranslations("commute");
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
+  /** 고른 지점 표시. ⚠️ 기본 마커는 아이콘 경로가 깨지므로 원으로 그린다 */
+  const dotRef = useRef<CircleMarker | null>(null);
   const [ready, setReady] = useState(false);
   const [locating, setLocating] = useState(false);
 
@@ -79,6 +93,33 @@ export function MapPinPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /*
+    ⚠️ **지도를 다시 만들지 않는다.** `focus` 가 바뀔 때마다 재생성하면 유저가
+    맞춰둔 확대 수준이 사라지고 깜빡인다 — 옮기고 점만 다시 찍는다.
+  */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    if (!focus) {
+      dotRef.current?.remove();
+      dotRef.current = null;
+      return;
+    }
+    void import("leaflet").then((L) => {
+      if (!mapRef.current) return;
+      dotRef.current?.remove();
+      dotRef.current = L.circleMarker([focus.lat, focus.lon], {
+        radius: 9,
+        weight: 3,
+        color: "#2563eb",
+        fillColor: "#2563eb",
+        fillOpacity: 0.45,
+      }).addTo(mapRef.current);
+      // 확대는 유저가 맞춘 값을 유지한다 — 위치만 옮긴다
+      mapRef.current.setView([focus.lat, focus.lon], Math.max(mapRef.current.getZoom(), 17));
+    });
+  }, [focus, ready]);
+
   function locate() {
     if (!navigator.geolocation || !mapRef.current) return;
     setLocating(true);
@@ -99,10 +140,13 @@ export function MapPinPicker({
       <div className="relative overflow-hidden rounded-lg border">
         <div ref={boxRef} className="h-64 w-full" />
 
-        {/* 핀 — 지도 위에 겹치되 **클릭을 가로채지 않는다** (지도를 밀어야 한다) */}
-        <div className="pointer-events-none absolute inset-0 z-[400] grid place-items-center">
-          <Crosshair aria-hidden className="size-8 -translate-y-1 text-destructive drop-shadow" />
-        </div>
+        {/* 핀 — 지도 위에 겹치되 **클릭을 가로채지 않는다** (지도를 밀어야 한다).
+            ⚠️ 지점을 고른 뒤에는 숨긴다 — 파란 점과 겹쳐 어느 것이 선택인지 흐려진다 */}
+        {!hidePick && (
+          <div className="pointer-events-none absolute inset-0 z-[400] grid place-items-center">
+            <Crosshair aria-hidden className="size-8 -translate-y-1 text-destructive drop-shadow" />
+          </div>
+        )}
 
         {/* 현재 위치로 이동 — 옛 '내 위치로 찾기' 버튼이 여기로 들어왔다 */}
         <button
@@ -116,20 +160,24 @@ export function MapPinPicker({
         </button>
       </div>
 
-      <p className="text-xs text-muted-foreground">{t("mapHint")}</p>
+      {!hidePick && (
+        <>
+          <p className="text-xs text-muted-foreground">{t("mapHint")}</p>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={busy || !ready}
-        onClick={() => {
-          const c = mapRef.current?.getCenter();
-          if (c) onPick({ lat: c.lat, lon: c.lng });
-        }}
-      >
-        {pickLabel}
-      </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={busy || !ready}
+            onClick={() => {
+              const c = mapRef.current?.getCenter();
+              if (c) onPick({ lat: c.lat, lon: c.lng });
+            }}
+          >
+            {pickLabel}
+          </Button>
+        </>
+      )}
     </div>
   );
 }

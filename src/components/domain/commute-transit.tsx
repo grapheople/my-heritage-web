@@ -49,6 +49,15 @@ type Candidate = {
   routes?: { routeId: string; routeName: string; headsign?: string }[];
 };
 
+/** 정류장을 지나는 노선 (D-323) */
+type RouteAtStop = {
+  routeId: string;
+  routeName: string;
+  routeType?: string;
+  startName?: string;
+  endName?: string;
+};
+
 /** `mm:ss` — 분이 0이면 초만 */
 function clock(sec: number): string {
   if (sec <= 0) return "0";
@@ -76,6 +85,16 @@ export function CommuteTransit({
   const [adding, setAdding] = useState<"BUS" | "SUBWAY" | null>(null);
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  /**
+   * 목록에서 고른 정류장 — **아직 확정 전**이다 (D-323).
+   *
+   * ⚠️ 버스 정류장은 **상행·하행 이름이 같다.** 고르는 즉시 담아버리면 길 건너편을
+   * 담아놓고도 모른다. 고르면 **지도가 그리로 옮겨가 점을 찍고**, 유저가 눈으로
+   * 확인한 뒤 확정한다.
+   */
+  const [chosen, setChosen] = useState<Candidate | null>(null);
+  /** 확정한 정류장의 경유노선 — `null` 은 아직 안 받음, `[]` 는 포털에 없음 */
+  const [routes, setRoutes] = useState<RouteAtStop[] | null>(null);
 
   useEffect(() => {
     // 250ms 로 돈다 — 초 경계가 눈에 띄게 늦지 않을 만큼만 촘촘하다
@@ -128,13 +147,33 @@ export function CommuteTransit({
     }
   }
 
+  function resetPick() {
+    setChosen(null);
+    setRoutes(null);
+  }
+
   async function search(params: URLSearchParams) {
     setCandidates(null);
+    resetPick();
     const body = await call(`/api/transit/stops?${params}`);
     if (!body) return;
     const stops: Candidate[] = body.stops ?? [];
     setCandidates(stops);
     if (stops.length === 0) setMessage(t("searchNone"));
+  }
+
+  /** 정류장 확정 → 경유노선 목록 (D-323 3~4단계) */
+  async function confirmStop(c: Candidate) {
+    if (c.kind === "SUBWAY") {
+      // 지하철은 역 검색이 이미 호선·방향을 줬다 — 한 번 더 물을 것이 없다
+      await add(c, c.routes?.[0]);
+      return;
+    }
+    const body = await call(
+      `/api/transit/routes?kind=BUS&stopId=${encodeURIComponent(c.stopId)}&cityCode=${encodeURIComponent(c.cityCode ?? "")}`,
+    );
+    // 실패해도 **정류장 전체로 담는 길은 남긴다** — 빈 배열이 그 상태다
+    setRoutes((body?.routes as RouteAtStop[]) ?? []);
   }
 
   async function add(c: Candidate, route?: { routeId: string; routeName: string; headsign?: string }) {
@@ -157,6 +196,7 @@ export function CommuteTransit({
     setAdding(null);
     setCandidates(null);
     setQuery("");
+    resetPick();
     // 담자마자 숫자가 보여야 한다 — 빈 카드가 먼저 뜨면 고장으로 읽힌다
     await call(`/api/transit/refresh?id=${encodeURIComponent(body.id)}`, { method: "POST" });
   }
@@ -319,6 +359,11 @@ export function CommuteTransit({
             <MapPinPicker
               busy={busy}
               pickLabel={t("pickHere")}
+              /* ⚠️ 목록에서 고른 정류장을 지도에 찍는다 — 상행·하행을 가르는 단서다 */
+              focus={chosen?.lat !== undefined && chosen?.lon !== undefined
+                ? { lat: chosen.lat, lon: chosen.lon }
+                : null}
+              hidePick={chosen !== null}
               onPick={(c) =>
                 void search(
                   new URLSearchParams({ kind: "BUS", lat: String(c.lat), lon: String(c.lon) }),
@@ -347,22 +392,28 @@ export function CommuteTransit({
             </form>
           )}
 
-          {candidates && candidates.length > 0 && (
+          {/* ── 2단계: 정류장 목록. 고르면 **담지 않고** 지도에 표시만 한다 ── */}
+          {candidates && candidates.length > 0 && routes === null && (
             <ul className="space-y-1">
               {candidates.map((c) => {
-                const routes = c.routes ?? [];
+                const r0 = c.routes?.[0];
+                const picked = chosen?.stopId === c.stopId && chosen?.routes?.[0]?.routeId === r0?.routeId;
                 return (
-                  <li key={`${c.stopId}-${routes[0]?.routeId ?? ""}`}>
+                  <li key={`${c.stopId}-${r0?.routeId ?? ""}`}>
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void add(c, routes[0])}
-                      className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+                      onClick={() => setChosen(c)}
+                      aria-pressed={picked}
+                      className={cn(
+                        "flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-accent",
+                        picked && "bg-accent ring-1 ring-primary",
+                      )}
                     >
                       <span className="truncate">{c.stopName}</span>
                       <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                        {routes[0]
-                          ? `${routes[0].routeName}${routes[0].headsign ? ` · ${routes[0].headsign}` : ""}`
+                        {r0
+                          ? `${r0.routeName}${r0.headsign ? ` · ${r0.headsign}` : ""}`
                           : c.distanceM !== undefined
                             ? t("distanceM", { meters: c.distanceM })
                             : ""}
@@ -374,16 +425,76 @@ export function CommuteTransit({
             </ul>
           )}
 
+          {/* ── 3단계: 지도에서 확인하고 확정 ── */}
+          {chosen && routes === null && (
+            <Button
+              type="button"
+              className="w-full"
+              disabled={busy}
+              onClick={() => void confirmStop(chosen)}
+            >
+              {t("confirmStop", { name: chosen.stopName })}
+            </Button>
+          )}
+
+          {/* ── 4~5단계: 노선 고르기 ── */}
+          {chosen && routes !== null && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium">{t("pickRoute", { name: chosen.stopName })}</p>
+              {routes.length === 0 && (
+                /* ⚠️ 포털에 그 정류장 노선이 없는 경우가 있다 — 막지 않고 전체로 담는다 */
+                <p className="text-xs text-muted-foreground">{t("noRoute")}</p>
+              )}
+              <ul className="space-y-1">
+                {routes.map((r) => (
+                  <li key={r.routeId}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void add(chosen, {
+                          routeId: r.routeId,
+                          routeName: r.routeName,
+                          // 기점→종점이 방향을 말해 준다 — 같은 번호가 양방향으로 선다
+                          headsign: r.endName,
+                        })
+                      }
+                      className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-accent"
+                    >
+                      <span className="font-medium">{r.routeName}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {r.startName && r.endName ? `${r.startName} → ${r.endName}` : (r.routeType ?? "")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={busy}
+                onClick={() => void add(chosen)}
+              >
+                {t("addWholeStop")}
+              </Button>
+            </div>
+          )}
+
+          {/* ⚠️ 한 번에 처음으로 보내지 않는다 — 노선까지 갔다가 정류장을 다시
+              고르고 싶을 때 지도부터 다시 잡는 것은 과하다 */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
+              if (routes !== null) return setRoutes(null);
+              if (chosen !== null) return setChosen(null);
               setAdding(null);
               setCandidates(null);
               setMessage(null);
             }}
           >
-            {t("cancel")}
+            {routes !== null || chosen !== null ? t("back") : t("cancel")}
           </Button>
         </div>
       )}

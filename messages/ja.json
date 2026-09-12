@@ -340,7 +340,12 @@
     "next": "次",
     "inSeconds": "{time}",
     "stopsLeft": "{count}停留所前",
-    "failed": "失敗しました — {reason}"
+    "failed": "失敗しました — {reason}",
+    "confirmStop": "「{name}」にします",
+    "pickRoute": "{name} — 乗る路線を選んでください",
+    "noRoute": "この停留所の路線情報がありません — 停留所ごと登録すると到着するバスをすべて表示します",
+    "addWholeStop": "路線を分けずに登録",
+    "back": "戻る"
   },
   "market": {
     "allCurrencies": "すべての通貨",
