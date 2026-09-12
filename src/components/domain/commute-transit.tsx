@@ -425,23 +425,59 @@ export function CommuteTransit({
       )}
 
       {adding === null ? (
-        <div className="mt-3 flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setAdding("BUS")} disabled={busy}>
-            <Plus aria-hidden className="size-4" />
-            {t("addBus")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAdding("SUBWAY")} disabled={busy}>
-            <Plus aria-hidden className="size-4" />
-            {t("addSubway")}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => setAdding("BUS")}
+          disabled={busy}
+        >
+          <Plus aria-hidden className="size-4" />
+          {t("addStop")}
+        </Button>
       ) : (
         <div className="mt-3 space-y-2">
           {/*
-            ⚠️ **종류마다 찾는 방법이 다르다.** 버스는 좌표로 찾는다 — 이름 검색이
-            도시코드를 먼저 요구하는데 유저가 답할 수 없는 질문이다. 지하철은
-            역명이 곧 조회 키다
+            ⚠️ **입구는 하나지만 검색창은 합치지 않는다** (D-326).
+            버스는 좌표로 찾는다 — 이름 검색이 도시코드를 먼저 요구하는데 유저가
+            답할 수 없는 질문이다. 지하철은 역명이 곧 조회 키이고 좌표로는 못
+            찾는다. 한 입력창으로 묶으면 **입력에 따라 되기도 하고 안 되기도 하는**
+            검색이 된다 — 유저는 무엇이 문제인지 알 수 없다. 종류를 먼저 고르게
+            하고 그에 맞는 방법만 낸다.
           */}
+          <div role="tablist" aria-label={t("addStop")} className="flex gap-1 rounded-lg bg-muted p-1">
+            {(["BUS", "SUBWAY"] as const).map((k) => (
+              <button
+                key={k}
+                role="tab"
+                type="button"
+                aria-selected={adding === k}
+                disabled={busy}
+                onClick={() => {
+                  if (adding === k) return;
+                  // ⚠️ 종류를 바꾸면 이전 후보·선택을 지운다 — 버스 정류장을 고른 채
+                  //    지하철 목록이 뜨면 담기가 엉뚱한 값을 보낸다
+                  setAdding(k);
+                  setCandidates(null);
+                  setQuery("");
+                  resetPick();
+                  setMessage(null);
+                }}
+                className={cn(
+                  "flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium",
+                  adding === k ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {k === "BUS" ? (
+                  <Bus aria-hidden className="size-3.5" />
+                ) : (
+                  <Train aria-hidden className="size-3.5" />
+                )}
+                {k === "BUS" ? t("kindBus") : t("kindSubway")}
+              </button>
+            ))}
+          </div>
+
           {adding === "BUS" ? (
             <MapPinPicker
               busy={busy}

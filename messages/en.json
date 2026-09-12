@@ -326,8 +326,6 @@
     "title": "Bus & subway arrivals",
     "intro": "Save the stops you use and we'll count down to the next arrival",
     "loginToUse": "Sign in to save stops",
-    "addBus": "Bus stop",
-    "addSubway": "Subway station",
     "pickHere": "Find stops near this pin",
     "stationPlaceholder": "Station name",
     "search": "Search",
@@ -350,7 +348,10 @@
     "tabVisible": "Showing",
     "tabHidden": "Hidden {count}",
     "unhide": "Restore",
-    "hideRoute": "Hide {name}"
+    "hideRoute": "Hide {name}",
+    "addStop": "Add stop or station",
+    "kindBus": "Bus",
+    "kindSubway": "Subway"
   },
   "market": {
     "allCurrencies": "All currencies",

@@ -326,8 +326,6 @@
     "title": "버스·지하철 도착",
     "intro": "자주 타는 정류장을 담아두면 도착까지 남은 시간을 셉니다",
     "loginToUse": "로그인하면 정류장을 담을 수 있어요",
-    "addBus": "버스 정류장",
-    "addSubway": "지하철역",
     "pickHere": "이 위치로 정류장 찾기",
     "stationPlaceholder": "역 이름",
     "search": "찾기",
@@ -350,7 +348,10 @@
     "tabVisible": "보이는 노선",
     "tabHidden": "숨김 {count}",
     "unhide": "되돌리기",
-    "hideRoute": "{name} 숨기기"
+    "hideRoute": "{name} 숨기기",
+    "addStop": "정류장·역 추가",
+    "kindBus": "버스",
+    "kindSubway": "지하철"
   },
   "market": {
     "allCurrencies": "전체 통화",

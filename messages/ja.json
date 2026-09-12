@@ -326,8 +326,6 @@
     "title": "バス・地下鉄の到着",
     "intro": "よく使う停留所を登録すると到着までの残り時間を数えます",
     "loginToUse": "ログインすると停留所を登録できます",
-    "addBus": "バス停",
-    "addSubway": "地下鉄駅",
     "pickHere": "この位置で停留所を探す",
     "stationPlaceholder": "駅名",
     "search": "探す",
@@ -350,7 +348,10 @@
     "tabVisible": "表示中の路線",
     "tabHidden": "非表示 {count}",
     "unhide": "戻す",
-    "hideRoute": "{name} を非表示"
+    "hideRoute": "{name} を非表示",
+    "addStop": "停留所・駅を追加",
+    "kindBus": "バス",
+    "kindSubway": "地下鉄"
   },
   "market": {
     "allCurrencies": "すべての通貨",
